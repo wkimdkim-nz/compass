@@ -1,6 +1,6 @@
 # ADR 0003 — .NET owns its own Postgres (two databases, keyed by Supabase user id)
 
-**Status:** Accepted
+**Status:** Superseded by ADR 0008
 **Date:** 2026-07-01
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR 0002 — Supabase issues identity; .NET validates the JWT
 
-**Status:** Accepted
+**Status:** Superseded by ADR 0007
 **Date:** 2026-07-01
 
 ## Context

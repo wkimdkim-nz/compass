@@ -70,6 +70,16 @@ differ from the past.
 
 ## Stack terms
 
-- **Supabase** — Hosted Postgres + auth provider. Used here for authentication (issues JWTs).
-- **JWT** — The signed token Supabase issues on login. The .NET API must validate it to trust a request.
+- **ASP.NET Core Identity** — The .NET framework's built-in identity system. Compass's own
+  identity provider (ADR 0007): it stores users in the app Postgres and hashes passwords (PBKDF2).
+  Replaces the earlier Supabase-as-IdP design. _Avoid_: "auth service", "Supabase".
+- **Session cookie** — How an authenticated session is carried: an `HttpOnly; Secure; SameSite=Lax`
+  cookie the browser attaches automatically (ADR 0007). Not readable from JavaScript; there is no
+  bearer token. _Avoid_: JWT, access token, Bearer.
+- **Antiforgery token** — The CSRF defense required because the session rides in an auto-attached
+  cookie: a cookie-to-header token checked on state-changing requests (ADR 0007). _Avoid_: CSRF
+  token (use "antiforgery" to match the ASP.NET Core API).
 - **ADR** — Architecture Decision Record. A short doc capturing one decision, its context, and consequences. See `docs/adr/`.
+
+> Historical: earlier ADRs (0002/0003, superseded) used **Supabase** as the auth provider and a
+> **JWT** bearer token. Auth is now .NET-native (ADR 0007) and Supabase is removed from the project.

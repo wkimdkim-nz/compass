@@ -1,22 +1,27 @@
 # Roadmap — Compass
 
 Ordered build plan. The guiding principle (grilling round 4): **prove the seams end-to-end before
-adding features.** Five technologies are stacked here (React, .NET, Supabase, Postgres/AWS, FMP) —
-the risk is building each in isolation and discovering the joints (auth, CORS, deploy) break late.
+adding features.** Four technologies are stacked here (React, .NET, Postgres/AWS, FMP) — the risk is
+building each in isolation and discovering the joints (auth, CORS, deploy) break late. Auth is
+.NET-native (ASP.NET Core Identity, ADR 0007); Supabase has been dropped.
 
 ## Phase 0 — Walking skeleton (de-risk the seams)
 
 The thinnest possible slice that touches every layer. **No calculator, no FMP.**
 
-- [ ] React app: log in via the Supabase client SDK; obtain a JWT.
-- [ ] Frontend calls one authenticated endpoint on the .NET API with the JWT as `Bearer`.
-- [ ] `.NET`: validate the Supabase JWT (ADR 0002), read `sub`, return `GET /ping` = the caller's id.
-- [ ] One authenticated write + read of a single row in the app Postgres, keyed by `sub` (ADR 0003).
-- [ ] Deploy all of it on AWS: React → S3 + CloudFront; .NET → App Runner; DB → RDS Postgres.
-      Connection string + secrets in AWS Secrets Manager.
+- [ ] React app: register + log in against ASP.NET Core Identity; receive an `HttpOnly` session
+      cookie (ADR 0007). No client-side token store. Console `IEmailSender`; confirmation not required yet.
+- [ ] Frontend calls one authenticated endpoint on the .NET API; the browser attaches the cookie
+      automatically. State-changing calls carry the antiforgery token.
+- [ ] `.NET`: Identity cookie auth resolves the caller; `GET /ping` returns the caller's user id.
+- [ ] One authenticated write + read of a single row in the app Postgres, `user_id` FK'd to
+      `AspNetUsers` (ADR 0008), in the *same* database as Identity's tables.
+- [ ] Deploy on AWS: React → S3 + CloudFront; .NET → App Runner; DB → RDS Postgres. **Register a
+      custom domain (Route 53); CloudFront serves the SPA at root and path-routes `/api/*` to App
+      Runner so the cookie is same-site** (ADR 0007). Secrets in AWS Secrets Manager; TLS via ACM.
 
 **Done when:** a logged-in user, in the deployed app, round-trips data through .NET to RDS. Every
-joint (auth, CORS, TLS, deploy, secrets) is proven.
+joint (cookie auth, CSRF, same-site routing, CORS, TLS, deploy, secrets) is proven.
 
 ## Phase 1 — The calculator (first real feature)
 
@@ -34,8 +39,13 @@ joint (auth, CORS, TLS, deploy, secrets) is proven.
 ## Later
 
 - [ ] Compare Bear/Base/Bull (and multiple projections) side by side.
-- [ ] Swap Supabase → AWS Cognito as a deliberate AWS-auth exercise (ADR 0002 makes this config-only).
-- [ ] Migrate app DB RDS → Neon when the free tier lapses (ADR 0003).
+- [ ] Wire real email: AWS SES as `IEmailSender`, verify the domain (Route 53 DKIM), require
+      confirmed email + enable password reset (ADR 0007).
+- [ ] Abuse controls on open registration: rate limiting / CAPTCHA (ADR 0007).
+- [ ] Swap Identity → AWS Cognito as a deliberate AWS-auth exercise. Note: with cookie sessions +
+      the user FK this is a *moderate migration*, not config-only — flip cookie→bearer on both ends,
+      add a Cognito migration Lambda, and re-map `user_id` to the Cognito `sub` (ADR 0007/0008).
+- [ ] Migrate app DB RDS → Neon when the free tier lapses (ADR 0008).
 - [ ] Polish, error/rate-limit handling for FMP, caching.
 
 ## Reference — calculator inputs & sources
