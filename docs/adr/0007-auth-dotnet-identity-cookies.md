@@ -31,9 +31,17 @@ over the industry-default path, with eyes open (see the swap note in Consequence
   `uuid` — consistent with "identity is a uuid" and with the domain `user_id` columns.
 - **Registration is open** (public self-signup); abuse controls (rate limit / CAPTCHA) are a later
   hardening item, not day one.
-- **Email is deferred:** Phase 0 uses a no-op `IEmailSender` that logs the confirmation/reset link
-  to the console, with `RequireConfirmedEmail = false`. Real **AWS SES** + required confirmation is
-  a later phase (SES verifies the sender via the custom domain from ADR 0008's deployment note).
+- **Email is deferred:** Phase 0 has **no email path at all** — no `IEmailSender` is registered, and
+  `RequireConfirmedEmail = false`. Real **AWS SES** + required confirmation is a later phase (SES
+  verifies the sender via the custom domain from ADR 0008's deployment note).
+
+  > **Amended 2026-07-26 (correction, per [ticket #5](https://github.com/wkimdkim-nz/compass/issues/5)).**
+  > This bullet originally called for "a no-op `IEmailSender` that logs the confirmation/reset link to
+  > the console." That requirement was an artefact of assuming `MapIdentityApi`, whose `/register`
+  > sends a confirmation email and throws without a sender registered. Phase 0's auth endpoints are
+  > hand-rolled over `UserManager`/`SignInManager` and invoke no email flow, so a registered sender
+  > would have zero callers. The intent — defer real email to a later phase — is unchanged; only the
+  > named mechanism was wrong.
 
 **Supabase is removed from the project entirely.** It was only ever auth; app data was already
 independent (ADR 0003). Dropping Supabase auth drops Supabase.
