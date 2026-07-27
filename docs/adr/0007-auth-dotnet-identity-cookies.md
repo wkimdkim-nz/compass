@@ -82,8 +82,14 @@ attach on `SameSite=Lax`. Therefore:
 - Register a **custom domain** (~$12/yr via Route 53 — also teaches Route 53 / ACM / CloudFront).
 - **CloudFront path routing:** SPA served at the root; `/api/*` forwarded to App Runner as a
   second origin. Everything is same-origin → clean cookies, TLS via ACM.
-- Local dev runs on `localhost` (same-site across ports), with CORS-with-credentials allowed for
-  the dev port.
+- Local dev runs on `localhost` as a **single origin** via a Vite dev proxy that forwards `/api` to
+  Kestrel. No CORS policy is registered in .NET at all.
+
+  > **Amended 2026-07-27 (per [ticket #4](https://github.com/wkimdkim-nz/compass/issues/4)).**
+  > This bullet originally allowed **CORS-with-credentials for the dev port**, treating dev as
+  > cross-origin-but-same-site. The Vite proxy makes dev single-origin instead, mirroring the
+  > CloudFront path-routing rule above — one rule, both environments. Precondition 2 of the CSRF
+  > amendment above (no CORS policy with `AllowCredentials`) depends on this.
 
 ## Consequences
 

@@ -2,7 +2,7 @@
 
 Ordered build plan. The guiding principle (grilling round 4): **prove the seams end-to-end before
 adding features.** Four technologies are stacked here (React, .NET, Postgres/AWS, FMP) — the risk is
-building each in isolation and discovering the joints (auth, CORS, deploy) break late. Auth is
+building each in isolation and discovering the joints (auth, same-site delivery, deploy) break late. Auth is
 .NET-native (ASP.NET Core Identity, ADR 0007); Supabase has been dropped.
 
 ## Phase 0 — Walking skeleton (de-risk the seams)
@@ -10,9 +10,10 @@ building each in isolation and discovering the joints (auth, CORS, deploy) break
 The thinnest possible slice that touches every layer. **No calculator, no FMP.**
 
 - [ ] React app: register + log in against ASP.NET Core Identity; receive an `HttpOnly` session
-      cookie (ADR 0007). No client-side token store. Console `IEmailSender`; confirmation not required yet.
+      cookie (ADR 0007). No client-side token store. **No email path at all** — no `IEmailSender` is
+      registered; confirmation not required (ADR 0007, amended).
 - [ ] Frontend calls one authenticated endpoint on the .NET API; the browser attaches the cookie
-      automatically. State-changing calls carry the antiforgery token.
+      automatically.
 - [ ] `.NET`: Identity cookie auth resolves the caller; `GET /ping` returns the caller's user id.
 - [ ] One authenticated write + read of a single row in the app Postgres, `user_id` FK'd to
       `AspNetUsers` (ADR 0008), in the *same* database as Identity's tables.
@@ -21,7 +22,8 @@ The thinnest possible slice that touches every layer. **No calculator, no FMP.**
       Runner so the cookie is same-site** (ADR 0007). Secrets in AWS Secrets Manager; TLS via ACM.
 
 **Done when:** a logged-in user, in the deployed app, round-trips data through .NET to RDS. Every
-joint (cookie auth, CSRF, same-site routing, CORS, TLS, deploy, secrets) is proven.
+joint (cookie auth, same-site cookie delivery — Vite proxy in dev, CloudFront path-routing in prod,
+TLS, deploy, secrets) is proven.
 
 ## Phase 1 — The calculator (first real feature)
 
@@ -39,8 +41,9 @@ joint (cookie auth, CSRF, same-site routing, CORS, TLS, deploy, secrets) is prov
 ## Later
 
 - [ ] Compare Bear/Base/Bull (and multiple projections) side by side.
-- [ ] Wire real email: AWS SES as `IEmailSender`, verify the domain (Route 53 DKIM), require
-      confirmed email + enable password reset (ADR 0007).
+- [ ] Wire real email: **introduce** `IEmailSender` (Phase 0 registers none) with an AWS SES
+      implementation, verify the domain (Route 53 DKIM), require confirmed email + enable password
+      reset (ADR 0007).
 - [ ] Abuse controls on open registration: rate limiting / CAPTCHA (ADR 0007).
 - [ ] Swap Identity → AWS Cognito as a deliberate AWS-auth exercise. Note: with cookie sessions +
       the user FK this is a *moderate migration*, not config-only — flip cookie→bearer on both ends,
