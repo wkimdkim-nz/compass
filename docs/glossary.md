@@ -76,9 +76,15 @@ differ from the past.
 - **Session cookie** — How an authenticated session is carried: an `HttpOnly; Secure; SameSite=Lax`
   cookie the browser attaches automatically (ADR 0007). Not readable from JavaScript; there is no
   bearer token. _Avoid_: JWT, access token, Bearer.
-- **Antiforgery token** — The CSRF defense required because the session rides in an auto-attached
-  cookie: a cookie-to-header token checked on state-changing requests (ADR 0007). _Avoid_: CSRF
-  token (use "antiforgery" to match the ASP.NET Core API).
+- **Same-site cookie delivery** — The single-origin arrangement that lets the session cookie attach:
+  a Vite dev proxy in development and CloudFront path-routing `/api/*` in production, so the SPA and
+  API share one origin (ADR 0007). With no antiforgery token, this is also what carries the CSRF
+  defense — `SameSite=Lax` only holds because there is no cross-origin path in. _Avoid_: "CORS" —
+  Compass registers no CORS policy at all.
+- **Antiforgery token** — A cookie-to-header token checked on state-changing requests, ASP.NET Core's
+  CSRF defense. **Not implemented in Compass**: `SameSite=Lax` alone carries CSRF, on four
+  preconditions recorded in ADR 0007 — break any one and the token ships. Defined here because
+  ADR 0007 turns on the term. _Avoid_: CSRF token (use "antiforgery" to match the ASP.NET Core API).
 - **ADR** — Architecture Decision Record. A short doc capturing one decision, its context, and consequences. See `docs/adr/`.
 
 > Historical: earlier ADRs (0002/0003, superseded) used **Supabase** as the auth provider and a
