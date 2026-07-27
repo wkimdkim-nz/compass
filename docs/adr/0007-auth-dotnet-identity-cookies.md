@@ -25,8 +25,35 @@ over the industry-default path, with eyes open (see the swap note in Consequence
   (PBKDF2). We do not hand-roll crypto.
 - **Session model: HttpOnly cookie**, not bearer JWT. The cookie is `HttpOnly; Secure;
   SameSite=Lax` — no token is reachable from JavaScript, closing the XSS token-theft class.
-- **CSRF defense:** ASP.NET Core **antiforgery token** (cookie-to-header) required on
-  state-changing requests (POST/PUT/DELETE), layered on top of `SameSite=Lax`.
+- **CSRF defense: `SameSite=Lax` alone.** No antiforgery token is implemented in Phase 0.
+
+  > **Amended 2026-07-27 (reversal, per [ticket #6](https://github.com/wkimdkim-nz/compass/issues/6)).**
+  > This bullet originally required an ASP.NET Core **antiforgery token** (cookie-to-header) on
+  > state-changing requests, layered on top of `SameSite=Lax`. That layer is dropped.
+  >
+  > `SameSite=Lax` blocks the cookie on every cross-site POST/PUT/DELETE, and also refuses to
+  > *store* a `Set-Cookie` returned to one — so classic CSRF and login CSRF are both closed at the
+  > browser. Compass additionally accepts only JSON request bodies and registers **no CORS policy
+  > at all** (ADR 0007's dev-CORS note is superseded by
+  > [ticket #4](https://github.com/wkimdkim-nz/compass/issues/4) — dev is single-origin via the
+  > Vite proxy), so a cross-origin `fetch` is stopped by preflight and a preflight-free content
+  > type is answered with 415. No exploit was constructible against this configuration.
+  >
+  > **This holds only while all four conditions below hold. If any one changes, antiforgery must be
+  > implemented before that change ships:**
+  >
+  > 1. **No subdomain serves third-party or user-controlled content.** `SameSite` treats
+  >    `*.compass.example` as same-site, so a subdomain — including one CNAME'd to a SaaS whose
+  >    account later lapses ([subdomain takeover](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover)) —
+  >    can forge fully authenticated requests. A subdomain serving *our own* content (e.g. `www`
+  >    pointing at the same CloudFront distribution) is fine.
+  > 2. **No CORS policy with `AllowCredentials`** for any origin.
+  > 3. **No endpoint mutates on GET** — `Lax` permits the cookie on top-level GET navigation.
+  > 4. **Request bodies are JSON only** — a `multipart/form-data` or form-encoded endpoint is
+  >    preflight-free and would be reachable from a same-site origin.
+  >
+  > Note that conditions 2–4 are ordinary engineering choices, not security controls: nothing fails
+  > loudly if one is changed. That is the accepted risk of this reversal.
 - **User key type: `Guid`** (`IdentityUser<Guid>`), so `AspNetUsers.Id` is a native Postgres
   `uuid` — consistent with "identity is a uuid" and with the domain `user_id` columns.
 - **Registration is open** (public self-signup); abuse controls (rate limit / CAPTCHA) are a later
