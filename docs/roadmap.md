@@ -17,9 +17,15 @@ The thinnest possible slice that touches every layer. **No calculator, no FMP.**
 - [ ] `.NET`: Identity cookie auth resolves the caller; `GET /ping` returns the caller's user id.
 - [ ] One authenticated write + read of a single row in the app Postgres, `user_id` FK'd to
       `AspNetUsers` (ADR 0008), in the *same* database as Identity's tables.
-- [ ] Deploy on AWS: React → S3 + CloudFront; .NET → App Runner; DB → RDS Postgres. **Register a
-      custom domain (Route 53); CloudFront serves the SPA at root and path-routes `/api/*` to App
-      Runner so the cookie is same-site** (ADR 0007). Secrets in AWS Secrets Manager; TLS via ACM.
+- [ ] Deploy on AWS (`ap-southeast-2`): React → S3 + CloudFront; .NET → **Amazon ECS on Fargate**
+      behind an internet-facing ALB (ADR 0009 — App Runner was reversed); DB → RDS Postgres, kept
+      **private**. **Register a custom domain (Route 53); CloudFront serves the SPA at root and
+      path-routes `/api/*` to the ALB so the cookie is same-site** (ADR 0007) — an `api.` subdomain
+      would be cross-*origin* and is ruled out, see ADR 0009. Provisioned by **Terraform** as an
+      **ephemeral environment** (`terraform destroy` between sessions is the cost lever); migrations
+      run as a one-off ECS task in the deploy pipeline. RDS owns the master password in **Secrets
+      Manager**; TLS via ACM — **two certs**, `us-east-1` for CloudFront and `ap-southeast-2` for
+      the ALB.
 
 **Done when:** a logged-in user, in the deployed app, round-trips data through .NET to RDS. Every
 joint (cookie auth, same-site cookie delivery — Vite proxy in dev, CloudFront path-routing in prod,

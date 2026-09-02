@@ -77,14 +77,30 @@ differ from the past.
   cookie the browser attaches automatically (ADR 0007). Not readable from JavaScript; there is no
   bearer token. _Avoid_: JWT, access token, Bearer.
 - **Same-site cookie delivery** — The single-origin arrangement that lets the session cookie attach:
-  a Vite dev proxy in development and CloudFront path-routing `/api/*` in production, so the SPA and
-  API share one origin (ADR 0007). With no antiforgery token, this is also what carries the CSRF
-  defense — `SameSite=Lax` only holds because there is no cross-origin path in. _Avoid_: "CORS" —
-  Compass registers no CORS policy at all.
+  a Vite dev proxy in development and CloudFront path-routing `/api/*` to the ALB in production, so
+  the SPA and API share one origin (ADR 0007). With no antiforgery token, this is also what carries
+  the CSRF defense — `SameSite=Lax` only holds because there is no cross-origin path in. **This is
+  load-bearing, not a convenience**: an `api.` subdomain would be cross-origin and would force
+  antiforgery back (ADR 0009). _Avoid_: "CORS" — Compass registers no CORS policy at all; _avoid_
+  "api subdomain".
 - **Antiforgery token** — A cookie-to-header token checked on state-changing requests, ASP.NET Core's
   CSRF defense. **Not implemented in Compass**: `SameSite=Lax` alone carries CSRF, on four
   preconditions recorded in ADR 0007 — break any one and the token ships. Defined here because
   ADR 0007 turns on the term. _Avoid_: CSRF token (use "antiforgery" to match the ASP.NET Core API).
+- **ECS service** — The API's production compute: a standard Amazon ECS service running Fargate
+  tasks in `ap-southeast-2`, behind an internet-facing ALB (ADR 0009). Replaces the earlier App
+  Runner design. _Avoid_: "App Runner" (historical only), "Express Mode" (considered, rejected).
+- **Origin hostname** — `api-origin.financial-compass.dev`, the fixed DNS name CloudFront sends
+  `/api/*` to. It exists so the persistent stack points at a *name* rather than at the ALB *as a
+  resource*, letting the ephemeral stack destroy and recreate the ALB without touching CloudFront
+  (ADR 0009). Not a user-facing hostname — the SPA never calls it directly. _Avoid_: "the API
+  domain" (there isn't one; see **Same-site cookie delivery**).
+- **Ephemeral environment** — The deployed stack is torn down between work sessions with
+  `terraform destroy` and rebuilt on demand; this is the **cost lever** that makes ADR 0009's
+  topology affordable, not tidiness. Splits the infrastructure in two: a *foundation* stack that
+  persists (zone, certs, ECR, S3+CloudFront, VPC, state bucket) and an *app* stack that does not
+  (ALB, ECS service, RDS). Teardown drops the database. _Avoid_: "staging", "the environment" —
+  say which stack.
 - **ADR** — Architecture Decision Record. A short doc capturing one decision, its context, and consequences. See `docs/adr/`.
 
 > Historical: earlier ADRs (0002/0003, superseded) used **Supabase** as the auth provider and a

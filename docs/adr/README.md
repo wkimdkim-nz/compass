@@ -13,6 +13,7 @@ Newest supersede older; check a record's **Status** before relying on it.
 | [0006](0006-not-financial-advice.md) | "Not financial advice" disclaimer | Accepted |
 | [0007](0007-auth-dotnet-identity-cookies.md) | .NET owns identity via ASP.NET Core Identity (cookie sessions) | Accepted |
 | [0008](0008-single-database-identity-fk.md) | One database: identity + domain co-located, real user FK | Accepted |
+| [0009](0009-compute-ecs-fargate.md) | The API runs on Amazon ECS (Fargate) behind an ALB, not App Runner | Accepted |
 
 See also: [`../glossary.md`](../glossary.md) (shared domain language) and
 [`../roadmap.md`](../roadmap.md) (ordered build plan).
