@@ -75,13 +75,30 @@ independent (ADR 0003). Dropping Supabase auth drops Supabase.
 
 ## Deployment consequence: same-site required
 
-Cookie auth only works if the browser treats the SPA and API as same-site. CloudFront's and App
-Runner's default domains are *different* registrable domains → cross-site → the cookie would not
-attach on `SameSite=Lax`. Therefore:
+Cookie auth only works if the browser treats the SPA and API as same-site. CloudFront's default
+domain and the API's own AWS-assigned domain are *different* registrable domains → cross-site → the
+cookie would not attach on `SameSite=Lax`. Therefore:
 
 - Register a **custom domain** (~$12/yr via Route 53 — also teaches Route 53 / ACM / CloudFront).
-- **CloudFront path routing:** SPA served at the root; `/api/*` forwarded to App Runner as a
-  second origin. Everything is same-origin → clean cookies, TLS via ACM.
+- **CloudFront path routing:** SPA served at the root; `/api/*` forwarded to the API as a **second
+  origin**. Everything is same-origin → clean cookies, TLS via ACM.
+
+  > **Amended 2026-09-02 (per [ticket #10](https://github.com/wkimdkim-nz/compass/issues/10) and
+  > [ticket #21](https://github.com/wkimdkim-nz/compass/issues/21)).**
+  > This section originally named **AWS App Runner** as the compute target and as the second origin.
+  > App Runner has been reversed in favour of a standard **Amazon ECS service on Fargate behind an
+  > internet-facing ALB** (**ADR 0009**), so the second origin is now that ALB, reached by a stable
+  > DNS name (`api-origin.financial-compass.dev`) rather than a resource reference. **The routing
+  > rule itself is unchanged** — only the thing on the far end of it.
+  >
+  > **The `/api/*` path-routing rule is load-bearing and must not be "simplified".** Now that an ALB
+  > exists, serving the API from an `api.` subdomain looks tempting and *would* work for the cookie —
+  > `SameSite` cares about *site*, not *origin*. But a subdomain is cross-**origin**, so the SPA's
+  > JSON `POST`s would trigger a CORS preflight satisfiable only with `AllowCredentials` — which
+  > breaks **precondition 2** of the CSRF amendment above and **forces antiforgery back before that
+  > change ships**. This coupling is invisible from either end: nothing in the CloudFront config
+  > mentions CSRF, and nothing in the CSRF amendment mentions CloudFront. It is recorded in both
+  > places on purpose.
 - Local dev runs on `localhost` as a **single origin** via a Vite dev proxy that forwards `/api` to
   Kestrel. No CORS policy is registered in .NET at all.
 
