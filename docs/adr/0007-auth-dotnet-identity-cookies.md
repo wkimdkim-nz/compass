@@ -42,11 +42,13 @@ over the industry-default path, with eyes open (see the swap note in Consequence
   > **This holds only while all four conditions below hold. If any one changes, antiforgery must be
   > implemented before that change ships:**
   >
-  > 1. **No subdomain serves third-party or user-controlled content.** `SameSite` treats
-  >    `*.compass.example` as same-site, so a subdomain — including one CNAME'd to a SaaS whose
-  >    account later lapses ([subdomain takeover](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover)) —
+  > 1. **No subdomain serves third-party or user-controlled content.** `SameSite` treats every
+  >    `*.financial-compass.dev` subdomain as same-site, so a subdomain — including one CNAME'd to
+  >    a SaaS whose account later lapses ([subdomain takeover](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover)) —
   >    can forge fully authenticated requests. A subdomain serving *our own* content (e.g. `www`
-  >    pointing at the same CloudFront distribution) is fine.
+  >    pointing at the same CloudFront distribution) is fine. This stopped being hypothetical when
+  >    the domain was registered ([ticket #9](https://github.com/wkimdkim-nz/compass/issues/9)):
+  >    the zone is live, so the surface is real rather than illustrative.
   > 2. **No CORS policy with `AllowCredentials`** for any origin.
   > 3. **No endpoint mutates on GET** — `Lax` permits the cookie on top-level GET navigation.
   > 4. **Request bodies are JSON only** — a `multipart/form-data` or form-encoded endpoint is

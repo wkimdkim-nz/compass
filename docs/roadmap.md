@@ -14,7 +14,9 @@ The thinnest possible slice that touches every layer. **No calculator, no FMP.**
       registered; confirmation not required (ADR 0007, amended).
 - [ ] Frontend calls one authenticated endpoint on the .NET API; the browser attaches the cookie
       automatically.
-- [ ] `.NET`: Identity cookie auth resolves the caller; `GET /ping` returns the caller's user id.
+- [ ] `.NET`: Identity cookie auth resolves the caller; `GET /api/auth/me` returns the caller's user
+      id. There is no authenticated `/ping` — `/api/auth/me` is the session check the `HttpOnly`
+      cookie makes necessary (ADR 0007).
 - [ ] One authenticated write + read of a single row in the app Postgres, `user_id` FK'd to
       `AspNetUsers` (ADR 0008), in the *same* database as Identity's tables.
 - [ ] Deploy on AWS: React → S3 + CloudFront; .NET → App Runner; DB → RDS Postgres. **Register a
