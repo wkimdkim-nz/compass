@@ -1,1 +1,6 @@
 .DS_Store
+
+# Local secrets and captured provisioning values
+.env
+.env.*
+!.env.example
