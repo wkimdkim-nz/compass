@@ -64,6 +64,13 @@ Shape, as resolved in [#10](https://github.com/wkimdkim-nz/compass/issues/10):
   CloudFront always points `/api/*` at the fixed hostname `api-origin.financial-compass.dev`, and
   the ephemeral stack owns the Route 53 record aiming it at whatever ALB currently exists. State
   lives in **S3, never in git**.
+
+  > ⚠️ **That record must be a Terraform resource inside the ephemeral stack**, destroyed in the
+  > same apply as the ALB it aliases. A record left pointing at a released ELB hostname is a
+  > dangling alias on a **same-site** subdomain, which breaks **precondition 1** of ADR 0007's CSRF
+  > amendment — whoever re-claims the hostname can forge authenticated requests. Same shape as the
+  > `/api/*` coupling below, and just as invisible from this end: keeping the record around to save
+  > re-pointing CloudFront looks like tidiness and is a security regression.
 - **Migrations run as a one-off ECS task** in the deploy pipeline — preserving ADR 0003's/#3's
   explicit-migration intent from inside the VPC. Startup `Migrate()` is rejected: it would reverse
   a settled decision to paper over a networking gap, and it races itself because deploys run
@@ -83,8 +90,17 @@ only if the environment ever becomes persistent.
   than ~9. **The ephemeral-environment decision is what makes this affordable** and was taken
   before the number was known: every dominant line (ALB, Fargate, RDS, public IPs) is hourly and
   dies with `terraform destroy`. At ~10 hours of use a week the real figure is **≈$3.50/mo**.
-  `terraform destroy` also **drops the database** — fine in Phase 0, whose only table is a
-  throwaway, but it makes the migration decision mandatory rather than optional.
+  `terraform destroy` also **drops the database**, which makes the migration decision mandatory
+  rather than optional.
+
+  > **Amended 2026-09-03 (per [ticket #12](https://github.com/wkimdkim-nz/compass/issues/12)).**
+  > This bullet originally waved the teardown off as "fine in Phase 0, whose only table is a
+  > throwaway." Two tables now die with the stack, and neither is a throwaway: `AspNetUsers` and
+  > the **Data Protection key ring**, which ADR 0007 puts in this same database *precisely so that
+  > it dies here*. Their lifetimes are pinned to each other — a key ring surviving a teardown would
+  > decrypt old cookies into deleted users (**ghost sessions**). So "the environment is ephemeral"
+  > is not only the cost lever; it is a **premise of the auth design**, and making the environment
+  > persistent reopens ADR 0007's key-ring amendment rather than merely raising the bill.
 - **Several hundred more lines of Terraform** than Express Mode or App Runner would need. This is
   the accepted cost, and the most plausible way Phase 0 stalls.
 - **ADR 0007's `/api/*` path-routing rule is unchanged — and is now known to be load-bearing.**
