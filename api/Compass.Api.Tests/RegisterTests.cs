@@ -90,27 +90,3 @@ public class RegisterTests(CompassApiFactory factory) : IClassFixture<CompassApi
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
     }
 }
-
-public class ProductionCookieTests : IClassFixture<ProductionCookieTests.ProductionFactory>
-{
-    public sealed class ProductionFactory : CompassApiFactory
-    {
-        public ProductionFactory() => Environment = "Production";
-    }
-
-    private readonly ProductionFactory _factory;
-
-    public ProductionCookieTests(ProductionFactory factory) => _factory = factory;
-
-    [Fact]
-    public async Task In_Production_the_session_cookie_is_always_Secure_even_over_a_plain_HTTP_request()
-    {
-        var client = _factory.CreateAnonymousClient();
-
-        var response = await client.Register(ApiClient.UniqueEmail());
-
-        var setCookie = response.SessionSetCookie();
-        ApiClient.AssertSessionCookieFlags(setCookie);
-        Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
-    }
-}

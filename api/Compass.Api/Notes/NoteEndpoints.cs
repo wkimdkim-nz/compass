@@ -30,14 +30,11 @@ public static class NoteEndpoints
         {
             if (string.IsNullOrWhiteSpace(body.Text))
             {
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["text"] = ["Text is required."] });
+                return TextError("Text is required.");
             }
             if (body.Text.Length > Note.MaxTextLength)
             {
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["text"] = [$"Text must be at most {Note.MaxTextLength} characters."],
-                });
+                return TextError($"Text must be at most {Note.MaxTextLength} characters.");
             }
 
             var note = new Note
@@ -54,6 +51,10 @@ public static class NoteEndpoints
 
         return routes;
     }
+
+    /// <summary>A ProblemDetails body whose one field error is <c>text</c>, the only field a note has.</summary>
+    private static IResult TextError(string message) =>
+        Results.ValidationProblem(new Dictionary<string, string[]> { ["text"] = [message] });
 
     private static NoteResponse ToResponse(this Note note) => new(note.Id, note.UserId, note.Text, note.CreatedAt);
 }

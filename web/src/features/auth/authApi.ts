@@ -5,10 +5,14 @@ export type Credentials = { email: string; password: string };
 
 export const authApi = api.injectEndpoints({
   endpoints: (build) => ({
-    /** The session. There is no other copy of "am I logged in". */
+    /**
+     * The session. There is no other copy of "am I logged in".
+     *
+     * Deliberately untagged: nothing invalidates the session. Register and login seed it from
+     * their own answer, and logout resets the whole store — a tag here would only be dead weight.
+     */
     getMe: build.query<Me, void>({
       query: () => "/auth/me",
-      providesTags: ["Me"],
     }),
 
     register: build.mutation<Me, Credentials>({
