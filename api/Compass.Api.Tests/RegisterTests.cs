@@ -10,18 +10,18 @@ public class RegisterTests(CompassApiFactory factory) : IClassFixture<CompassApi
     public async Task Register_signs_the_new_user_in_and_answers_201_with_their_identity()
     {
         var client = factory.CreateBrowserLikeClient();
-        var email = Http.UniqueEmail();
+        var email = ApiClient.UniqueEmail();
 
         var response = await client.Register(email);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var me = await response.Content.ReadFromJsonAsync<MeResponse>(Http.Json);
+        var me = await response.Content.ReadFromJsonAsync<MeResponse>(ApiClient.Json);
         Assert.NotNull(me);
         Assert.Equal(email, me.Email);
         Assert.NotEqual(Guid.Empty, me.Id);
 
         // Signed in: the same cookie jar is now accepted by the session check.
-        var check = await client.GetFromJsonAsync<MeResponse>("/api/auth/me", Http.Json);
+        var check = await client.GetFromJsonAsync<MeResponse>("/api/auth/me", ApiClient.Json);
         Assert.Equal(me, check);
     }
 
@@ -30,12 +30,10 @@ public class RegisterTests(CompassApiFactory factory) : IClassFixture<CompassApi
     {
         var client = factory.CreateAnonymousClient();
 
-        var response = await client.Register(Http.UniqueEmail());
+        var response = await client.Register(ApiClient.UniqueEmail());
 
         var setCookie = response.SessionSetCookie();
-        Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("samesite=lax", setCookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("expires=", setCookie, StringComparison.OrdinalIgnoreCase);
+        ApiClient.AssertSessionCookieFlags(setCookie);
         // Development is plain HTTP, so the Secure flag follows the request scheme and is absent here.
         Assert.DoesNotContain("secure", setCookie, StringComparison.OrdinalIgnoreCase);
     }
@@ -45,7 +43,7 @@ public class RegisterTests(CompassApiFactory factory) : IClassFixture<CompassApi
     {
         var client = factory.CreateAnonymousClient();
 
-        var response = await client.Register(Http.UniqueEmail(), password: "short");
+        var response = await client.Register(ApiClient.UniqueEmail(), password: "short");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -59,7 +57,7 @@ public class RegisterTests(CompassApiFactory factory) : IClassFixture<CompassApi
     public async Task Register_with_an_email_already_in_use_answers_ProblemDetails_with_an_email_error()
     {
         var client = factory.CreateAnonymousClient();
-        var email = Http.UniqueEmail();
+        var email = ApiClient.UniqueEmail();
         await client.Register(email);
 
         var response = await client.Register(email);
@@ -76,7 +74,7 @@ public class RegisterTests(CompassApiFactory factory) : IClassFixture<CompassApi
     {
         var client = factory.CreateAnonymousClient();
 
-        var response = await client.Register(Http.UniqueEmail(), password: "all lowercase letters and spaces");
+        var response = await client.Register(ApiClient.UniqueEmail(), password: "all lowercase letters and spaces");
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
@@ -87,7 +85,7 @@ public class RegisterTests(CompassApiFactory factory) : IClassFixture<CompassApi
         var client = factory.CreateAnonymousClient();
 
         var response = await client.PostAsync("/api/auth/register",
-            new FormUrlEncodedContent([new("email", Http.UniqueEmail()), new("password", "correct horse battery")]));
+            new FormUrlEncodedContent([new("email", ApiClient.UniqueEmail()), new("password", "correct horse battery")]));
 
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
     }
@@ -109,11 +107,10 @@ public class ProductionCookieTests : IClassFixture<ProductionCookieTests.Product
     {
         var client = _factory.CreateAnonymousClient();
 
-        var response = await client.Register(Http.UniqueEmail());
+        var response = await client.Register(ApiClient.UniqueEmail());
 
         var setCookie = response.SessionSetCookie();
+        ApiClient.AssertSessionCookieFlags(setCookie);
         Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("samesite=lax", setCookie, StringComparison.OrdinalIgnoreCase);
     }
 }

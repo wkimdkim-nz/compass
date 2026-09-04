@@ -47,18 +47,4 @@ public class CompassApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         await base.DisposeAsync();
         await _postgres.DisposeAsync();
     }
-
-    /// <summary>A client that keeps its own cookie jar and never follows redirects.</summary>
-    public HttpClient CreateBrowserLikeClient() => CreateClient(new WebApplicationFactoryClientOptions
-    {
-        AllowAutoRedirect = false,
-        HandleCookies = true,
-    });
-
-    /// <summary>A client with no cookie jar: every request is anonymous unless a header is set by hand.</summary>
-    public HttpClient CreateAnonymousClient() => CreateClient(new WebApplicationFactoryClientOptions
-    {
-        AllowAutoRedirect = false,
-        HandleCookies = false,
-    });
 }

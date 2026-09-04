@@ -109,19 +109,19 @@ public static class AuthEndpoints
             .GroupBy(e => e.Field!)
             .ToDictionary(g => g.Key, g => g.Select(e => e.Description).ToArray());
 
+    /// <summary>Errors that belong to no single field (e.g. Identity's <c>DefaultError</c>) go under this key.</summary>
+    private const string FormLevel = "general";
+
     private static string? FieldFor(string code) => code switch
     {
         _ when code.StartsWith("Password", StringComparison.Ordinal) => "password",
         "DuplicateEmail" or "InvalidEmail" => "email",
         "DuplicateUserName" or "InvalidUserName" => null,
-        _ => code,
+        _ => FormLevel,
     };
 
     private static MeResponse ToMeResponse(this ApplicationUser user) => new(user.Id, user.Email!);
 
     private static MeResponse ToMeResponse(this ClaimsPrincipal caller) =>
         new(caller.UserId(), caller.FindFirstValue(ClaimTypes.Name)!);
-
-    public static Guid UserId(this ClaimsPrincipal caller) =>
-        Guid.Parse(caller.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

@@ -69,7 +69,9 @@ cd api && dotnet test
 ```
 
 **SPA — the rendered-app seam.** Vitest renders the real routes and the real store, with MSW
-standing in for `/api/*`. Nothing in the app is mocked.
+standing in for `/api/*`. Nothing in the app is mocked. The one test-only shim, in
+`web/src/test/setup.ts`, resolves the app's relative `/api` URLs against jsdom's location the
+way a browser would, because Node's `Request` refuses relative URLs.
 
 ```bash
 cd web && npm test
@@ -83,9 +85,9 @@ All under `/api`, JSON bodies only, ProblemDetails on every error.
 
 | Endpoint | Success | Notes |
 |---|---|---|
-| `POST /api/auth/register` | 201, `{ id, email }` | Signs the new user in. Password: at least 8 characters, no composition rules. Field errors under `errors`. |
+| `POST /api/auth/register` | 201, `{ id, email }` | Signs the new user in. Password: at least 8 characters, no composition rules. Field errors under `errors` (keyed `email`, `password`, or `general`). |
 | `POST /api/auth/login` | 200, `{ id, email }` | Any failure is the same generic 401. Repeated failures lock the account. |
-| `POST /api/auth/logout` | 204 | Ends the session on the server. |
+| `POST /api/auth/logout` | 204 | Ends the session on the server. 401 when there is no session to end. |
 | `GET /api/auth/me` | 200, `{ id, email }` | The session check. 401 (no redirect) when signed out. |
 | `GET /api/notes` | 200, `[note]` | Only the caller's rows, newest first. |
 | `POST /api/notes` | 201, `note` | `{ text }`, attributed to the caller. |

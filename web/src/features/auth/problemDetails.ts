@@ -3,7 +3,6 @@ import type { SerializedError } from "@reduxjs/toolkit";
 
 /** The shape the API answers every error with (RFC 9457), with field errors under `errors`. */
 export type ProblemDetails = {
-  title?: string;
   status?: number;
   errors?: Record<string, string[]>;
 };

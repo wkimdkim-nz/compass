@@ -13,29 +13,13 @@ export const authApi = api.injectEndpoints({
 
     register: build.mutation<Me, Credentials>({
       query: (body) => ({ url: "/auth/register", method: "POST", body }),
-      // The API signs the new user in and tells us who they are: seed the session from that
-      // answer rather than asking again.
-      async onQueryStarted(_credentials, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          dispatch(authApi.util.upsertQueryData("getMe", undefined, data));
-        } catch {
-          // The failure is reported through the mutation's own result; nothing to do here.
-        }
-      },
+      onQueryStarted: seedSessionFromAnswer,
       invalidatesTags: ["Note"],
     }),
 
     login: build.mutation<Me, Credentials>({
       query: (body) => ({ url: "/auth/login", method: "POST", body }),
-      async onQueryStarted(_credentials, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          dispatch(authApi.util.upsertQueryData("getMe", undefined, data));
-        } catch {
-          // The failure is reported through the mutation's own result; nothing to do here.
-        }
-      },
+      onQueryStarted: seedSessionFromAnswer,
       invalidatesTags: ["Note"],
     }),
 
@@ -56,5 +40,21 @@ export const authApi = api.injectEndpoints({
     }),
   }),
 });
+
+/**
+ * Register and login both sign the user in and answer with who they are. Seed the session
+ * query from that answer rather than asking `/auth/me` a second time.
+ */
+async function seedSessionFromAnswer(
+  _credentials: Credentials,
+  { dispatch, queryFulfilled }: { dispatch: (action: unknown) => unknown; queryFulfilled: Promise<{ data: Me }> },
+) {
+  try {
+    const { data } = await queryFulfilled;
+    dispatch(authApi.util.upsertQueryData("getMe", undefined, data));
+  } catch {
+    // The failure is reported through the mutation's own result; nothing to do here.
+  }
+}
 
 export const { useGetMeQuery, useRegisterMutation, useLoginMutation, useLogoutMutation } = authApi;

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router";
-import { useLoginMutation } from "./authApi";
+import { useLoginMutation, type Credentials } from "./authApi";
 import { CredentialsForm } from "./CredentialsForm";
 import { fieldErrors, isStatus } from "./problemDetails";
 
@@ -7,7 +7,7 @@ export function LoginPage() {
   const [login, { isLoading, error }] = useLoginMutation();
   const navigate = useNavigate();
 
-  const submit = async (credentials: { email: string; password: string }) => {
+  const submit = async (credentials: Credentials) => {
     const result = await login(credentials);
     if (!("error" in result)) navigate("/", { replace: true });
   };

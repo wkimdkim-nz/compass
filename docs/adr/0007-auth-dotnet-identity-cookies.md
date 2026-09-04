@@ -167,6 +167,13 @@ cookie would not attach on `SameSite=Lax`. Therefore:
   > cross-origin-but-same-site. The Vite proxy makes dev single-origin instead, mirroring the
   > CloudFront path-routing rule above — one rule, both environments. Precondition 2 of the CSRF
   > amendment above (no CORS policy with `AllowCredentials`) depends on this.
+  >
+  > **Amended 2026-09-04 (per [ticket #27](https://github.com/wkimdkim-nz/compass/issues/27),
+  > implementing [ticket #4](https://github.com/wkimdkim-nz/compass/issues/4)).** Local
+  > development is plain HTTP, so the `Secure` flag named in the session-cookie bullet above is
+  > environment-conditional: `SecurePolicy = SameAsRequest` in Development and `Always` in
+  > Production. `HttpOnly` and `SameSite=Lax` hold in both. The HTTP seam tests assert both
+  > shapes from the raw `Set-Cookie` header.
 
 ## Consequences
 

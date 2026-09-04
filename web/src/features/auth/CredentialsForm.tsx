@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import type { Credentials } from "./authApi";
 
 type Props = {
   title: string;
@@ -7,7 +8,7 @@ type Props = {
   errors: Record<string, string[]>;
   /** A message that belongs to the form as a whole rather than a field. */
   formError?: string;
-  onSubmit: (credentials: { email: string; password: string }) => void;
+  onSubmit: (credentials: Credentials) => void;
 };
 
 export function CredentialsForm({ title, submitLabel, busy, errors, formError, onSubmit }: Props) {
@@ -23,6 +24,7 @@ export function CredentialsForm({ title, submitLabel, busy, errors, formError, o
     <form onSubmit={submit} aria-labelledby="credentials-heading">
       <h1 id="credentials-heading">{title}</h1>
       {formError && <p role="alert">{formError}</p>}
+      <FieldErrors messages={errors.general} />
       <label>
         Email
         <input

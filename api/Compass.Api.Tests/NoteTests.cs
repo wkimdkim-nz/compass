@@ -15,20 +15,20 @@ public class NoteTests(CompassApiFactory factory) : IClassFixture<CompassApiFact
         client.PostAsJsonAsync("/api/notes", new { text });
 
     private static Task<List<NoteResponse>?> ListNotes(HttpClient client) =>
-        client.GetFromJsonAsync<List<NoteResponse>>("/api/notes", Http.Json);
+        client.GetFromJsonAsync<List<NoteResponse>>("/api/notes", ApiClient.Json);
 
     [Fact]
     public async Task A_signed_in_user_can_write_a_note_and_read_it_back_scoped_to_their_own_id()
     {
         var client = factory.CreateBrowserLikeClient();
-        var me = await (await client.Register(Http.UniqueEmail())).Content.ReadFromJsonAsync<MeResponse>(Http.Json);
+        var me = await client.RegisterNewUser();
 
         var created = await AddNote(client, "hello from the seam");
         var notes = await ListNotes(client);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var note = await created.Content.ReadFromJsonAsync<NoteResponse>(Http.Json);
-        Assert.Equal(me!.Id, note!.UserId);
+        var note = await created.Content.ReadFromJsonAsync<NoteResponse>(ApiClient.Json);
+        Assert.Equal(me.Id, note!.UserId);
         Assert.Equal("hello from the seam", note.Text);
         Assert.Equal([note], notes);
 
@@ -45,7 +45,7 @@ public class NoteTests(CompassApiFactory factory) : IClassFixture<CompassApiFact
         // The executable record of "no antiforgery": the session cookie is the only thing the
         // browser has, and nothing is attached by hand.
         var client = factory.CreateBrowserLikeClient();
-        var registered = await client.Register(Http.UniqueEmail());
+        var registered = await client.Register(ApiClient.UniqueEmail());
         Assert.Single(registered.Headers.GetValues("Set-Cookie")); // only compass_auth, no token cookie
         Assert.Empty(client.DefaultRequestHeaders);
 
@@ -58,7 +58,7 @@ public class NoteTests(CompassApiFactory factory) : IClassFixture<CompassApiFact
     public async Task Notes_are_read_back_newest_first()
     {
         var client = factory.CreateBrowserLikeClient();
-        await client.Register(Http.UniqueEmail());
+        await client.Register(ApiClient.UniqueEmail());
 
         await AddNote(client, "first");
         await AddNote(client, "second");
@@ -71,10 +71,10 @@ public class NoteTests(CompassApiFactory factory) : IClassFixture<CompassApiFact
     public async Task One_user_cannot_see_another_users_notes()
     {
         var alice = factory.CreateBrowserLikeClient();
-        await alice.Register(Http.UniqueEmail());
+        await alice.Register(ApiClient.UniqueEmail());
         await AddNote(alice, "alice's note");
         var bob = factory.CreateBrowserLikeClient();
-        await bob.Register(Http.UniqueEmail());
+        await bob.Register(ApiClient.UniqueEmail());
 
         var bobsNotes = await ListNotes(bob);
 
@@ -99,7 +99,7 @@ public class NoteTests(CompassApiFactory factory) : IClassFixture<CompassApiFact
     public async Task An_empty_note_answers_ProblemDetails_with_a_text_error()
     {
         var client = factory.CreateBrowserLikeClient();
-        await client.Register(Http.UniqueEmail());
+        await client.Register(ApiClient.UniqueEmail());
 
         var response = await AddNote(client, "   ");
 
@@ -112,13 +112,13 @@ public class NoteTests(CompassApiFactory factory) : IClassFixture<CompassApiFact
     public async Task Deleting_a_user_deletes_their_notes_in_the_database()
     {
         var client = factory.CreateBrowserLikeClient();
-        var me = await (await client.Register(Http.UniqueEmail())).Content.ReadFromJsonAsync<MeResponse>(Http.Json);
+        var me = await client.RegisterNewUser();
         await AddNote(client, "will be cascaded away");
 
         using (var scope = factory.Services.CreateScope())
         {
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-            var user = await users.FindByIdAsync(me!.Id.ToString());
+            var user = await users.FindByIdAsync(me.Id.ToString());
             Assert.True((await users.DeleteAsync(user!)).Succeeded);
         }
 
