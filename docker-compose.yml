@@ -3,7 +3,8 @@
 services:
   db:
     image: postgres:18-alpine
-    container_name: compass-db
+    # No container_name: Compose derives one from the project directory, so a second checkout
+    # or a CI job on the same Docker host does not collide on a globally unique name.
     environment:
       POSTGRES_USER: compass
       POSTGRES_PASSWORD: compass

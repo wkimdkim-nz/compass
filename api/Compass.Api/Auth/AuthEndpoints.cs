@@ -76,8 +76,15 @@ public static class AuthEndpoints
             return InvalidCredentials();
         }
 
+        // The account can vanish between the sign-in and this lookup. Answer the same generic 401
+        // rather than dereferencing null and handing back a 500 with a session cookie attached.
         var user = await users.FindByEmailAsync(body.Email!);
-        return Results.Ok(user!.ToMeResponse());
+        if (user is null)
+        {
+            return InvalidCredentials();
+        }
+
+        return Results.Ok(user.ToMeResponse());
     }
 
     private static IResult InvalidCredentials() =>

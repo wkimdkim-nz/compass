@@ -21,6 +21,19 @@ public class SessionTests(CompassApiFactory factory) : IClassFixture<CompassApiF
     }
 
     [Fact]
+    public async Task An_unmapped_route_answers_ProblemDetails_like_every_other_error()
+    {
+        // The ProblemDetails contract covers statuses the pipeline produces without an exception
+        // (404, 405, 415) as well as the ones the endpoints write themselves.
+        var client = factory.CreateAnonymousClient();
+
+        var response = await client.GetAsync("/api/does-not-exist");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
     public async Task A_session_survives_the_API_restarting_because_the_key_ring_lives_in_Postgres()
     {
         var email = ApiClient.UniqueEmail();
