@@ -25,6 +25,52 @@ over the industry-default path, with eyes open (see the swap note in Consequence
   (PBKDF2). We do not hand-roll crypto.
 - **Session model: HttpOnly cookie**, not bearer JWT. The cookie is `HttpOnly; Secure;
   SameSite=Lax` — no token is reachable from JavaScript, closing the XSS token-theft class.
+
+  > **Amended 2026-09-03 (per [ticket #12](https://github.com/wkimdkim-nz/compass/issues/12)).**
+  > This bullet named the cookie but never named what encrypts it. The cookie is protected by
+  > **ASP.NET Core Data Protection**, whose **key ring** is stored in the app Postgres via
+  > `PersistKeysToDbContext<AppDbContext>` — `AppDbContext` also implements
+  > `IDataProtectionKeyContext` — **unencrypted**, with **`SetApplicationName("Compass")`** set
+  > explicitly rather than derived from the content root (a base-image or working-directory change
+  > would otherwise log everyone out). The same store is used in **every environment**, local dev
+  > included; key lifetime is left at the 90-day default.
+  >
+  > **⚠️ The key ring is deliberately non-durable, and that is not a defect.** **Its lifetime is
+  > pinned to the user table's.** RDS sits in the *ephemeral* app stack (**ADR 0009**), so
+  > `terraform destroy` deletes the key ring and `AspNetUsers` in the same apply. A ring that
+  > *outlived* the user table would decrypt an old cookie into a `ClaimsPrincipal` whose `Guid`
+  > matches no row — **ghost sessions**: `/api/auth/me` succeeds on the cookie, then the first
+  > domain query returns nothing or violates the FK. **Moving the ring to S3, Parameter Store, or
+  > any store outside the ephemeral stack manufactures exactly that**, which is why those were
+  > rejected on *correctness*, not on cost or IAM. This coupling between this ADR and ADR 0009 is
+  > invisible from either end — like the `/api/*` rule below, it is recorded in both places on
+  > purpose. Revisit only if the environment stops being ephemeral (or becomes multi-tenant, which
+  > also reopens the unencrypted-keys acceptance below).
+  >
+  > **Why Phase 0 builds this rather than deferring it:** the "no longer" half comes free, but the
+  > **"no shorter" half does not**. ADR 0009's deploys run old and new tasks concurrently and its
+  > migration task makes a deploy non-atomic, so two *filesystem* key rings could not read each
+  > other's cookies — users bounced to the login page **silently and intermittently**, inside the
+  > one feature Phase 0 exists to prove. Pinning `desired_count = 1` would also work, but forfeits
+  > zero-downtime deploys, which ADR 0009 rejected Express Mode to keep.
+  >
+  > **Consequences for the build:**
+  >
+  > - The **`data_protection_keys` table is permanent** — unlike the throwaway skeleton entity of
+  >   [ticket #3](https://github.com/wkimdkim-nz/compass/issues/3), it is not deleted when Phase 1
+  >   starts. `EFCore.NamingConventions` snake_cases it, unlike Identity's own tables, which pin
+  >   their names with explicit `ToTable`.
+  > - It is created by the **one-off migration ECS task**, so
+  >   [ticket #19](https://github.com/wkimdkim-nz/compass/issues/19)'s
+  >   migration-before-service ordering is load-bearing for **login**, not merely for app data: a
+  >   fresh environment that loses that race has broken auth, not an empty database.
+  > - **DB down now means auth down.** A filesystem key ring kept cookie decryption working while
+  >   the database was unreachable; this one does not. It is a further reason `/health` must not
+  >   touch the database (ticket #19).
+  > - **Keys sit in the table as plain XML** — anyone who can read it can mint a cookie for any
+  >   user. Accepted because RDS is private (ADR 0009) and the blast radius equals direct
+  >   `AspNetUsers` access. There is no first-party AWS KMS protection provider to lean on, and the
+  >   certificate alternative brings its own rotation problem.
 - **CSRF defense: `SameSite=Lax` alone.** No antiforgery token is implemented in Phase 0.
 
   > **Amended 2026-07-27 (reversal, per [ticket #6](https://github.com/wkimdkim-nz/compass/issues/6)).**
@@ -49,6 +95,18 @@ over the industry-default path, with eyes open (see the swap note in Consequence
   >    pointing at the same CloudFront distribution) is fine. This stopped being hypothetical when
   >    the domain was registered ([ticket #9](https://github.com/wkimdkim-nz/compass/issues/9)):
   >    the zone is live, so the surface is real rather than illustrative.
+  >
+  >    ⚠️ **This precondition binds `api-origin.financial-compass.dev`.**
+  >    [Ticket #10](https://github.com/wkimdkim-nz/compass/issues/10) decoupled the *persistent*
+  >    CloudFront from the *ephemeral* ALB by a DNS name: a record in the persistent hosted zone,
+  >    owned by the ephemeral stack, aliasing whatever ALB currently exists. That is safe **only
+  >    while the record is a Terraform resource inside the ephemeral stack**, deleted by
+  >    `terraform destroy` in the same apply as the ALB it targets. A record that outlives its ALB —
+  >    a partial destroy, or one created by hand outside Terraform — is a **dangling alias on a
+  >    same-site subdomain**, and whoever next claims that released ELB hostname can forge fully
+  >    authenticated requests: the takeover above, on our own infrastructure. Convenience is the
+  >    likely route in ("keep the record so CloudFront doesn't need re-pointing"). See ADR 0009's
+  >    DNS-decoupling bullet.
   > 2. **No CORS policy with `AllowCredentials`** for any origin.
   > 3. **No endpoint mutates on GET** — `Lax` permits the cookie on top-level GET navigation.
   > 4. **Request bodies are JSON only** — a `multipart/form-data` or form-encoded endpoint is

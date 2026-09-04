@@ -76,6 +76,15 @@ differ from the past.
 - **Session cookie** — How an authenticated session is carried: an `HttpOnly; Secure; SameSite=Lax`
   cookie the browser attaches automatically (ADR 0007). Not readable from JavaScript; there is no
   bearer token. _Avoid_: JWT, access token, Bearer.
+- **Data Protection key ring** — The keys ASP.NET Core Data Protection uses to encrypt and sign the
+  **Session cookie** itself. Kept in the app Postgres via `PersistKeysToDbContext<AppDbContext>`,
+  unencrypted, under an explicit `SetApplicationName("Compass")` — the same store in every
+  environment, local dev included (ADR 0007). The table (`data_protection_keys`) is **permanent**,
+  not part of the throwaway skeleton. **Deliberately non-durable**: it lives in the *ephemeral*
+  stack's RDS beside `AspNetUsers`, so `terraform destroy` drops the keys and the users together.
+  That is the design, not a gap — a ring outliving the user table would decrypt old cookies into
+  users who no longer exist. _Avoid_: "session secret", "signing key"; and avoid calling its loss a
+  bug — see **Ephemeral environment** and the amendment in ADR 0007.
 - **Same-site cookie delivery** — The single-origin arrangement that lets the session cookie attach:
   a Vite dev proxy in development and CloudFront path-routing `/api/*` to the ALB in production, so
   the SPA and API share one origin (ADR 0007). With no antiforgery token, this is also what carries
@@ -99,8 +108,9 @@ differ from the past.
   `terraform destroy` and rebuilt on demand; this is the **cost lever** that makes ADR 0009's
   topology affordable, not tidiness. Splits the infrastructure in two: a *foundation* stack that
   persists (zone, certs, ECR, S3+CloudFront, VPC, state bucket) and an *app* stack that does not
-  (ALB, ECS service, RDS). Teardown drops the database. _Avoid_: "staging", "the environment" —
-  say which stack.
+  (ALB, ECS service, RDS). Teardown drops the database — and with it `AspNetUsers` and the
+  **Data Protection key ring**, deliberately: their lifetimes are pinned to each other (ADR 0007).
+  _Avoid_: "staging", "the environment" — say which stack.
 - **ADR** — Architecture Decision Record. A short doc capturing one decision, its context, and consequences. See `docs/adr/`.
 
 > Historical: earlier ADRs (0002/0003, superseded) used **Supabase** as the auth provider and a
