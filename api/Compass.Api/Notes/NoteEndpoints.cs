@@ -52,7 +52,7 @@ public static class NoteEndpoints
         return routes;
     }
 
-    /// <summary>A ProblemDetails body whose one field error is <c>text</c>, the only field a note has.</summary>
+    /// <summary>A ProblemDetails body whose one field error is <c>text</c>, the only field the client supplies.</summary>
     private static IResult TextError(string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { ["text"] = [message] });
 
