@@ -9,7 +9,8 @@ export const authApi = api.injectEndpoints({
      * The session. There is no other copy of "am I logged in".
      *
      * Deliberately untagged: nothing invalidates the session. Register and login seed it from
-     * their own answer, and logout resets the whole store — a tag here would only be dead weight.
+     * their own answer, and the two things that end it — logout, and a 401 from any other call
+     * (see the store's middleware) — reset the whole store. A tag here would only be dead weight.
      */
     getMe: build.query<Me, void>({
       query: () => "/auth/me",

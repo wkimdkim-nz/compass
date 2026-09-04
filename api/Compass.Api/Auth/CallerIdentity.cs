@@ -8,7 +8,7 @@ public static class CallerIdentity
     public static Guid UserId(this ClaimsPrincipal caller) =>
         Guid.Parse(caller.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    /// <summary>The caller's email. Identity puts UserName in the name claim, and UserName is always the email.</summary>
+    /// <summary>The caller's email, from the email claim Identity's principal factory always adds.</summary>
     public static string Email(this ClaimsPrincipal caller) =>
-        caller.FindFirstValue(ClaimTypes.Name)!;
+        caller.FindFirstValue(ClaimTypes.Email)!;
 }
