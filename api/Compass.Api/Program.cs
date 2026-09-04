@@ -1,0 +1,85 @@
+using Compass.Api;
+using Compass.Api.Auth;
+using Compass.Api.Data;
+using Compass.Api.Notes;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+           .UseSnakeCaseNamingConvention());
+
+// The key ring that encrypts the session cookie lives in the same database as the users, in
+// every environment, so the keys and the accounts they authenticate share one lifetime (ADR 0007).
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<AppDbContext>()
+    .SetApplicationName("Compass");
+
+builder.Services
+    .AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+    {
+        // Length only, no composition rules (NIST 800-63B).
+        options.Password.RequiredLength = 8;
+        options.Password.RequireDigit = false;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequiredUniqueChars = 1;
+        options.User.RequireUniqueEmail = true;
+        options.SignIn.RequireConfirmedAccount = false;
+        options.SignIn.RequireConfirmedEmail = false;
+    })
+    .AddEntityFrameworkStores<AppDbContext>();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.Name = "compass_auth";
+    options.Cookie.HttpOnly = true;
+    // SameSite=Lax alone is the CSRF defence (ADR 0007, amended). Same-site cookie delivery is
+    // what makes that hold: a Vite proxy locally, CloudFront path-routing in production.
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    // Local development is plain HTTP; production is always HTTPS.
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+    options.SlidingExpiration = true;
+
+    // Identity's default is a 302 to /Account/Login, which an SPA `fetch` cannot act on.
+    // Answer with a bare status code and a ProblemDetails body instead.
+    options.Events.OnRedirectToLogin = ctx => ctx.HttpContext.WriteProblemAsync(StatusCodes.Status401Unauthorized);
+    options.Events.OnRedirectToAccessDenied = ctx => ctx.HttpContext.WriteProblemAsync(StatusCodes.Status403Forbidden);
+});
+
+builder.Services.AddAuthorization();
+builder.Services.AddProblemDetails(options =>
+    options.CustomizeProblemDetails = ctx =>
+    {
+        // A login failure must be byte-identical whatever went wrong (anti-enumeration), so no
+        // per-request trace id on 401s.
+        if (ctx.ProblemDetails.Status == StatusCodes.Status401Unauthorized)
+        {
+            ctx.ProblemDetails.Extensions.Remove("traceId");
+        }
+    });
+
+// Deliberately absent: any CORS policy. Development and production are both single-origin,
+// and registering CORS with credentials would break a precondition of the CSRF design (ADR 0007).
+
+var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapAuthEndpoints();
+app.MapNoteEndpoints();
+
+app.Run();
+
+// Migrations are applied explicitly with `dotnet ef database update` — never here on startup.
