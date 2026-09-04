@@ -73,9 +73,11 @@ differ from the past.
 - **ASP.NET Core Identity** — The .NET framework's built-in identity system. Compass's own
   identity provider (ADR 0007): it stores users in the app Postgres and hashes passwords (PBKDF2).
   Replaces the earlier Supabase-as-IdP design. _Avoid_: "auth service", "Supabase".
-- **Session cookie** — How an authenticated session is carried: an `HttpOnly; Secure; SameSite=Lax`
-  cookie the browser attaches automatically (ADR 0007). Not readable from JavaScript; there is no
-  bearer token. _Avoid_: JWT, access token, Bearer.
+- **Session cookie** — How an authenticated session is carried: an `HttpOnly; SameSite=Lax` cookie
+  the browser attaches automatically (ADR 0007). `Secure` is **environment-conditional**: `Always` in
+  production, `SameAsRequest` locally, because local development runs over plain HTTP (ADR 0007,
+  amended 2026-09-04). `HttpOnly` and `SameSite=Lax` hold in both. Not readable from JavaScript;
+  there is no bearer token. _Avoid_: JWT, access token, Bearer.
 - **Data Protection key ring** — The keys ASP.NET Core Data Protection uses to encrypt and sign the
   **Session cookie** itself. Kept in the app Postgres via `PersistKeysToDbContext<AppDbContext>`,
   unencrypted, under an explicit `SetApplicationName("Compass")` — the same store in every
