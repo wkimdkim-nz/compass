@@ -18,7 +18,7 @@ for the decisions the code below implements.
 ## Running it locally
 
 You need Docker, the .NET 10 SDK and Node 26 (`nvm use` inside `web/` picks the pinned version).
-Three commands in three terminals, plus a one-off migration:
+Three commands in three terminals, plus two one-off setup commands:
 
 **1. Postgres**
 
@@ -27,6 +27,13 @@ docker compose up -d --wait
 ```
 
 **2. Apply migrations, then run the API** (from `api/Compass.Api`)
+
+`dotnet ef` is a local tool pinned in `api/.config/dotnet-tools.json`, not a global install, so a
+fresh clone has to restore it once. Skip this and `dotnet ef` is simply not a command:
+
+```bash
+dotnet tool restore
+```
 
 ```bash
 dotnet ef database update
