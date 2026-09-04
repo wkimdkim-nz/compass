@@ -1,0 +1,38 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 40rem;
+  padding: 1rem;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  margin-top: 0.75rem;
+}
+
+input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+button {
+  margin-top: 0.75rem;
+}
+
+[role="alert"] {
+  color: #b00020;
+}

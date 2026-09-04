@@ -9,15 +9,15 @@ building each in isolation and discovering the joints (auth, same-site delivery,
 
 The thinnest possible slice that touches every layer. **No calculator, no FMP.**
 
-- [ ] React app: register + log in against ASP.NET Core Identity; receive an `HttpOnly` session
+- [x] React app: register + log in against ASP.NET Core Identity; receive an `HttpOnly` session
       cookie (ADR 0007). No client-side token store. **No email path at all** — no `IEmailSender` is
       registered; confirmation not required (ADR 0007, amended).
-- [ ] Frontend calls one authenticated endpoint on the .NET API; the browser attaches the cookie
+- [x] Frontend calls one authenticated endpoint on the .NET API; the browser attaches the cookie
       automatically.
-- [ ] `.NET`: Identity cookie auth resolves the caller; `GET /api/auth/me` returns the caller's user
+- [x] `.NET`: Identity cookie auth resolves the caller; `GET /api/auth/me` returns the caller's user
       id. There is no authenticated `/ping` — `/api/auth/me` is the session check the `HttpOnly`
       cookie makes necessary (ADR 0007).
-- [ ] One authenticated write + read of a single row in the app Postgres, `user_id` FK'd to
+- [x] One authenticated write + read of a single row in the app Postgres, `user_id` FK'd to
       `AspNetUsers` (ADR 0008), in the *same* database as Identity's tables.
 - [ ] Deploy on AWS (`ap-southeast-2`): React → S3 + CloudFront; .NET → **Amazon ECS on Fargate**
       behind an internet-facing ALB (ADR 0009 — App Runner was reversed); DB → RDS Postgres, kept
