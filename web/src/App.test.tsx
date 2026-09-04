@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { fakeApi } from "./test/fakeApi";
 import { renderApp } from "./test/renderApp";
 
-const settle = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
+// A real wall-clock wait. The assertions after it are about what does NOT happen, and
+// there is no quiescence to wait for — only time in which a runaway loop would show up.
+const sleep = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const signInHeading = () => screen.findByRole("heading", { name: /sign in/i });
 const notesHeading = () => screen.findByRole("heading", { name: /your notes/i });
@@ -23,7 +25,7 @@ describe("a logged-out visitor", () => {
     expect(await signInHeading()).toBeInTheDocument();
 
     // The loop the seam prototype found made ~5000 of these in seconds.
-    await settle();
+    await sleep();
     expect(fakeApi.requestCount("GET /api/auth/me")).toBeLessThanOrEqual(2);
   });
 
@@ -50,7 +52,7 @@ describe("a logged-out visitor", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/invalid email or password/i);
     expect(await signInHeading()).toBeInTheDocument();
     // A reset would empty the cache and make the session query run again.
-    await settle();
+    await sleep();
     expect(fakeApi.requestCount("GET /api/auth/me")).toBe(meRequestsBefore);
   });
 
@@ -120,7 +122,7 @@ describe("a signed-in user", () => {
     expect(screen.queryByRole("heading", { name: /your notes/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
     // No further authenticated render: nothing brings the notes view back.
-    await settle();
+    await sleep();
     expect(screen.queryByRole("heading", { name: /your notes/i })).not.toBeInTheDocument();
   });
 
@@ -138,7 +140,7 @@ describe("a signed-in user", () => {
 
     expect(await signInHeading()).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("heading", { name: /your notes/i })).not.toBeInTheDocument());
-    await settle();
+    await sleep();
     expect(fakeApi.requestCount("GET /api/auth/me")).toBeLessThanOrEqual(4);
   });
 });

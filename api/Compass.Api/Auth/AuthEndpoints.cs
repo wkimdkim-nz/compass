@@ -130,5 +130,5 @@ public static class AuthEndpoints
     private static MeResponse ToMeResponse(this ApplicationUser user) => new(user.Id, user.Email!);
 
     private static MeResponse ToMeResponse(this ClaimsPrincipal caller) =>
-        new(caller.UserId(), caller.FindFirstValue(ClaimTypes.Name)!);
+        new(caller.UserId(), caller.Email());
 }
