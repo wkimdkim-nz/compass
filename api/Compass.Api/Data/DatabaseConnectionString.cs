@@ -3,8 +3,9 @@ using Npgsql;
 namespace Compass.Api.Data;
 
 /// <summary>
-/// The one path by which the API learns how to reach its database. The same code runs in every
-/// environment; production is not a branch.
+/// The one path by which the API settles how it reaches its database — the credentials it connects
+/// with, and the transport it will not attempt. The same code runs in every environment;
+/// production is not a branch.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -42,6 +43,14 @@ namespace Compass.Api.Data;
 /// the database's connection ceiling exactly while deploying.
 /// </description></item>
 /// </list>
+/// <para>
+/// One setting is decided here rather than by configuration: <b>GSS/Kerberos encryption is off</b>,
+/// because the runtime image carries no Kerberos libraries and Compass never authenticates that
+/// way. Left on, Npgsql probes for them on the first connection of every process and fails,
+/// writing an error line about nothing to stderr on every task start and every migration run. It
+/// is unconditional for the same reason the overlay is: an environment that behaved differently
+/// would be an environment the tests do not cover.
+/// </para>
 /// </remarks>
 public static class DatabaseConnectionString
 {
@@ -53,7 +62,8 @@ public static class DatabaseConnectionString
     private const string PasswordKey = "DB_PASSWORD";
 
     /// <summary>
-    /// The connection string to open, with any separately supplied credentials overlaid onto it.
+    /// The connection string to open: the configured one, with GSS/Kerberos ruled out and any
+    /// separately supplied credentials overlaid onto it.
     /// </summary>
     public static string Resolve(IConfiguration configuration)
     {

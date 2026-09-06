@@ -12,8 +12,8 @@ for the decisions the code below implements.
 | Path | What it is |
 |---|---|
 | `api/` | .NET 10 Web API (`Compass.Api`, minimal APIs) plus its xUnit integration tests. SDK pinned in `global.json`, `dotnet-ef` pinned in `.config/dotnet-tools.json`. |
-| `web/` | Vite + React + TypeScript SPA with Redux Toolkit / RTK Query. Node version pinned in `.nvmrc`. |
 | `api/Dockerfile` | The runtime image ECS runs in production, carrying the app and a migration bundle. |
+| `web/` | Vite + React + TypeScript SPA with Redux Toolkit / RTK Query. Node version pinned in `.nvmrc`. |
 | `docker-compose.yml` | Local Postgres 18. |
 
 ## Running it locally
@@ -84,7 +84,9 @@ Three things about the image are load-bearing in the deployed stack and invisibl
 
 `GET /api/health` answers 200 without opening a database connection — shallow on purpose, because a
 deep check turns a database fault into an endless kill-and-replace loop and makes the migration
-race unrecoverable.
+race unrecoverable. Note the prefix: ADR 0007 and [#28](https://github.com/wkimdkim-nz/compass/issues/28)
+both write this path as `/health`, but CloudFront routes only `/api/*` to the origin, so the target
+group and the deployed smoke test must both name `/api/health`.
 
 ### How it takes its database credentials
 

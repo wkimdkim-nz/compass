@@ -16,6 +16,15 @@ namespace Compass.Api.Health;
 /// to the origin. A health path outside that prefix would be unreachable from the public site, and
 /// so unverifiable by the deployed smoke test.
 /// </para>
+/// <para>
+/// <b>Deviation, recorded deliberately.</b> ADR 0007's key-ring amendment and spec
+/// <see href="https://github.com/wkimdkim-nz/compass/issues/28">#28</see> both write this path as
+/// <c>/health</c>. This is that path, moved under the only prefix CloudFront routes — the same
+/// requirement <see href="https://github.com/wkimdkim-nz/compass/issues/43">#43</see> states as
+/// "<c>/api/*</c> health requests through the public site return 200". The load balancer's target
+/// group and the deployed smoke test must therefore both name <c>/api/health</c>, not
+/// <c>/health</c>; nothing answers on the shorter path.
+/// </para>
 /// </remarks>
 public static class HealthEndpoints
 {

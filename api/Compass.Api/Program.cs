@@ -72,10 +72,11 @@ builder.Services.AddProblemDetails(options =>
 
 var app = builder.Build();
 
-// Deliberately absent: UseHttpsRedirection(). In production CloudFront terminates TLS and the load
-// balancer reaches the task over plain HTTP, so a redirect here would bounce every health check
-// into a 307 loop and the service would never come up. The session cookie is unaffected —
-// CookieSecurePolicy.Always does not consult the request's scheme.
+// Deliberately absent: UseHttpsRedirection(). CloudFront reaches the origin over HTTPS and the
+// load balancer terminates it there (ADR 0009); the last hop, load balancer to task, is plain
+// HTTP. So a redirect here would bounce every health check into a 307 loop and the service would
+// never come up. The session cookie is unaffected — CookieSecurePolicy.Always does not consult
+// the request's scheme.
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
