@@ -15,6 +15,8 @@ for the decisions the code below implements.
 | `api/Dockerfile` | The runtime image ECS runs in production, carrying the app and a migration bundle. |
 | `web/` | Vite + React + TypeScript SPA with Redux Toolkit / RTK Query. Node version pinned in `.nvmrc`. |
 | `docker-compose.yml` | Local Postgres 18. |
+| `infra/` | Terraform. Two stacks split along the billing line — see [`infra/README.md`](infra/README.md). |
+| `scripts/` | Bootstrapping, publishing and verifying the deployed stacks. |
 
 ## Running it locally
 
@@ -132,6 +134,25 @@ docker run --rm --add-host host.docker.internal:host-gateway -e "ConnectionStrin
 ```
 
 Migrations are still never applied on application startup.
+
+## Deploying it
+
+The deployed shape is CloudFront serving the SPA at the root and path-routing `/api/*` to an ECS
+service behind an ALB, at `financial-compass.dev`. It is described in Terraform and split into a
+**foundation stack that persists** and an **app stack that is destroyed between work sessions** —
+the cost lever that makes the topology affordable (ADR 0009). Bring it up with
+[`infra/README.md`](infra/README.md), which is four commands: create the state bucket, `init`,
+`apply`, publish the SPA. Then check the result from outside — delegation with `dig` against a
+public resolver, both certificates in the region that consumes each, the apex on an alias rather
+than an illegal CNAME, and the SPA over HTTPS:
+
+```bash
+scripts/verify-foundation.sh
+```
+
+Until the app stack exists, `/api/*` returns an origin error. That is the DNS decoupling working,
+not a fault: CloudFront points at the *name* `api-origin.financial-compass.dev`, so the stack
+behind it can come and go without CloudFront's configuration ever changing.
 
 ## Tests
 

@@ -12,3 +12,12 @@ obj/
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Terraform — state describes the infrastructure in detail and never enters git.
+# `.terraform.lock.hcl` is deliberately NOT ignored: the provider versions are part of the build.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+crash.log
