@@ -61,9 +61,9 @@ digest_of() {
   [[ "$digest" == "None" ]] || printf '%s' "$digest"
 }
 
-# Tags are immutable in this repository, so a second push of *different* bytes under an existing
-# tag is refused by ECR — with a message about layer uploads that does not mention immutability.
-# Catching it here says what actually happened.
+# Tags are immutable in this repository, so a second push under an existing tag — identical bytes
+# or not — is refused by ECR, with a message about layer uploads that does not mention
+# immutability. Catching it here says what actually happened.
 if existing="$(digest_of "$tag")" && [[ -n "$existing" ]]; then
   echo "${image} already exists (${existing})."
   echo "Tags are immutable: commit your change and push under its own tag."

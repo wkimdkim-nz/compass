@@ -50,17 +50,8 @@ owns what is in it:
 scripts/deploy-spa.sh
 ```
 
-```bash
-scripts/verify-foundation.sh
-```
-
-`verify-foundation.sh` checks the result from outside: delegation via `dig` against a public
-resolver rather than off the console, both certificates issued in the region that consumes each,
-an alias (never a CNAME) at the apex, the SPA and its client-side routes over HTTPS, `/api/*`
-reaching the origin hostname with caching disabled and cookies forwarded, the network's two tiers
-routed the way their names claim, each security group admitting exactly one upstream, an image in
-ECR built for the architecture the task will run, and CloudFront sending the origin header the
-secret holds.
+Then push an image — the next section — and only then verify. `verify-foundation.sh` asserts that
+the registry holds an image, so on a fresh stack it fails until one is there.
 
 ## Putting an image in the registry
 
@@ -84,6 +75,20 @@ log exists.
 > ⚠️ **Pushing an image deploys nothing.** There is no auto-deploy-on-push for a standard ECS
 > service — that was App Runner's behaviour, and App Runner is out (ADR 0009). A push adds a tag;
 > a deployment names it and rolls the service, in the app stack.
+
+## Checking the result
+
+```bash
+scripts/verify-foundation.sh
+```
+
+`verify-foundation.sh` checks the result from outside: delegation via `dig` against a public
+resolver rather than off the console, both certificates issued in the region that consumes each,
+an alias (never a CNAME) at the apex, the SPA and its client-side routes over HTTPS, `/api/*`
+reaching the origin hostname with caching disabled and cookies forwarded, the network's two tiers
+routed the way their names claim, each security group admitting exactly one upstream, an image in
+ECR built for the architecture the task will run, and CloudFront sending the origin header the
+secret holds.
 
 ## The network, in one paragraph
 

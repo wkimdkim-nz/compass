@@ -142,10 +142,19 @@ service behind an ALB, at `financial-compass.dev`. It is described in Terraform 
 **foundation stack that persists** and an **app stack that is destroyed between work sessions** —
 the cost lever that makes the topology affordable (ADR 0009). Bring it up with
 [`infra/README.md`](infra/README.md), which is five commands: create the state bucket, `init`,
-`apply`, publish the SPA, push the image. Then check the result from outside — delegation with
-`dig` against a public resolver, both certificates in the region that consumes each, the apex on an
-alias rather than an illegal CNAME, the SPA over HTTPS, the security-group chain admitting exactly
-one upstream at each link, and an image in ECR built for the architecture the task will run:
+`apply`, publish the SPA, push the image. The image is the last of those and a step of its own: the
+deployed API runs from it, it is tagged with the commit it was built from, and the ECR repository
+it lands in has immutable tags. Pushing it deploys nothing — there is no auto-deploy-on-push for a
+standard ECS service:
+
+```bash
+scripts/push-image.sh
+```
+
+Then check the result from outside — delegation with `dig` against a public resolver, both
+certificates in the region that consumes each, the apex on an alias rather than an illegal CNAME,
+the SPA over HTTPS, the security-group chain admitting exactly one upstream at each link, and an
+image in ECR built for the architecture the task will run:
 
 ```bash
 scripts/verify-foundation.sh
@@ -154,15 +163,6 @@ scripts/verify-foundation.sh
 Until the app stack exists, `/api/*` returns an origin error. That is the DNS decoupling working,
 not a fault: CloudFront points at the *name* `api-origin.financial-compass.dev`, so the stack
 behind it can come and go without CloudFront's configuration ever changing.
-
-The image the deployed API runs from is pushed as its own step, tagged with the commit it was
-built from, into an ECR repository whose tags are immutable:
-
-```bash
-scripts/push-image.sh
-```
-
-Pushing an image deploys nothing — there is no auto-deploy-on-push for a standard ECS service.
 
 ## Tests
 

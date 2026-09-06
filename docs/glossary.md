@@ -108,9 +108,10 @@ differ from the past.
   domain" (there isn't one; see **Same-site cookie delivery**).
 - **Security-group chain** — The deployed network's access model: each security group admits
   exactly one upstream — the load balancer admits CloudFront's managed origin-facing prefix list,
-  the task admits the load balancer, the database admits the task — so no rule anywhere names a
-  CIDR (ADR 0009). It is what makes a *public-subnet* task safe, which ECS requires: a task with no
-  route out cannot start at all. _Avoid_: "the perimeter", "the firewall" — there is no single
+  the task admits the load balancer, the database admits the task — so no *ingress* rule anywhere
+  names a CIDR (ADR 0009). The only CIDR in the chain is the task's egress to `0.0.0.0/0`, which
+  has to be open: ECS requires a route out, and a task without one cannot start at all. The chain
+  is what makes that *public-subnet* task safe. _Avoid_: "the perimeter", "the firewall" — there is no single
   boundary, which is the point.
 - **Origin header** — The secret header CloudFront adds to every `/api/*` origin request, checked
   by the ALB's listener rule. The **security-group chain** admits CloudFront's *published, shared*

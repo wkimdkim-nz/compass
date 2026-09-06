@@ -15,9 +15,10 @@ resource "aws_ecr_repository" "api" {
 
   # Immutable tags are what make "a tag identifies exactly what is deployed" true rather than
   # conventional. With mutable tags, `compass-api:abc1234` is a pointer someone can move, so the
-  # tag recorded in a task definition stops being evidence of what actually ran. Re-pushing an
-  # identical image under its existing tag still succeeds; re-pushing *different* bytes is refused,
-  # which is the case worth refusing.
+  # tag recorded in a task definition stops being evidence of what actually ran. Any push naming a
+  # tag that already exists is refused — ECR checks the tag, not the digest, so identical bytes are
+  # refused too. `scripts/push-image.sh` checks first and says so in plain words, because ECR's
+  # own message is about a layer upload and never mentions immutability.
   image_tag_mutability = "IMMUTABLE"
 
   # Free basic scanning against the CVE database on every push. It reports rather than blocks.
@@ -35,8 +36,16 @@ resource "aws_ecr_repository" "api" {
 # Storage is cheap but unbounded: every build pushes a new layer set, and nothing removes the old
 # ones.
 #
+# A push is more than one manifest. `docker push` of a BuildKit image lands an index under the tag
+# and, beneath it, the per-architecture image and a provenance attestation as *untagged* entries —
+# three images in ECR's count for one tag. That is why the retention rule below counts tagged
+# images only: counted as manifests, "keep ten" would be crossed on the fourth push. The untagged
+# children are safe from the first rule too — ECR will not expire an image an index still
+# references until the index itself goes — so what it actually removes is residue from an
+# interrupted push.
+#
 # ⚠️ Neither rule knows what is deployed. ECR lifecycle policies cannot see ECS, so the tag a live
-# task definition names is expired like any other once ten newer images sit on top of it — and
+# task definition names is expired like any other once ten newer tags sit on top of it — and
 # because tags are immutable, it cannot simply be pushed back under the same name. Ten is chosen to
 # make that implausible rather than impossible: a work session pushes a handful of images, not
 # eleven. If the count is ever lowered, or deploys get far more frequent, this becomes a real edge.
@@ -49,7 +58,7 @@ resource "aws_ecr_lifecycle_policy" "api" {
     rules = [
       {
         rulePriority = 1
-        description  = "Untagged images are build residue: a re-push orphans the layers it replaced"
+        description  = "Untagged images no index references are residue from an interrupted push"
         selection = {
           tagStatus   = "untagged"
           countType   = "sinceImagePushed"
@@ -59,13 +68,14 @@ resource "aws_ecr_lifecycle_policy" "api" {
         action = { type = "expire" }
       },
       {
-        # `tagStatus = any` has to be the last rule; ECR rejects a policy where it is not.
+        # `tagged` requires a pattern, and `*` is every tag: commit hashes share no prefix.
         rulePriority = 2
-        description  = "Keep the last ten images, which is more history than a manual deploy needs"
+        description  = "Keep the last ten tags, which is more history than a manual deploy needs"
         selection = {
-          tagStatus   = "any"
-          countType   = "imageCountMoreThan"
-          countNumber = 10
+          tagStatus      = "tagged"
+          tagPatternList = ["*"]
+          countType      = "imageCountMoreThan"
+          countNumber    = 10
         }
         action = { type = "expire" }
       },

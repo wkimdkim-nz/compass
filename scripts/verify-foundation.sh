@@ -268,8 +268,9 @@ else
     fail "the VPC's subnets can be read" "describe-subnets failed"
   # The route tables decide what "public" and "private" actually mean — the tier names are only
   # tags — so a run that cannot read them must say so rather than report an isolated database it
-  # never checked. Fetched in one call and matched in jq, so a subnet with no association at all
-  # is visibly absent rather than indistinguishable from a failed lookup.
+  # never checked. Fetched in one call and resolved in jq the way AWS resolves them: a subnet with
+  # no association of its own routes through the VPC's main table, so that is the table it is
+  # judged by, rather than being counted as a subnet with no routes at all.
   elif ! route_tables="$(aws_read ec2 describe-route-tables --region "$REGION" \
     --filters "Name=vpc-id,Values=${vpc_id}" --output json)"; then
     fail "the VPC's route tables can be read" "describe-route-tables failed"
@@ -283,24 +284,34 @@ else
       fi
     done
 
-    # The default route each subnet's own table carries, or "" when it has none.
-    default_route_for() {
-      jq -r --arg subnet "$1" \
-        '[.RouteTables[] | select(.Associations[]?.SubnetId == $subnet)
-          | .Routes[] | select(.DestinationCidrBlock == "0.0.0.0/0") | .GatewayId] | join(",")' \
+    # Every route off the VPC in the table a subnet actually uses — its own, else the main table —
+    # as `destination->target`, one per line, or nothing when the only route is the VPC-local one.
+    # The target is read from whichever field carries it: an internet gateway sits in `GatewayId`,
+    # but a NAT gateway, a transit gateway, a peering connection and an instance each have a field
+    # of their own, and reading only the first would count every one of the others as no route.
+    routes_off_vpc() {
+      jq -r --arg subnet "$1" '
+        (first(.RouteTables[] | select(any(.Associations[]?; .SubnetId == $subnet)))
+          // first(.RouteTables[] | select(any(.Associations[]?; .Main == true))))
+        | .Routes[]? | select(.GatewayId != "local")
+        | "\(.DestinationCidrBlock // .DestinationIpv6CidrBlock // .DestinationPrefixListId)->\(
+            .GatewayId // .NatGatewayId // .TransitGatewayId // .VpcPeeringConnectionId
+            // .NetworkInterfaceId // .InstanceId // .EgressOnlyInternetGatewayId // "unknown")"' \
         <<<"$route_tables"
     }
-    public_out=0 private_out=0
+    public_out=0 private_out=0 private_leaks=""
     while read -r subnet_id; do
       [[ -n "$subnet_id" ]] || continue
-      if [[ "$(default_route_for "$subnet_id")" == igw-* ]]; then
+      if [[ $'\n'"$(routes_off_vpc "$subnet_id")"$'\n' == *$'\n'"0.0.0.0/0->igw-"* ]]; then
         public_out=$((public_out + 1))
       fi
     done < <(tier public SubnetId)
     while read -r subnet_id; do
       [[ -n "$subnet_id" ]] || continue
-      if [[ -n "$(default_route_for "$subnet_id")" ]]; then
+      leaks="$(routes_off_vpc "$subnet_id" | tr '\n' ' ')"
+      if [[ -n "$leaks" ]]; then
         private_out=$((private_out + 1))
+        private_leaks+="${subnet_id}: ${leaks% }; "
       fi
     done < <(tier private SubnetId)
 
@@ -311,9 +322,10 @@ else
         "${public_out} do — a Fargate task cannot pull its image, fetch its secret or start at all without one"
     fi
     if [[ "$private_out" -eq 0 ]]; then
-      pass "no private subnet has a route off the VPC"
+      pass "no private subnet has any route off the VPC"
     else
-      fail "no private subnet has a route off the VPC" "${private_out} do — the database tier is not isolated"
+      fail "no private subnet has any route off the VPC" \
+        "${private_out} do — the database tier is not isolated: ${private_leaks%; }"
     fi
   fi
 
@@ -341,12 +353,12 @@ group_json() {
     --query 'SecurityGroups[0]' --output json
 }
 
-# Exactly one ingress rule, on exactly the expected port, from exactly one source — `$4` being a
-# security group id or the literal `prefix-list`. "Exactly one" is the assertion, not a tidiness
+# Exactly one ingress rule, TCP, on exactly the expected port, from exactly one source — `$4` being
+# a security group id or the literal `prefix-list`. "Exactly one" is the assertion, not a tidiness
 # preference: a second source is the whole guarantee gone, whatever it happens to be.
 assert_sole_ingress() {
   local label="$1" json="$2" port="$3" expected="$4" consequence="$5"
-  local count rule admits sources only_source list_name
+  local count rule proto admits sources only_source list_name
 
   count="$(jq -r '.IpPermissions | length' <<<"$json")"
   if [[ "$count" != "1" ]]; then
@@ -355,6 +367,15 @@ assert_sole_ingress() {
   fi
 
   rule="$(jq -c '.IpPermissions[0]' <<<"$json")"
+
+  # Protocol before ports: `-1` (all traffic) carries no ports at all, and a UDP rule on the right
+  # port from the right source is still a rule the chain never asked for.
+  proto="$(jq -r '.IpProtocol' <<<"$rule")"
+  if [[ "$proto" != "tcp" ]]; then
+    fail "the ${label} group admits TCP only" "its rule's protocol is ${proto} — every link in the chain is a TCP connection"
+    return
+  fi
+
   admits="$(jq -r '"\(.FromPort)-\(.ToPort)"' <<<"$rule")"
   if [[ "$admits" != "${port}-${port}" ]]; then
     fail "the ${label} group admits port ${port} only" "it admits ${admits}"
@@ -417,47 +438,49 @@ fi
 step "10. ECR holds an image built for the architecture the task will run (catches: a task that never pulls)"
 # An existing but empty repository answers with `null` rather than failing, so both are the same
 # assertion: there is nothing here for a task definition to name.
+#
+# Untagged entries are filtered out *before* the sort, not after. A push lists more than one
+# manifest: the tagged index, and under it the per-architecture image and BuildKit's attestation as
+# untagged entries pushed a moment earlier — and an interrupted push leaves the same residue with no
+# index on top. None of those can be named in a task definition, so "the newest image" means the
+# newest one that has a tag.
 if ! newest="$(aws_read ecr describe-images --region "$REGION" --repository-name "$ECR_REPOSITORY" \
-  --query 'sort_by(imageDetails, &imagePushedAt)[-1]' --output json)" || [[ "$newest" == "null" ]]; then
+  --query 'sort_by(imageDetails[?imageTags], &imagePushedAt)[-1]' --output json)" || [[ "$newest" == "null" ]]; then
   fail "the ${ECR_REPOSITORY} repository holds a tagged image" \
-    "describe-images found none, or the repository does not exist"
+    "describe-images found no tagged image, or the repository does not exist"
 else
-  image_tag="$(jq -r '.imageTags[0] // empty' <<<"$newest")"
-  if [[ -z "$image_tag" ]]; then
-    fail "the newest image is tagged" "an untagged image cannot be named in a task definition"
-  else
-    pass "${ECR_REPOSITORY}:${image_tag} was pushed $(jq -r '.imagePushedAt' <<<"$newest")"
+  image_tag="$(jq -r '.imageTags[0]' <<<"$newest")"
+  pass "${ECR_REPOSITORY}:${image_tag} was pushed $(jq -r '.imagePushedAt' <<<"$newest")"
 
-    # The architecture lives in the image's config blob, not in its manifest, so a single-platform
-    # push takes a presigned fetch to read. An index carries it inline instead.
-    #
-    # ⚠️ BuildKit attaches provenance and SBOM attestations to the index as extra manifests whose
-    # platform is literally `unknown/unknown`. They are not images and nothing ever pulls them, so
-    # they are filtered out here — left in, a perfectly good arm64 image reports "arm64,unknown".
-    manifest="$(aws_read ecr batch-get-image --region "$REGION" --repository-name "$ECR_REPOSITORY" \
-      --image-ids "imageDigest=$(jq -r '.imageDigest' <<<"$newest")" \
-      --query 'images[0].imageManifest' --output text)" || manifest=""
-    arches=""
-    if [[ -n "$manifest" ]]; then
-      arches="$(jq -r '[.manifests[]? | select(.platform.architecture != "unknown" and .platform.os != "unknown")
-        | .platform.architecture] | unique | join(" ")' <<<"$manifest" 2>/dev/null || true)"
-      if [[ -z "$arches" ]]; then
-        config_digest="$(jq -r '.config.digest // empty' <<<"$manifest" 2>/dev/null || true)"
-        if [[ -n "$config_digest" ]] && config_url="$(aws_read ecr get-download-url-for-layer \
-          --region "$REGION" --repository-name "$ECR_REPOSITORY" --layer-digest "$config_digest" \
-          --query downloadUrl --output text)"; then
-          arches="$(curl -sS --max-time 20 "$config_url" | jq -r '.architecture // empty' || true)"
-        fi
+  # The architecture lives in the image's config blob, not in its manifest, so a single-platform
+  # push takes a presigned fetch to read. An index carries it inline instead.
+  #
+  # ⚠️ BuildKit attaches provenance and SBOM attestations to the index as extra manifests whose
+  # platform is literally `unknown/unknown`. They are not images and nothing ever pulls them, so
+  # they are filtered out here — left in, a perfectly good arm64 image reports "arm64,unknown".
+  manifest="$(aws_read ecr batch-get-image --region "$REGION" --repository-name "$ECR_REPOSITORY" \
+    --image-ids "imageDigest=$(jq -r '.imageDigest' <<<"$newest")" \
+    --query 'images[0].imageManifest' --output text)" || manifest=""
+  arches=""
+  if [[ -n "$manifest" ]]; then
+    arches="$(jq -r '[.manifests[]? | select(.platform.architecture != "unknown" and .platform.os != "unknown")
+      | .platform.architecture] | unique | join(" ")' <<<"$manifest" 2>/dev/null || true)"
+    if [[ -z "$arches" ]]; then
+      config_digest="$(jq -r '.config.digest // empty' <<<"$manifest" 2>/dev/null || true)"
+      if [[ -n "$config_digest" ]] && config_url="$(aws_read ecr get-download-url-for-layer \
+        --region "$REGION" --repository-name "$ECR_REPOSITORY" --layer-digest "$config_digest" \
+        --query downloadUrl --output text)"; then
+        arches="$(curl -sS --max-time 20 "$config_url" | jq -r '.architecture // empty' || true)"
       fi
     fi
-    # Membership, not equality: what decides whether the task can pull is whether the expected
-    # architecture is *offered*. A deliberately multi-arch push is not a fault.
-    if [[ " ${arches} " == *" ${EXPECTED_ARCH} "* ]]; then
-      pass "the image offers ${EXPECTED_ARCH} (manifest: ${arches})"
-    else
-      fail "the image offers ${EXPECTED_ARCH}" \
-        "it offers '${arches:-unreadable}' — the task definition's cpu_architecture must match one of these, or the pull fails with no application log"
-    fi
+  fi
+  # Membership, not equality: what decides whether the task can pull is whether the expected
+  # architecture is *offered*. A deliberately multi-arch push is not a fault.
+  if [[ " ${arches} " == *" ${EXPECTED_ARCH} "* ]]; then
+    pass "the image offers ${EXPECTED_ARCH} (manifest: ${arches})"
+  else
+    fail "the image offers ${EXPECTED_ARCH}" \
+      "it offers '${arches:-unreadable}' — the task definition's cpu_architecture must match one of these, or the pull fails with no application log"
   fi
 fi
 
