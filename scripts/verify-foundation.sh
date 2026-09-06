@@ -28,12 +28,42 @@ CONTAINER_PORT=8080
 DATABASE_PORT=5432
 
 workdir="$(mktemp -d)"
-trap 'rm -rf "$workdir"' EXIT
+session_note="${workdir}/session-unusable"
+
+# The last word on an unusable session, for the paths that reach the end without passing through
+# `fail` — and the guarantee that such a run never exits 0 or 1, which would read as a verdict.
+on_exit() {
+  local status=$?
+  if [[ -s "$session_note" ]]; then
+    report_unusable_session
+    status=2
+  fi
+  rm -rf "$workdir"
+  exit "$status"
+}
+trap on_exit EXIT
+
+# One-shot: `fail` aborts through here, and the exit trap then finds nothing left to say.
+report_unusable_session() {
+  printf '\n\033[31mThe AWS session is not usable:\033[0m %s\n' "$(cat "$session_note")" >&2
+  printf 'Re-authenticate and run again — the assertions below it would all fail as absent.\n' >&2
+  rm -f "$session_note"
+}
 
 failures=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
-fail() { printf '  \033[31mFAIL\033[0m  %s\n         %s\n' "$1" "${2:-}"; failures=$((failures + 1)); }
 step() { printf '\n%s\n' "$1"; }
+
+# Always the parent shell, and always the first thing a failed read reaches — which is what makes
+# it the place an unusable session becomes an abort rather than the first of forty false failures.
+fail() {
+  if [[ -s "$session_note" ]]; then
+    report_unusable_session
+    exit 2
+  fi
+  printf '  \033[31mFAIL\033[0m  %s\n         %s\n' "$1" "${2:-}"
+  failures=$((failures + 1))
+}
 
 for cmd in curl dig jq aws; do
   command -v "$cmd" >/dev/null || { echo "missing required command: $cmd" >&2; exit 2; }
@@ -46,17 +76,20 @@ done
 # ⚠️ An **expired session** is the exception, and it has to be, because it is indistinguishable
 # from absence otherwise: every remaining assertion fails at once and the report reads as an
 # infrastructure that has vanished. It is a precondition of the run rather than a fact about the
-# world, so it aborts with the same exit code as a missing command. Anything else keeps the
-# original behaviour and becomes a named failure.
+# world, so it aborts with the same exit code as a missing command.
+#
+# It cannot abort from here, though. Nearly every caller captures the value through `$(...)`, so
+# this function is running in a subshell, where `exit` sets the substitution's status and nothing
+# more — the caller reads it as an ordinary failed read and carries on, which is the exact failure
+# this branch exists to prevent. So it leaves the reason in a file and returns like any other
+# failure; `fail` and the exit trap, both of which do run in the parent, act on it. Anything else
+# keeps the original behaviour and becomes a named failure.
 aws_read() {
   local value stderr
   stderr="$(mktemp)"
   if ! value="$(aws "$@" 2>"$stderr")"; then
     if grep -qiE 'expired|invalid.*(token|grant)|credential' "$stderr"; then
-      printf '\n\033[31mThe AWS session is not usable:\033[0m %s\n' "$(tr -d '\n' <"$stderr" | cut -c1-200)" >&2
-      printf 'Re-authenticate and run again — the assertions below it would all fail as absent.\n' >&2
-      rm -f "$stderr"
-      exit 2
+      tr -d '\n' <"$stderr" | cut -c1-200 >"$session_note"
     fi
     rm -f "$stderr"
     return 1
@@ -289,6 +322,11 @@ else
     # The target is read from whichever field carries it: an internet gateway sits in `GatewayId`,
     # but a NAT gateway, a transit gateway, a peering connection and an instance each have a field
     # of their own, and reading only the first would count every one of the others as no route.
+    #
+    # A route whose target has been detached or deleted stays in the table as `blackhole`, still
+    # naming the gateway it can no longer reach. It is written out with that state attached, which
+    # is what keeps the two tiers reading it correctly: for the public tier it is not egress, and
+    # for the private tier it is still a rule somebody added and worth naming.
     routes_off_vpc() {
       jq -r --arg subnet "$1" '
         (first(.RouteTables[] | select(any(.Associations[]?; .SubnetId == $subnet)))
@@ -296,13 +334,15 @@ else
         | .Routes[]? | select(.GatewayId != "local")
         | "\(.DestinationCidrBlock // .DestinationIpv6CidrBlock // .DestinationPrefixListId)->\(
             .GatewayId // .NatGatewayId // .TransitGatewayId // .VpcPeeringConnectionId
-            // .NetworkInterfaceId // .InstanceId // .EgressOnlyInternetGatewayId // "unknown")"' \
+            // .NetworkInterfaceId // .InstanceId // .EgressOnlyInternetGatewayId // "unknown")\(
+            if .State == "active" then "" else " (\(.State // "unknown"))" end)"' \
         <<<"$route_tables"
     }
     public_out=0 private_out=0 private_leaks=""
     while read -r subnet_id; do
       [[ -n "$subnet_id" ]] || continue
-      if [[ $'\n'"$(routes_off_vpc "$subnet_id")"$'\n' == *$'\n'"0.0.0.0/0->igw-"* ]]; then
+      # Whole-line, so a blackholed gateway — which carries the state as a suffix — does not match.
+      if routes_off_vpc "$subnet_id" | grep -qx '0\.0\.0\.0/0->igw-[a-z0-9]\{1,\}'; then
         public_out=$((public_out + 1))
       fi
     done < <(tier public SubnetId)
@@ -319,7 +359,7 @@ else
       pass "both public subnets route 0.0.0.0/0 to an internet gateway"
     else
       fail "both public subnets route 0.0.0.0/0 to an internet gateway" \
-        "${public_out} do — a Fargate task cannot pull its image, fetch its secret or start at all without one"
+        "${public_out} do with a live gateway — a Fargate task cannot pull its image, fetch its secret or start at all without one"
     fi
     if [[ "$private_out" -eq 0 ]]; then
       pass "no private subnet has any route off the VPC"
