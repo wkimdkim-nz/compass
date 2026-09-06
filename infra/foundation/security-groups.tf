@@ -16,6 +16,13 @@
 # make the load balancer's group depend on the task's *and* the task's on the load balancer's,
 # which is a dependency cycle Terraform cannot plan. Split out, the groups reference nothing and
 # the rules reference the groups.
+#
+# ⚠️ Every `description` below is plain ASCII, and deliberately. EC2 accepts only
+# `a-zA-Z0-9. _-:/()#,@[]+=&;{}!$*` in a security group or rule description — no em dash and, less
+# obviously, **no apostrophe**, so "CloudFront's" is rejected where "the CloudFront" is fine. It
+# validates nowhere but at `CreateSecurityGroup`, so the house comment style above the resources
+# costs nothing and the same words inside a description fail the apply. The comments elsewhere in
+# this repo are not held to this; only these strings are.
 
 locals {
   # The port the container image already defaults to, restated here because the target group will
@@ -37,7 +44,7 @@ data "aws_ec2_managed_prefix_list" "cloudfront_origin_facing" {
 
 resource "aws_security_group" "alb" {
   name        = "compass-alb"
-  description = "The load balancer: admits CloudFront's origin-facing ranges, reaches only the task"
+  description = "The load balancer: admits the CloudFront origin-facing ranges, reaches only the task"
   vpc_id      = aws_vpc.compass.id
 
   tags = { Name = "compass-alb" }
@@ -65,7 +72,7 @@ resource "aws_security_group" "database" {
 # and a plaintext listener would be a second door putting the session cookie on the wire.
 resource "aws_vpc_security_group_ingress_rule" "alb_from_cloudfront" {
   security_group_id = aws_security_group.alb.id
-  description       = "HTTPS from CloudFront's origin-facing ranges only"
+  description       = "HTTPS from the CloudFront origin-facing prefix list only"
 
   ip_protocol    = "tcp"
   from_port      = 443
@@ -112,7 +119,7 @@ resource "aws_vpc_security_group_egress_rule" "task_to_internet" {
 
 resource "aws_vpc_security_group_ingress_rule" "database_from_task" {
   security_group_id = aws_security_group.database.id
-  description       = "Postgres from the task only — the migration task uses this same group"
+  description       = "Postgres from the task only. The migration task uses this same group"
 
   ip_protocol                  = "tcp"
   from_port                    = local.database_port

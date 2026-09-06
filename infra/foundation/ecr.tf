@@ -49,7 +49,7 @@ resource "aws_ecr_lifecycle_policy" "api" {
     rules = [
       {
         rulePriority = 1
-        description  = "Untagged images are build residue — a re-push orphans the layers it replaced"
+        description  = "Untagged images are build residue: a re-push orphans the layers it replaced"
         selection = {
           tagStatus   = "untagged"
           countType   = "sinceImagePushed"
