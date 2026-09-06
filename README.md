@@ -109,10 +109,12 @@ are non-negotiable is recorded in that file.
 ### Running the image against the local Postgres
 
 Point it at the Compose Postgres from step 1 and hand it the credentials the way ECS does. Run it
-as `Development` so the session cookie is not `Secure`-only, since this is plain HTTP:
+as `Development` so the session cookie is not `Secure`-only, since this is plain HTTP. Docker
+Desktop resolves `host.docker.internal` on its own, but Docker Engine on Linux does not, so
+`--add-host` maps it explicitly and the same command then works on both:
 
 ```bash
-docker run --rm -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Development -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api
+docker run --rm -p 8080:8080 --add-host host.docker.internal:host-gateway -e ASPNETCORE_ENVIRONMENT=Development -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api
 ```
 
 The API is then on <http://localhost:8080> — register, log in, and round-trip a note exactly as
@@ -126,7 +128,7 @@ executable, which production runs as a one-off task with a `command` override. I
 configuration the app does, so it takes its credentials the same split way:
 
 ```bash
-docker run --rm -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api ./efbundle
+docker run --rm --add-host host.docker.internal:host-gateway -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api ./efbundle
 ```
 
 Migrations are still never applied on application startup.
