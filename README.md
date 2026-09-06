@@ -13,6 +13,7 @@ for the decisions the code below implements.
 |---|---|
 | `api/` | .NET 10 Web API (`Compass.Api`, minimal APIs) plus its xUnit integration tests. SDK pinned in `global.json`, `dotnet-ef` pinned in `.config/dotnet-tools.json`. |
 | `web/` | Vite + React + TypeScript SPA with Redux Toolkit / RTK Query. Node version pinned in `.nvmrc`. |
+| `api/Dockerfile` | The runtime image ECS runs in production, carrying the app and a migration bundle. |
 | `docker-compose.yml` | Local Postgres 18. |
 
 ## Running it locally
@@ -62,6 +63,72 @@ Production supplies its own through the normal configuration chain.
 
 To throw the database away: `docker compose down -v`.
 
+## The container image
+
+Production runs the API from a container image on ECS ([#28](https://github.com/wkimdkim-nz/compass/issues/28)),
+not from `dotnet run`. Nothing above changes: the image is a second way to run the same code, and
+the local loop is still the SDK.
+
+```bash
+docker build -t compass-api api
+```
+
+Three things about the image are load-bearing in the deployed stack and invisible from the AWS end:
+
+- **It listens on 8080**, the port the .NET runtime image already defaults to, and nothing
+  overrides it. The load balancer's target group depends silently on that number.
+- **It registers no HTTPS redirection.** The load balancer reaches the task over plain HTTP, so a
+  redirect would bounce every health check into a 307 loop.
+- **The app is the image's `CMD`, not its `ENTRYPOINT`**, so a `command` override replaces it
+  outright. That is how the migration task runs (below).
+
+`GET /api/health` answers 200 without opening a database connection — shallow on purpose, because a
+deep check turns a database fault into an endless kill-and-replace loop and makes the migration
+race unrecoverable.
+
+### How it takes its database credentials
+
+RDS owns the master password, so it exists only as a two-key Secrets Manager secret and never
+enters Terraform state. The task therefore receives its credentials in three pieces, and the app
+joins them at startup through **one unconditional code path** —
+[`DatabaseConnectionString`](api/Compass.Api/Data/DatabaseConnectionString.cs), which overlays the
+two onto the connection string when they are present and ignores them when they are not:
+
+| Variable | In production | Locally |
+|---|---|---|
+| `ConnectionStrings__Default` | The non-secret half: host, port, database, `Trust Server Certificate=true`, `Maximum Pool Size=20` | The whole string, credentials included, from `appsettings.Development.json` |
+| `DB_USERNAME` | Injected from the RDS-managed secret's `username` key | Absent |
+| `DB_PASSWORD` | Injected from its `password` key | Absent |
+
+Production is not a branch: the overlay tests for *presence*, never for environment, so the code
+that runs in production is the code the tests exercise. Why those two connection-string settings
+are non-negotiable is recorded in that file.
+
+### Running the image against the local Postgres
+
+Point it at the Compose Postgres from step 1 and hand it the credentials the way ECS does. Run it
+as `Development` so the session cookie is not `Secure`-only, since this is plain HTTP:
+
+```bash
+docker run --rm -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Development -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api
+```
+
+The API is then on <http://localhost:8080> — register, log in, and round-trip a note exactly as
+against `dotnet run`.
+
+### Running migrations from the image
+
+`dotnet ef database update` needs the SDK and the sources, and the runtime image has neither. The
+image therefore also carries **`efbundle`**, the committed migrations compiled into a standalone
+executable, which production runs as a one-off task with a `command` override. It reads the same
+configuration the app does, so it takes its credentials the same split way:
+
+```bash
+docker run --rm -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api ./efbundle
+```
+
+Migrations are still never applied on application startup.
+
 ## Tests
 
 Two seams, one command each. Neither shares state between tests, and neither uses an in-memory
@@ -92,6 +159,7 @@ All under `/api`, JSON bodies only, ProblemDetails on every error.
 
 | Endpoint | Success | Notes |
 |---|---|---|
+| `GET /api/health` | 200, empty | The load balancer's check. Anonymous, and deliberately shallow — it never touches the database. |
 | `POST /api/auth/register` | 201, `{ id, email }` | Signs the new user in. Password: at least 8 characters, no composition rules. Field errors under `errors` (keyed `email`, `password`, or `general`). |
 | `POST /api/auth/login` | 200, `{ id, email }` | Any failure is the same generic 401. Repeated failures lock the account. |
 | `POST /api/auth/logout` | 204 | Ends the session on the server. 401 when there is no session to end. |

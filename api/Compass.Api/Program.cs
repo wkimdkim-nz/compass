@@ -1,6 +1,7 @@
 using Compass.Api;
 using Compass.Api.Auth;
 using Compass.Api.Data;
+using Compass.Api.Health;
 using Compass.Api.Notes;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -9,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+    options.UseNpgsql(DatabaseConnectionString.Resolve(builder.Configuration))
            .UseSnakeCaseNamingConvention());
 
 // The key ring that encrypts the session cookie lives in the same database as the users, in
@@ -71,12 +72,18 @@ builder.Services.AddProblemDetails(options =>
 
 var app = builder.Build();
 
+// Deliberately absent: UseHttpsRedirection(). In production CloudFront terminates TLS and the load
+// balancer reaches the task over plain HTTP, so a redirect here would bounce every health check
+// into a 307 loop and the service would never come up. The session cookie is unaffected —
+// CookieSecurePolicy.Always does not consult the request's scheme.
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHealthEndpoints();
 app.MapAuthEndpoints();
 app.MapNoteEndpoints();
 
