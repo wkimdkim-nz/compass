@@ -33,8 +33,15 @@ resource "aws_ecr_repository" "api" {
 }
 
 # Storage is cheap but unbounded: every build pushes a new layer set, and nothing removes the old
-# ones. Both rules expire images; neither can touch what a running task references, because a tag
-# in use is one of the most recent ten by definition.
+# ones.
+#
+# ⚠️ Neither rule knows what is deployed. ECR lifecycle policies cannot see ECS, so the tag a live
+# task definition names is expired like any other once ten newer images sit on top of it — and
+# because tags are immutable, it cannot simply be pushed back under the same name. Ten is chosen to
+# make that implausible rather than impossible: a work session pushes a handful of images, not
+# eleven. If the count is ever lowered, or deploys get far more frequent, this becomes a real edge.
+# Recovering from it means re-tagging from the commit the tag names, which is exactly why the tag
+# is a commit.
 resource "aws_ecr_lifecycle_policy" "api" {
   repository = aws_ecr_repository.api.name
 

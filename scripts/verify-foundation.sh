@@ -7,7 +7,8 @@
 # check the world rather than the plan, which is also why delegation is confirmed by asking the
 # `.dev` registry directly rather than by reading the console.
 #
-# Needs: curl, dig, jq, and an AWS session that can read Route 53, ACM and CloudFront.
+# Needs: curl, dig, jq, and an AWS session that can read Route 53, ACM, CloudFront, EC2, RDS, ECR
+# and Secrets Manager. Every one of those is a *read*; the script creates and changes nothing.
 #
 # Usage: scripts/verify-foundation.sh [domain]
 set -euo pipefail
@@ -238,59 +239,65 @@ if ! vpc_id="$(aws_read ec2 describe-vpcs --region "$REGION" \
 else
   pass "VPC ${vpc_id} exists"
 
-  subnets="$(aws_read ec2 describe-subnets --region "$REGION" \
-    --filters "Name=vpc-id,Values=${vpc_id}" --output json)" || subnets='{"Subnets":[]}'
-  tier_azs() {
-    jq -r --arg prefix "compass-$1-" \
-      '[.Subnets[] | select((.Tags[]? | select(.Key == "Name") | .Value) | startswith($prefix)) | .AvailabilityZone] | unique | join(" ")' \
-      <<<"$subnets"
-  }
-  tier_ids() {
-    jq -r --arg prefix "compass-$1-" \
-      '[.Subnets[] | select((.Tags[]? | select(.Key == "Name") | .Value) | startswith($prefix)) | .SubnetId] | .[]' \
+  # `field` picks what to project; the tag prefix is what says which tier a subnet is in.
+  tier() {
+    jq -r --arg prefix "compass-$1-" --arg field "$2" \
+      '[.Subnets[] | select((.Tags[]? | select(.Key == "Name") | .Value) | startswith($prefix)) | .[$field]] | unique | .[]' \
       <<<"$subnets"
   }
 
-  for tier in public private; do
-    azs="$(tier_azs "$tier")"
-    if [[ "$(wc -w <<<"$azs")" -ge 2 ]]; then
-      pass "the ${tier} tier spans two availability zones (${azs})"
+  if ! subnets="$(aws_read ec2 describe-subnets --region "$REGION" \
+    --filters "Name=vpc-id,Values=${vpc_id}" --output json)"; then
+    fail "the VPC's subnets can be read" "describe-subnets failed"
+  # The route tables decide what "public" and "private" actually mean — the tier names are only
+  # tags — so a run that cannot read them must say so rather than report an isolated database it
+  # never checked. Fetched in one call and matched in jq, so a subnet with no association at all
+  # is visibly absent rather than indistinguishable from a failed lookup.
+  elif ! route_tables="$(aws_read ec2 describe-route-tables --region "$REGION" \
+    --filters "Name=vpc-id,Values=${vpc_id}" --output json)"; then
+    fail "the VPC's route tables can be read" "describe-route-tables failed"
+  else
+    for name in public private; do
+      azs="$(tier "$name" AvailabilityZone | tr '\n' ' ')"
+      if [[ "$(wc -w <<<"$azs")" -ge 2 ]]; then
+        pass "the ${name} tier spans two availability zones (${azs% })"
+      else
+        fail "the ${name} tier spans two availability zones" "found: ${azs:-none}"
+      fi
+    done
+
+    # The default route each subnet's own table carries, or "" when it has none.
+    default_route_for() {
+      jq -r --arg subnet "$1" \
+        '[.RouteTables[] | select(.Associations[]?.SubnetId == $subnet)
+          | .Routes[] | select(.DestinationCidrBlock == "0.0.0.0/0") | .GatewayId] | join(",")' \
+        <<<"$route_tables"
+    }
+    public_out=0 private_out=0
+    while read -r subnet_id; do
+      [[ -n "$subnet_id" ]] || continue
+      if [[ "$(default_route_for "$subnet_id")" == igw-* ]]; then
+        public_out=$((public_out + 1))
+      fi
+    done < <(tier public SubnetId)
+    while read -r subnet_id; do
+      [[ -n "$subnet_id" ]] || continue
+      if [[ -n "$(default_route_for "$subnet_id")" ]]; then
+        private_out=$((private_out + 1))
+      fi
+    done < <(tier private SubnetId)
+
+    if [[ "$public_out" -ge 2 ]]; then
+      pass "both public subnets route 0.0.0.0/0 to an internet gateway"
     else
-      fail "the ${tier} tier spans two availability zones" "found: ${azs:-none}"
+      fail "both public subnets route 0.0.0.0/0 to an internet gateway" \
+        "${public_out} do — a Fargate task cannot pull its image, fetch its secret or start at all without one"
     fi
-  done
-
-  # Asked of each subnet's own route table, because "public" and "private" are names on a tag and
-  # the routing is the thing that makes them true.
-  routes_for() {
-    aws ec2 describe-route-tables --region "$REGION" \
-      --filters "Name=association.subnet-id,Values=$1" \
-      --query 'RouteTables[0].Routes[?DestinationCidrBlock==`0.0.0.0/0`].GatewayId' --output text 2>/dev/null
-  }
-  public_out=0 private_out=0
-  while read -r subnet_id; do
-    [[ -n "$subnet_id" ]] || continue
-    if [[ "$(routes_for "$subnet_id")" == igw-* ]]; then
-      public_out=$((public_out + 1))
+    if [[ "$private_out" -eq 0 ]]; then
+      pass "no private subnet has a route off the VPC"
+    else
+      fail "no private subnet has a route off the VPC" "${private_out} do — the database tier is not isolated"
     fi
-  done < <(tier_ids public)
-  while read -r subnet_id; do
-    [[ -n "$subnet_id" ]] || continue
-    if [[ -n "$(routes_for "$subnet_id")" ]]; then
-      private_out=$((private_out + 1))
-    fi
-  done < <(tier_ids private)
-
-  if [[ "$public_out" -ge 2 ]]; then
-    pass "both public subnets route 0.0.0.0/0 to an internet gateway"
-  else
-    fail "both public subnets route 0.0.0.0/0 to an internet gateway" \
-      "${public_out} do — a Fargate task cannot pull its image, fetch its secret or start at all without one"
-  fi
-  if [[ "$private_out" -eq 0 ]]; then
-    pass "no private subnet has a route off the VPC"
-  else
-    fail "no private subnet has a route off the VPC" "${private_out} do — the database tier is not isolated"
   fi
 
   if group_azs="$(aws_read rds describe-db-subnet-groups --region "$REGION" \
@@ -322,7 +329,7 @@ group_json() {
 # preference: a second source is the whole guarantee gone, whatever it happens to be.
 assert_sole_ingress() {
   local label="$1" json="$2" port="$3" expected="$4" consequence="$5"
-  local count rule sources source list_name
+  local count rule admits sources only_source list_name
 
   count="$(jq -r '.IpPermissions | length' <<<"$json")"
   if [[ "$count" != "1" ]]; then
@@ -331,36 +338,35 @@ assert_sole_ingress() {
   fi
 
   rule="$(jq -c '.IpPermissions[0]' <<<"$json")"
-  if [[ "$(jq -r '"\(.FromPort)-\(.ToPort)"' <<<"$rule")" != "${port}-${port}" ]]; then
-    fail "the ${label} group admits port ${port} only" \
-      "it admits $(jq -r '"\(.FromPort)-\(.ToPort)"' <<<"$rule")"
+  admits="$(jq -r '"\(.FromPort)-\(.ToPort)"' <<<"$rule")"
+  if [[ "$admits" != "${port}-${port}" ]]; then
+    fail "the ${label} group admits port ${port} only" "it admits ${admits}"
     return
   fi
 
   # Every source, from all four lists, flattened — so a CIDR sitting alongside the expected group
   # is a failure rather than something the next line looks past.
   sources="$(jq -r '[.IpRanges[].CidrIp, .Ipv6Ranges[].CidrIpv6, .PrefixListIds[].PrefixListId, .UserIdGroupPairs[].GroupId] | join(",")' <<<"$rule")"
-  if [[ "$sources" != *,* && -n "$sources" ]]; then
-    source="$sources"
-  else
+  if [[ -z "$sources" || "$sources" == *,* ]]; then
     fail "the ${label} group admits exactly one source on ${port}" \
       "it admits ${sources:-nothing} — ${consequence}"
     return
   fi
+  only_source="$sources"
 
   if [[ "$expected" == "prefix-list" ]]; then
     list_name="$(aws_read ec2 describe-managed-prefix-lists --region "$REGION" \
-      --prefix-list-ids "$source" --query 'PrefixLists[0].PrefixListName' --output text)" || list_name=""
+      --prefix-list-ids "$only_source" --query 'PrefixLists[0].PrefixListName' --output text)" || list_name=""
     if [[ "$list_name" == "com.amazonaws.global.cloudfront.origin-facing" ]]; then
       pass "the ${label} group admits ${list_name} on ${port}, and nothing else"
     else
       fail "the ${label} group admits CloudFront's origin-facing prefix list on ${port}" \
-        "it admits ${list_name:-$source} — ${consequence}"
+        "it admits ${list_name:-$only_source} — ${consequence}"
     fi
-  elif [[ "$source" == "$expected" ]]; then
+  elif [[ "$only_source" == "$expected" ]]; then
     pass "the ${label} group admits ${expected} on ${port}, and nothing else"
   else
-    fail "the ${label} group admits ${expected} on ${port}" "it admits ${source} — ${consequence}"
+    fail "the ${label} group admits ${expected} on ${port}" "it admits ${only_source} — ${consequence}"
   fi
 }
 
@@ -380,11 +386,12 @@ else
 
   # A database never opens a connection of its own, so egress here is always something added
   # rather than something needed.
-  if [[ "$(jq -r '.IpPermissionsEgress | length' <<<"$db_json")" == "0" ]]; then
+  db_egress="$(jq -r '.IpPermissionsEgress | length' <<<"$db_json")"
+  if [[ "$db_egress" == "0" ]]; then
     pass "the database group initiates nothing outbound"
   else
     fail "the database group initiates nothing outbound" \
-      "it has $(jq -r '.IpPermissionsEgress | length' <<<"$db_json") egress rule(s), which nothing in the design needs"
+      "it has ${db_egress} egress rule(s), which nothing in the design needs"
   fi
 fi
 

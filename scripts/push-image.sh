@@ -51,12 +51,20 @@ fi
 
 image="${repository}:${tag}"
 
+# Empty when the tag holds nothing, so the same call answers both "is this taken?" before the push
+# and "what did I just push?" after it.
+digest_of() {
+  local digest
+  digest="$(aws ecr describe-images --region "$region" \
+    --repository-name "$repository_name" --image-ids "imageTag=$1" \
+    --query 'imageDetails[0].imageDigest' --output text 2>/dev/null)" || return 0
+  [[ "$digest" == "None" ]] || printf '%s' "$digest"
+}
+
 # Tags are immutable in this repository, so a second push of *different* bytes under an existing
 # tag is refused by ECR — with a message about layer uploads that does not mention immutability.
 # Catching it here says what actually happened.
-if existing="$(aws ecr describe-images --region "$region" \
-  --repository-name "$repository_name" --image-ids "imageTag=${tag}" \
-  --query 'imageDetails[0].imageDigest' --output text 2>/dev/null)" && [[ -n "$existing" && "$existing" != "None" ]]; then
+if existing="$(digest_of "$tag")" && [[ -n "$existing" ]]; then
   echo "${image} already exists (${existing})."
   echo "Tags are immutable: commit your change and push under its own tag."
   exit 1
@@ -71,9 +79,7 @@ aws ecr get-login-password --region "$region" | docker login --username AWS --pa
 echo "Pushing ${image}..."
 docker push "$image"
 
-digest="$(aws ecr describe-images --region "$region" \
-  --repository-name "$repository_name" --image-ids "imageTag=${tag}" \
-  --query 'imageDetails[0].imageDigest' --output text)"
+digest="$(digest_of "$tag")"
 
 echo
 echo "Pushed. Nothing is deployed — the app stack names this image and rolls the service."
