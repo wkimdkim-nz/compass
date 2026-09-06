@@ -33,6 +33,14 @@ RUN dotnet publish Compass.Api/Compass.Api.csproj -a "$TARGETARCH" -c Release --
 # the SDK nor the sources, because the runtime image has neither. `dotnet ef database update` — the
 # local command — is not available there. Framework-dependent, so it runs on the runtime image's
 # shared framework. `dotnet ef` is the version pinned in .config/dotnet-tools.json, not a global.
+#
+# Generating the bundle builds the app and resolves AppDbContext, so DatabaseConnectionString.Resolve
+# runs here and throws unless a connection string is configured — even though nothing connects to a
+# database while bundling. `dotnet ef` runs the app as Development, so appsettings.Development.json,
+# copied in above, is what satisfies it. That makes the file load-bearing at build time: keep it out
+# of .dockerignore, however much dev configuration in a production image looks like something to
+# prune. Excluded, this step fails with a message about finding 'DbContext' types that never
+# mentions the file that went missing.
 RUN dotnet tool restore \
  && dotnet ef migrations bundle \
       --project Compass.Api/Compass.Api.csproj \
