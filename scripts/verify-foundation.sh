@@ -7,7 +7,8 @@
 # check the world rather than the plan, which is also why delegation is confirmed by asking the
 # `.dev` registry directly rather than by reading the console.
 #
-# Needs: curl, dig, jq, and an AWS session that can read Route 53, ACM and CloudFront.
+# Needs: curl, dig, jq, and an AWS session that can read Route 53, ACM, CloudFront, EC2, RDS, ECR
+# and Secrets Manager. Every one of those is a *read*; the script creates and changes nothing.
 #
 # Usage: scripts/verify-foundation.sh [domain]
 set -euo pipefail
@@ -15,14 +16,54 @@ set -euo pipefail
 DOMAIN="${1:-financial-compass.dev}"
 ORIGIN_HOSTNAME="api-origin.${DOMAIN}"
 RESOLVER="${RESOLVER:-8.8.8.8}"
+REGION="${REGION:-ap-southeast-2}"
+
+# What `scripts/push-image.sh` builds, and what the app stack's task definition must therefore
+# declare as its `cpu_architecture`.
+EXPECTED_ARCH="${EXPECTED_ARCH:-arm64}"
+
+ECR_REPOSITORY="compass-api"
+ORIGIN_SECRET_NAME="compass/cloudfront-origin-header"
+CONTAINER_PORT=8080
+DATABASE_PORT=5432
 
 workdir="$(mktemp -d)"
-trap 'rm -rf "$workdir"' EXIT
+session_note="${workdir}/session-unusable"
+
+# The last word on an unusable session, for the paths that reach the end without passing through
+# `fail` — and the guarantee that such a run never exits 0 or 1, which would read as a verdict.
+on_exit() {
+  local status=$?
+  if [[ -s "$session_note" ]]; then
+    report_unusable_session
+    status=2
+  fi
+  rm -rf "$workdir"
+  exit "$status"
+}
+trap on_exit EXIT
+
+# One-shot: `fail` aborts through here, and the exit trap then finds nothing left to say.
+report_unusable_session() {
+  printf '\n\033[31mThe AWS session is not usable:\033[0m %s\n' "$(cat "$session_note")" >&2
+  printf 'Re-authenticate and run again — the assertions below it would all fail as absent.\n' >&2
+  rm -f "$session_note"
+}
 
 failures=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
-fail() { printf '  \033[31mFAIL\033[0m  %s\n         %s\n' "$1" "${2:-}"; failures=$((failures + 1)); }
 step() { printf '\n%s\n' "$1"; }
+
+# Always the parent shell, and always the first thing a failed read reaches — which is what makes
+# it the place an unusable session becomes an abort rather than the first of forty false failures.
+fail() {
+  if [[ -s "$session_note" ]]; then
+    report_unusable_session
+    exit 2
+  fi
+  printf '  \033[31mFAIL\033[0m  %s\n         %s\n' "$1" "${2:-}"
+  failures=$((failures + 1))
+}
 
 for cmd in curl dig jq aws; do
   command -v "$cmd" >/dev/null || { echo "missing required command: $cmd" >&2; exit 2; }
@@ -31,9 +72,29 @@ done
 # Every AWS read goes through here. A call that fails — most often because the session lacks the
 # permission — has to become a named failed assertion rather than aborting the run under `set -e`,
 # or the script stops halfway and reads as "the infrastructure is broken".
+#
+# ⚠️ An **expired session** is the exception, and it has to be, because it is indistinguishable
+# from absence otherwise: every remaining assertion fails at once and the report reads as an
+# infrastructure that has vanished. It is a precondition of the run rather than a fact about the
+# world, so it aborts with the same exit code as a missing command.
+#
+# It cannot abort from here, though. Nearly every caller captures the value through `$(...)`, so
+# this function is running in a subshell, where `exit` sets the substitution's status and nothing
+# more — the caller reads it as an ordinary failed read and carries on, which is the exact failure
+# this branch exists to prevent. So it leaves the reason in a file and returns like any other
+# failure; `fail` and the exit trap, both of which do run in the parent, act on it. Anything else
+# keeps the original behaviour and becomes a named failure.
 aws_read() {
-  local value
-  value="$(aws "$@" 2>/dev/null)" || return 1
+  local value stderr
+  stderr="$(mktemp)"
+  if ! value="$(aws "$@" 2>"$stderr")"; then
+    if grep -qiE 'expired|invalid.*(token|grant)|credential' "$stderr"; then
+      tr -d '\n' <"$stderr" | cut -c1-200 >"$session_note"
+    fi
+    rm -f "$stderr"
+    return 1
+  fi
+  rm -f "$stderr"
   [[ -n "$value" && "$value" != "None" ]] || return 1
   printf '%s' "$value"
 }
@@ -86,11 +147,11 @@ else
   fail "CloudFront's certificate for ${DOMAIN} is ISSUED in us-east-1" \
     "CloudFront reads certificates only from N. Virginia, whatever region the stack runs in"
 fi
-if aws_read acm list-certificates --region ap-southeast-2 --certificate-statuses ISSUED \
+if aws_read acm list-certificates --region "$REGION" --certificate-statuses ISSUED \
   --query "CertificateSummaryList[?DomainName=='${ORIGIN_HOSTNAME}'].CertificateArn | [0]" --output text >/dev/null; then
-  pass "the origin certificate for ${ORIGIN_HOSTNAME} is ISSUED in ap-southeast-2"
+  pass "the origin certificate for ${ORIGIN_HOSTNAME} is ISSUED in ${REGION}"
 else
-  fail "the origin certificate for ${ORIGIN_HOSTNAME} is ISSUED in ap-southeast-2" \
+  fail "the origin certificate for ${ORIGIN_HOSTNAME} is ISSUED in ${REGION}" \
     "the ALB's certificate must live in the ALB's own region"
 fi
 
@@ -215,6 +276,282 @@ else
           "${name} has CookieBehavior=${cookies} — only 'all' is guaranteed to carry the session cookie"
       fi
     fi
+  fi
+fi
+
+# 8 — The network the app stack starts in. A Fargate task with no route to an internet gateway
+#     does not start slowly, it does not start at all — ECS has no control-plane exemption — and
+#     the database's isolation has to be a fact about routing, not only about a security group.
+step "8. The VPC gives the task a way out and the database none (catches: a task that cannot start, or a reachable database)"
+if ! vpc_id="$(aws_read ec2 describe-vpcs --region "$REGION" \
+  --filters "Name=tag:Name,Values=compass" --query 'Vpcs[0].VpcId' --output text)"; then
+  fail "a VPC tagged compass exists" "describe-vpcs found none, or the session cannot read EC2"
+else
+  pass "VPC ${vpc_id} exists"
+
+  # `field` picks what to project; the tag prefix is what says which tier a subnet is in.
+  tier() {
+    jq -r --arg prefix "compass-$1-" --arg field "$2" \
+      '[.Subnets[] | select((.Tags[]? | select(.Key == "Name") | .Value) | startswith($prefix)) | .[$field]] | unique | .[]' \
+      <<<"$subnets"
+  }
+
+  if ! subnets="$(aws_read ec2 describe-subnets --region "$REGION" \
+    --filters "Name=vpc-id,Values=${vpc_id}" --output json)"; then
+    fail "the VPC's subnets can be read" "describe-subnets failed"
+  # The route tables decide what "public" and "private" actually mean — the tier names are only
+  # tags — so a run that cannot read them must say so rather than report an isolated database it
+  # never checked. Fetched in one call and resolved in jq the way AWS resolves them: a subnet with
+  # no association of its own routes through the VPC's main table, so that is the table it is
+  # judged by, rather than being counted as a subnet with no routes at all.
+  elif ! route_tables="$(aws_read ec2 describe-route-tables --region "$REGION" \
+    --filters "Name=vpc-id,Values=${vpc_id}" --output json)"; then
+    fail "the VPC's route tables can be read" "describe-route-tables failed"
+  else
+    for name in public private; do
+      azs="$(tier "$name" AvailabilityZone | tr '\n' ' ')"
+      if [[ "$(wc -w <<<"$azs")" -ge 2 ]]; then
+        pass "the ${name} tier spans two availability zones (${azs% })"
+      else
+        fail "the ${name} tier spans two availability zones" "found: ${azs:-none}"
+      fi
+    done
+
+    # Every route off the VPC in the table a subnet actually uses — its own, else the main table —
+    # as `destination->target`, one per line, or nothing when the only route is the VPC-local one.
+    # The target is read from whichever field carries it: an internet gateway sits in `GatewayId`,
+    # but a NAT gateway, a transit gateway, a peering connection and an instance each have a field
+    # of their own, and reading only the first would count every one of the others as no route.
+    #
+    # A route whose target has been detached or deleted stays in the table as `blackhole`, still
+    # naming the gateway it can no longer reach. It is written out with that state attached, which
+    # is what keeps the two tiers reading it correctly: for the public tier it is not egress, and
+    # for the private tier it is still a rule somebody added and worth naming.
+    routes_off_vpc() {
+      jq -r --arg subnet "$1" '
+        (first(.RouteTables[] | select(any(.Associations[]?; .SubnetId == $subnet)))
+          // first(.RouteTables[] | select(any(.Associations[]?; .Main == true))))
+        | .Routes[]? | select(.GatewayId != "local")
+        | "\(.DestinationCidrBlock // .DestinationIpv6CidrBlock // .DestinationPrefixListId)->\(
+            .GatewayId // .NatGatewayId // .TransitGatewayId // .VpcPeeringConnectionId
+            // .NetworkInterfaceId // .InstanceId // .EgressOnlyInternetGatewayId // "unknown")\(
+            if .State == "active" then "" else " (\(.State // "unknown"))" end)"' \
+        <<<"$route_tables"
+    }
+    public_out=0 private_out=0 private_leaks=""
+    while read -r subnet_id; do
+      [[ -n "$subnet_id" ]] || continue
+      # Whole-line, so a blackholed gateway — which carries the state as a suffix — does not match.
+      if routes_off_vpc "$subnet_id" | grep -qx '0\.0\.0\.0/0->igw-[a-z0-9]\{1,\}'; then
+        public_out=$((public_out + 1))
+      fi
+    done < <(tier public SubnetId)
+    while read -r subnet_id; do
+      [[ -n "$subnet_id" ]] || continue
+      leaks="$(routes_off_vpc "$subnet_id" | tr '\n' ' ')"
+      if [[ -n "$leaks" ]]; then
+        private_out=$((private_out + 1))
+        private_leaks+="${subnet_id}: ${leaks% }; "
+      fi
+    done < <(tier private SubnetId)
+
+    if [[ "$public_out" -ge 2 ]]; then
+      pass "both public subnets route 0.0.0.0/0 to an internet gateway"
+    else
+      fail "both public subnets route 0.0.0.0/0 to an internet gateway" \
+        "${public_out} do with a live gateway — a Fargate task cannot pull its image, fetch its secret or start at all without one"
+    fi
+    if [[ "$private_out" -eq 0 ]]; then
+      pass "no private subnet has any route off the VPC"
+    else
+      fail "no private subnet has any route off the VPC" \
+        "${private_out} do — the database tier is not isolated: ${private_leaks%; }"
+    fi
+  fi
+
+  if group_azs="$(aws_read rds describe-db-subnet-groups --region "$REGION" \
+    --db-subnet-group-name compass \
+    --query 'DBSubnetGroups[0].Subnets[].SubnetAvailabilityZone.Name' --output text)" \
+    && [[ "$(tr '\t' '\n' <<<"$group_azs" | sort -u | wc -l)" -ge 2 ]]; then
+    pass "the db subnet group spans two availability zones"
+  else
+    fail "the db subnet group spans two availability zones" \
+      "RDS requires two even for a single-AZ instance, and rejects the group mid-apply otherwise"
+  fi
+fi
+
+# 9 — The chain. Each group must admit exactly one upstream: a second rule is not a smaller
+#     mistake than a wrong one, because the whole guarantee is "only through here".
+step "9. Each security group admits exactly one upstream (catches: a widened rule anywhere in the chain)"
+group_id() {
+  aws_read ec2 describe-security-groups --region "$REGION" \
+    --filters "Name=group-name,Values=compass-$1" "Name=vpc-id,Values=${vpc_id:-none}" \
+    --query 'SecurityGroups[0].GroupId' --output text
+}
+group_json() {
+  aws_read ec2 describe-security-groups --region "$REGION" --group-ids "$1" \
+    --query 'SecurityGroups[0]' --output json
+}
+
+# Exactly one ingress rule, TCP, on exactly the expected port, from exactly one source — `$4` being
+# a security group id or the literal `prefix-list`. "Exactly one" is the assertion, not a tidiness
+# preference: a second source is the whole guarantee gone, whatever it happens to be.
+assert_sole_ingress() {
+  local label="$1" json="$2" port="$3" expected="$4" consequence="$5"
+  local count rule proto admits sources only_source list_name
+
+  count="$(jq -r '.IpPermissions | length' <<<"$json")"
+  if [[ "$count" != "1" ]]; then
+    fail "the ${label} group has exactly one ingress rule" "it has ${count} — ${consequence}"
+    return
+  fi
+
+  rule="$(jq -c '.IpPermissions[0]' <<<"$json")"
+
+  # Protocol before ports: `-1` (all traffic) carries no ports at all, and a UDP rule on the right
+  # port from the right source is still a rule the chain never asked for.
+  proto="$(jq -r '.IpProtocol' <<<"$rule")"
+  if [[ "$proto" != "tcp" ]]; then
+    fail "the ${label} group admits TCP only" "its rule's protocol is ${proto} — every link in the chain is a TCP connection"
+    return
+  fi
+
+  admits="$(jq -r '"\(.FromPort)-\(.ToPort)"' <<<"$rule")"
+  if [[ "$admits" != "${port}-${port}" ]]; then
+    fail "the ${label} group admits port ${port} only" "it admits ${admits}"
+    return
+  fi
+
+  # Every source, from all four lists, flattened — so a CIDR sitting alongside the expected group
+  # is a failure rather than something the next line looks past.
+  sources="$(jq -r '[.IpRanges[].CidrIp, .Ipv6Ranges[].CidrIpv6, .PrefixListIds[].PrefixListId, .UserIdGroupPairs[].GroupId] | join(",")' <<<"$rule")"
+  if [[ -z "$sources" || "$sources" == *,* ]]; then
+    fail "the ${label} group admits exactly one source on ${port}" \
+      "it admits ${sources:-nothing} — ${consequence}"
+    return
+  fi
+  only_source="$sources"
+
+  if [[ "$expected" == "prefix-list" ]]; then
+    list_name="$(aws_read ec2 describe-managed-prefix-lists --region "$REGION" \
+      --prefix-list-ids "$only_source" --query 'PrefixLists[0].PrefixListName' --output text)" || list_name=""
+    if [[ "$list_name" == "com.amazonaws.global.cloudfront.origin-facing" ]]; then
+      pass "the ${label} group admits ${list_name} on ${port}, and nothing else"
+    else
+      fail "the ${label} group admits CloudFront's origin-facing prefix list on ${port}" \
+        "it admits ${list_name:-$only_source} — ${consequence}"
+    fi
+  elif [[ "$only_source" == "$expected" ]]; then
+    pass "the ${label} group admits ${expected} on ${port}, and nothing else"
+  else
+    fail "the ${label} group admits ${expected} on ${port}" "it admits ${only_source} — ${consequence}"
+  fi
+}
+
+alb_sg="$(group_id alb || true)"
+task_sg="$(group_id task || true)"
+db_sg="$(group_id database || true)"
+if [[ -z "$alb_sg" || -z "$task_sg" || -z "$db_sg" ]]; then
+  fail "all three security groups exist" "found alb=${alb_sg:-none} task=${task_sg:-none} database=${db_sg:-none}"
+else
+  assert_sole_ingress "load balancer" "$(group_json "$alb_sg")" 443 "prefix-list" \
+    "the path-routing arrangement can then be bypassed by reaching the origin directly"
+  assert_sole_ingress "task" "$(group_json "$task_sg")" "$CONTAINER_PORT" "$alb_sg" \
+    "the task is then reachable without passing the load balancer"
+  db_json="$(group_json "$db_sg")"
+  assert_sole_ingress "database" "$db_json" "$DATABASE_PORT" "$task_sg" \
+    "the database is then reachable by something other than the API"
+
+  # A database never opens a connection of its own, so egress here is always something added
+  # rather than something needed.
+  db_egress="$(jq -r '.IpPermissionsEgress | length' <<<"$db_json")"
+  if [[ "$db_egress" == "0" ]]; then
+    pass "the database group initiates nothing outbound"
+  else
+    fail "the database group initiates nothing outbound" \
+      "it has ${db_egress} egress rule(s), which nothing in the design needs"
+  fi
+fi
+
+# 10 — The image. "It is in ECR" is not enough: an image built for the wrong architecture pushes
+#      perfectly and then fails to pull, before any application log exists to look at.
+step "10. ECR holds an image built for the architecture the task will run (catches: a task that never pulls)"
+# An existing but empty repository answers with `null` rather than failing, so both are the same
+# assertion: there is nothing here for a task definition to name.
+#
+# Untagged entries are filtered out *before* the sort, not after. A push lists more than one
+# manifest: the tagged index, and under it the per-architecture image and BuildKit's attestation as
+# untagged entries pushed a moment earlier — and an interrupted push leaves the same residue with no
+# index on top. None of those can be named in a task definition, so "the newest image" means the
+# newest one that has a tag.
+if ! newest="$(aws_read ecr describe-images --region "$REGION" --repository-name "$ECR_REPOSITORY" \
+  --query 'sort_by(imageDetails[?imageTags], &imagePushedAt)[-1]' --output json)" || [[ "$newest" == "null" ]]; then
+  fail "the ${ECR_REPOSITORY} repository holds a tagged image" \
+    "describe-images found no tagged image, or the repository does not exist"
+else
+  image_tag="$(jq -r '.imageTags[0]' <<<"$newest")"
+  pass "${ECR_REPOSITORY}:${image_tag} was pushed $(jq -r '.imagePushedAt' <<<"$newest")"
+
+  # The architecture lives in the image's config blob, not in its manifest, so a single-platform
+  # push takes a presigned fetch to read. An index carries it inline instead.
+  #
+  # ⚠️ BuildKit attaches provenance and SBOM attestations to the index as extra manifests whose
+  # platform is literally `unknown/unknown`. They are not images and nothing ever pulls them, so
+  # they are filtered out here — left in, a perfectly good arm64 image reports "arm64,unknown".
+  manifest="$(aws_read ecr batch-get-image --region "$REGION" --repository-name "$ECR_REPOSITORY" \
+    --image-ids "imageDigest=$(jq -r '.imageDigest' <<<"$newest")" \
+    --query 'images[0].imageManifest' --output text)" || manifest=""
+  arches=""
+  if [[ -n "$manifest" ]]; then
+    arches="$(jq -r '[.manifests[]? | select(.platform.architecture != "unknown" and .platform.os != "unknown")
+      | .platform.architecture] | unique | join(" ")' <<<"$manifest" 2>/dev/null || true)"
+    if [[ -z "$arches" ]]; then
+      config_digest="$(jq -r '.config.digest // empty' <<<"$manifest" 2>/dev/null || true)"
+      if [[ -n "$config_digest" ]] && config_url="$(aws_read ecr get-download-url-for-layer \
+        --region "$REGION" --repository-name "$ECR_REPOSITORY" --layer-digest "$config_digest" \
+        --query downloadUrl --output text)"; then
+        arches="$(curl -sS --max-time 20 "$config_url" | jq -r '.architecture // empty' || true)"
+      fi
+    fi
+  fi
+  # Membership, not equality: what decides whether the task can pull is whether the expected
+  # architecture is *offered*. A deliberately multi-arch push is not a fault.
+  if [[ " ${arches} " == *" ${EXPECTED_ARCH} "* ]]; then
+    pass "the image offers ${EXPECTED_ARCH} (manifest: ${arches})"
+  else
+    fail "the image offers ${EXPECTED_ARCH}" \
+      "it offers '${arches:-unreadable}' — the task definition's cpu_architecture must match one of these, or the pull fails with no application log"
+  fi
+fi
+
+# 11 — The other half of the origin lock. CloudFront's edge ranges are published and shared, so
+#      the prefix list alone proves "a CloudFront", not "this distribution". If these two values
+#      ever drift apart, every request through CloudFront is rejected at the listener — a total
+#      API outage whose cause is in neither the app's logs nor the load balancer's health checks.
+step "11. CloudFront sends the origin header the secret holds (catches: a locked-out origin, or an unlocked one)"
+if ! secret="$(aws_read secretsmanager get-secret-value --region "$REGION" \
+  --secret-id "$ORIGIN_SECRET_NAME" --query SecretString --output text)"; then
+  fail "the secret ${ORIGIN_SECRET_NAME} can be read by name" \
+    "the app stack reads it by name, never through remote state, so this name is the coupling"
+elif [[ -z "${cfg:-}" ]]; then
+  fail "the distribution's origin header can be checked" "the distribution configuration was not readable above"
+else
+  pass "the secret ${ORIGIN_SECRET_NAME} exists and holds a value"
+  header_name="$(jq -r '.header_name // empty' <<<"$secret")"
+  header_value="$(jq -r '.header_value // empty' <<<"$secret")"
+  sent="$(jq -r --arg host "$ORIGIN_HOSTNAME" --arg name "$header_name" \
+    '.DistributionConfig.Origins.Items[] | select(.DomainName == $host)
+     | .CustomHeaders.Items[]? | select(.HeaderName == $name) | .HeaderValue' <<<"$cfg")"
+  if [[ -z "$header_name" || -z "$header_value" ]]; then
+    fail "the secret holds {header_name, header_value}" "one or both keys are missing"
+  elif [[ -z "$sent" ]]; then
+    fail "CloudFront adds ${header_name} to origin requests" \
+      "no such custom header on the ${ORIGIN_HOSTNAME} origin — anything that can reach the ALB from a CloudFront range gets in"
+  elif [[ "$sent" == "$header_value" ]]; then
+    pass "CloudFront sends ${header_name} with the value the secret holds"
+  else
+    fail "CloudFront sends ${header_name} with the value the secret holds" \
+      "the two have drifted — the listener rule would reject every request CloudFront forwards"
   fi
 fi
 

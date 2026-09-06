@@ -32,3 +32,59 @@ output "origin_certificate_arn" {
   description = "The ap-southeast-2 certificate the app stack's ALB listener terminates TLS with."
   value       = aws_acm_certificate_validation.origin.certificate_arn
 }
+
+# --- What the app stack starts in ---------------------------------------------------------------
+#
+# These describe the persistent network and the image registry. The one thing deliberately NOT
+# output as a value is the origin header: the app stack reads it out of Secrets Manager by name,
+# so that a rebuild never has to touch CloudFront. `origin_secret_name` is that name.
+
+output "vpc_id" {
+  description = "The VPC the ALB, the task and the database are all placed in."
+  value       = aws_vpc.compass.id
+}
+
+output "public_subnet_ids" {
+  description = "The ALB's subnets, and the task's. Public because a Fargate task with no route out cannot start at all."
+  value       = [for subnet in aws_subnet.public : subnet.id]
+}
+
+output "private_subnet_ids" {
+  description = "The database's subnets. No route off the VPC in either direction."
+  value       = [for subnet in aws_subnet.private : subnet.id]
+}
+
+output "db_subnet_group_name" {
+  description = "Spans two availability zones, which RDS requires even for a single-AZ instance."
+  value       = aws_db_subnet_group.compass.name
+}
+
+output "alb_security_group_id" {
+  description = "Admits CloudFront's origin-facing prefix list on 443 and nothing else."
+  value       = aws_security_group.alb.id
+}
+
+output "task_security_group_id" {
+  description = "Admits the load balancer on the container port and nothing else."
+  value       = aws_security_group.task.id
+}
+
+output "database_security_group_id" {
+  description = "Admits the task on 5432 and nothing else."
+  value       = aws_security_group.database.id
+}
+
+output "container_port" {
+  description = "The port the image listens on. The target group depends on it silently — a wrong value fails every health check with nothing in any log to say why."
+  value       = local.container_port
+}
+
+output "ecr_repository_url" {
+  description = "The registry the task definition names an image in. Tags are immutable."
+  value       = aws_ecr_repository.api.repository_url
+}
+
+output "origin_secret_name" {
+  description = "The Secrets Manager name holding the CloudFront-to-origin header, as {header_name, header_value}. Read it by name; never by remote state."
+  value       = aws_secretsmanager_secret.origin_header.name
+}

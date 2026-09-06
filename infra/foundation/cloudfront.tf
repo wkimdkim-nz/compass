@@ -67,8 +67,21 @@ resource "aws_cloudfront_distribution" "compass" {
       origin_ssl_protocols   = ["TLSv1.2"]
     }
 
-    # The CloudFront-to-origin secret header is added here by #42, once the foundation stack
-    # generates it into Secrets Manager.
+    # Half of the origin lock: the security group admits CloudFront's shared, published edge
+    # ranges, and this header is what says *which* distribution. The app stack's listener rule
+    # reads the same value out of Secrets Manager by name and rejects requests without it.
+    #
+    # The value is visible to anyone who can call `cloudfront get-distribution-config`, which is
+    # inherent to the pattern — it is an origin lock, not a credential.
+    #
+    # ⚠️ Because the value is sensitive, Terraform hides this whole `origin` block from every
+    # future plan — including a change to `origin_protocol_policy` above. That is why
+    # `scripts/verify-foundation.sh` asserts the origin's protocol and header against the live
+    # distribution rather than trusting a clean plan.
+    custom_header {
+      name  = local.origin_header_name
+      value = random_password.origin_header.result
+    }
   }
 
   default_cache_behavior {

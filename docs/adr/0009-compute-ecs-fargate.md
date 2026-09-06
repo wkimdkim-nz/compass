@@ -43,6 +43,17 @@ Shape, as resolved in [#10](https://github.com/wkimdkim-nz/compass/issues/10):
   tasks live, doubling Postgres connections on a `db.t4g.micro`.
 - **256 CPU / 512 MiB, passed explicitly** — AWS's own docs state the default two different ways
   (256/512 vs 1024/2048), a 4× cost swing decided by which page you read.
+
+  > **Amended 2026-09-06 (per [ticket #42](https://github.com/wkimdkim-nz/compass/issues/42)).**
+  > **The image is built for `linux/arm64`, so the task definition must declare
+  > `runtime_platform { cpu_architecture = "ARM64" }`.** #10 settled the size and left the
+  > architecture open, but pushing an image forces the choice, so #42 made it: Fargate is ~20%
+  > cheaper on ARM64, the .NET base images are multi-arch, `api/Dockerfile` already builds against
+  > `TARGETARCH`, the development machine is Apple silicon so the build is native rather than
+  > emulated, and the database is already Graviton (`db.t4g.micro`). ⚠️ Left at the `X86_64`
+  > default, the task fails to pull with a manifest mismatch **before any application log exists**.
+  > `scripts/push-image.sh` sets the build platform and `scripts/verify-foundation.sh` asserts the
+  > pushed image's architecture, so the two ends cannot drift silently.
 - **Task in a public subnet with a public IP; RDS private.** ECS has **no control-plane exemption**
   (unlike App Runner), so a private NAT-less task cannot even start — it fails pulling its own
   image. Of the three surviving shapes, public+IP is cheapest now *and* later: the task reaches the

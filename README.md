@@ -141,10 +141,20 @@ The deployed shape is CloudFront serving the SPA at the root and path-routing `/
 service behind an ALB, at `financial-compass.dev`. It is described in Terraform and split into a
 **foundation stack that persists** and an **app stack that is destroyed between work sessions** —
 the cost lever that makes the topology affordable (ADR 0009). Bring it up with
-[`infra/README.md`](infra/README.md), which is four commands: create the state bucket, `init`,
-`apply`, publish the SPA. Then check the result from outside — delegation with `dig` against a
-public resolver, both certificates in the region that consumes each, the apex on an alias rather
-than an illegal CNAME, and the SPA over HTTPS:
+[`infra/README.md`](infra/README.md), which is five commands: create the state bucket, `init`,
+`apply`, publish the SPA, push the image. The image is the last of those and a step of its own: the
+deployed API runs from it, it is tagged with the commit it was built from, and the ECR repository
+it lands in has immutable tags. Pushing it deploys nothing — there is no auto-deploy-on-push for a
+standard ECS service:
+
+```bash
+scripts/push-image.sh
+```
+
+Then check the result from outside — delegation with `dig` against a public resolver, both
+certificates in the region that consumes each, the apex on an alias rather than an illegal CNAME,
+the SPA over HTTPS, the security-group chain admitting exactly one upstream at each link, and an
+image in ECR built for the architecture the task will run:
 
 ```bash
 scripts/verify-foundation.sh
