@@ -7,7 +7,7 @@ billing line** ([ADR 0009](../docs/adr/0009-compute-ecs-fargate.md),
 | Stack | Holds | Lifecycle |
 |---|---|---|
 | `foundation/` | Hosted zone (adopted), both ACM certificates, the SPA bucket and CloudFront, the VPC and its subnets, the security-group chain, the ECR repository, and the CloudFront-to-origin secret | **Never destroyed.** Everything in it is free or near-free at rest. |
-| `app/` (not built yet) | ALB, ECS service and tasks, RDS | Created at the start of a work session, destroyed at the end. |
+| `app/` | The load balancer and the listener rule that locks it to CloudFront, the origin hostname's record, the ECS cluster, task definition and service, and — from [#44](https://github.com/wkimdkim-nz/compass/issues/44) — RDS | **Created at the start of a work session, destroyed at the end.** Every dominant line item is in here. |
 
 The split is the cost lever, not tidiness: every dominant line item is hourly and dies with
 `terraform destroy`, which is what turns ~$58/month into ~$3.50.
@@ -76,6 +76,38 @@ log exists.
 > service — that was App Runner's behaviour, and App Runner is out (ADR 0009). A push adds a tag;
 > a deployment names it and rolls the service, in the app stack.
 
+## Bringing the ephemeral stack up
+
+This is the half that costs money, and the half that is thrown away. It needs the foundation stack
+applied and an image in the registry; it reads the network, the registry and the certificate out of
+the foundation stack's state, and the origin header out of Secrets Manager **by name**.
+
+```bash
+terraform -chdir=infra/app init
+```
+
+The image tag is the only thing the stack cannot work out for itself — a deployment names an image,
+so `image_tag` has no default. It is what `scripts/push-image.sh` printed, which is the commit
+`api/` was built from:
+
+```bash
+terraform -chdir=infra/app apply -var "image_tag=$(git rev-parse --short=12 HEAD)"
+```
+
+The apply blocks until the service is **stable**, not merely created: the task has to start, pass
+the target group's health check and stay up. That is deliberate — without it an apply reports
+success while the task is crash-looping, and the failure surfaces minutes later as an unexplained
+502 from the public site. Expect a few minutes.
+
+Then tear it down at the end of the session. This is the cost lever, and it takes the origin
+record with it, so the site goes on serving the SPA and `/api/*` returns an origin error again. A
+destroy still has to be given every required variable even though it builds nothing, so the tag
+here satisfies the parser and means nothing:
+
+```bash
+terraform -chdir=infra/app destroy -var "image_tag=none"
+```
+
 ## Checking the result
 
 ```bash
@@ -89,6 +121,29 @@ reaching the origin hostname with caching disabled and cookies forwarded, the ne
 routed the way their names claim, each security group admitting exactly one upstream, an image in
 ECR built for the architecture the task will run, and CloudFront sending the origin header the
 secret holds.
+
+The ephemeral stack has no script of its own yet —
+[#45](https://github.com/wkimdkim-nz/compass/issues/45) builds `scripts/smoke-deployed.sh` and both
+checks below become two of its nine assertions. Until then they are two commands, and between them
+they prove the path-routing arrangement end to end:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' --max-time 30 https://financial-compass.dev/api/health
+```
+
+`200`. Not `307`: `curl` is not following redirects here, so a redirect would show as one — and a
+redirect on this path means `UseHttpsRedirection()` has crept back into the API and every health
+check from the load balancer is in a loop.
+
+```bash
+curl -sS -o /dev/null --max-time 10 https://api-origin.financial-compass.dev/api/health
+```
+
+⚠️ This one **passes by failing**. The origin must be unreachable except through CloudFront, and
+the security group rejects at TCP rather than answering, so the expected result is
+`curl: (28) Operation timed out` — exit 28 — or a connection refused. A bounded wait is therefore
+part of the check rather than a convenience. If it does answer, the only acceptable answer is
+`403`, from the listener's default action; a `200` means the origin lock is open.
 
 ## The network, in one paragraph
 
@@ -132,3 +187,16 @@ remote-state reference, for the same reason the two stacks are joined by a DNS n
   from every plan** — including `origin_protocol_policy`. A clean plan is therefore not evidence
   that the origin is still HTTPS-only; `verify-foundation.sh` asserts it against the live
   distribution for exactly that reason.
+- **The health path is `/api/health`, not `/health`.** CloudFront routes only `/api/*` to the
+  origin, so the shallow health path lives under that prefix and nothing answers on the shorter
+  one. The target group and the smoke test must both name the longer path.
+- **What attaches the target group to the load balancer is the listener *rule*, not the listener.**
+  The listener's own default action is a fixed `403` — that is the origin lock's default position —
+  so the ECS service has to depend on the rule. Without that dependency the first apply fails
+  saying the target group has no load balancer, and the second one succeeds.
+- **The task needs a connection string to start even though it never opens a connection.** The API
+  resolves one at startup and throws when there is none, so until
+  [#44](https://github.com/wkimdkim-nz/compass/issues/44) creates the database the task definition
+  carries a placeholder pointed at `127.0.0.1`. It leaves three `fail:` lines about the Data
+  Protection key ring in every task's log, and they are expected. The health check is shallow, which
+  is the only reason this slice can be green with no database at all.
