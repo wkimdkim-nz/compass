@@ -16,9 +16,9 @@ data "aws_route53_zone" "compass" {
 }
 
 locals {
-  # The fixed name CloudFront sends /api/* to. The ephemeral stack owns the record behind it, so
+  # The fixed name CloudFront sends /api/* to. The app stack owns the record behind it, so
   # this stack points at a *name* rather than at an ALB as a resource — which is what lets the
-  # ephemeral stack be destroyed and recreated without CloudFront's configuration ever changing.
+  # app stack be destroyed and recreated without CloudFront's configuration ever changing.
   origin_hostname = "api-origin.${var.domain_name}"
 
   spa_bucket_name = "compass-spa-${data.aws_caller_identity.current.account_id}"

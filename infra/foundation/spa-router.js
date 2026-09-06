@@ -7,12 +7,13 @@
 function handler(event) {
   var request = event.request;
   var uri = request.uri;
+  var lastSegment = uri.substring(uri.lastIndexOf("/") + 1);
 
-  if (uri.charAt(uri.length - 1) === "/") {
-    request.uri = uri + "index.html";
-  } else if (uri.lastIndexOf(".") <= uri.lastIndexOf("/")) {
-    // Nothing that looks like a file extension in the last segment, so this is a route the
-    // browser router owns (/login, /register), not an asset.
+  // Nothing that looks like a file extension in the last segment, so this is a route the browser
+  // router owns (/login, /register, and their trailing-slash forms), not an asset. Appending
+  // "index.html" to the path instead would ask the bucket for /login/index.html, which does not
+  // exist in a Vite build and comes back as an S3 AccessDenied.
+  if (lastSegment.indexOf(".") === -1) {
     request.uri = "/index.html";
   }
 

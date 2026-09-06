@@ -27,7 +27,6 @@ aws s3 sync web/dist "s3://${bucket}" \
   --exclude "index.html" \
   --cache-control "public, max-age=31536000, immutable"
 aws s3 sync web/dist "s3://${bucket}" \
-  --delete \
   --exclude "*" \
   --include "index.html" \
   --cache-control "no-cache"

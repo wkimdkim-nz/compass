@@ -4,12 +4,12 @@ output "domain_name" {
 }
 
 output "origin_hostname" {
-  description = "The name CloudFront sends /api/* to. The ephemeral stack owns the record behind it."
+  description = "The name CloudFront sends /api/* to. The app stack owns the record behind it."
   value       = local.origin_hostname
 }
 
 output "hosted_zone_id" {
-  description = "The adopted public hosted zone, for the ephemeral stack's origin record."
+  description = "The adopted public hosted zone, for the app stack's origin record."
   value       = data.aws_route53_zone.compass.zone_id
 }
 
@@ -29,6 +29,6 @@ output "cloudfront_domain_name" {
 }
 
 output "origin_certificate_arn" {
-  description = "The ap-southeast-2 certificate the ephemeral stack's ALB listener terminates TLS with."
+  description = "The ap-southeast-2 certificate the app stack's ALB listener terminates TLS with."
   value       = aws_acm_certificate_validation.origin.certificate_arn
 }

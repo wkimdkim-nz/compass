@@ -16,8 +16,8 @@ The split is the cost lever, not tidiness: every dominant line item is hourly an
 
 A **DNS name, not a resource reference.** CloudFront path-routes `/api/*` to
 `api-origin.financial-compass.dev`, and the app stack owns the record behind that name. So the app
-stack can be destroyed and recreated without CloudFront's configuration ever changing, and a torn
-down environment still serves the SPA. Until the app stack exists, `/api/*` returns an origin
+stack can be destroyed and recreated without CloudFront's configuration ever changing, and the site
+still serves the SPA while it is torn down. Until the app stack exists, `/api/*` returns an origin
 error — that is the correct result, not a fault.
 
 > ⚠️ The origin record must live in the **app** stack and be destroyed with the ALB it aliases. A

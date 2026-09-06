@@ -1,13 +1,14 @@
+locals {
+  default_tags = {
+    Project   = "compass"
+    Stack     = "foundation"
+    ManagedBy = "terraform"
+  }
+}
+
 provider "aws" {
   region = var.region
-
-  default_tags {
-    tags = {
-      Project   = "compass"
-      Stack     = "foundation"
-      ManagedBy = "terraform"
-    }
-  }
+  default_tags { tags = local.default_tags }
 }
 
 # CloudFront reads certificates only from N. Virginia, whatever region the rest of the stack runs
@@ -16,12 +17,5 @@ provider "aws" {
 provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"
-
-  default_tags {
-    tags = {
-      Project   = "compass"
-      Stack     = "foundation"
-      ManagedBy = "terraform"
-    }
-  }
+  default_tags { tags = local.default_tags }
 }

@@ -1,7 +1,7 @@
 # Two certificates, in two regions, both validated through the same hosted zone.
 #
 # Both are free and both persist: a certificate is one of the things this stack exists to keep
-# alive across the ephemeral stack's teardowns. HTTPS is mandatory here — `.dev` is HSTS-preloaded
+# alive across the app stack's teardowns. HTTPS is mandatory here — `.dev` is HSTS-preloaded
 # as a whole TLD — so a certificate problem does not present as a warning page a user can click
 # past. It presents as a total outage.
 #
@@ -44,7 +44,7 @@ resource "aws_acm_certificate_validation" "cloudfront" {
   validation_record_fqdns = [aws_route53_record.cloudfront_certificate_validation.fqdn]
 }
 
-# The ALB's certificate, in the ALB's own region. The ALB itself belongs to the ephemeral stack;
+# The ALB's certificate, in the ALB's own region. The ALB itself belongs to the app stack;
 # the certificate belongs here, so a teardown does not re-run DNS validation on the next build.
 resource "aws_acm_certificate" "origin" {
   domain_name       = local.origin_hostname

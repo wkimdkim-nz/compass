@@ -42,8 +42,8 @@ resource "aws_cloudfront_distribution" "compass" {
   default_root_object = "index.html"
   aliases             = [var.domain_name]
 
-  # The developer and the users are in New Zealand; the cheaper price classes exclude Oceania's
-  # edge locations. At this traffic volume the difference is cents.
+  # Stated rather than defaulted, like the task's CPU and memory: the developer and the users
+  # are in New Zealand, and the cheaper price classes exclude Oceania's edge locations.
   price_class = "PriceClass_All"
 
   origin {
@@ -52,7 +52,7 @@ resource "aws_cloudfront_distribution" "compass" {
     origin_access_control_id = aws_cloudfront_origin_access_control.spa.id
   }
 
-  # A name, not a resource reference. Nothing answers here until the ephemeral stack creates the
+  # A name, not a resource reference. Nothing answers here until the app stack creates the
   # record and the ALB behind it; until then /api/* returns an origin error, which is correct.
   origin {
     origin_id   = local.api_origin_id
@@ -91,7 +91,10 @@ resource "aws_cloudfront_distribution" "compass" {
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods         = ["GET", "HEAD"]
-    compress               = true
+
+    # No `compress` here, unlike the SPA behaviour: CloudFront compresses only when the cache
+    # policy enables the Accept-Encoding keys, and CachingDisabled does not. Asking for it
+    # would be configuration that quietly does nothing.
 
     # Caching disabled and cookies forwarded, together. Either one alone is a security bug: a
     # cached authenticated response is one user's data served to another.

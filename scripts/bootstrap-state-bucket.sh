@@ -25,7 +25,9 @@ if [[ "$caller_account" != "$ACCOUNT_ID" ]]; then
   exit 1
 fi
 
-if aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+# Asked as "do we own it?" rather than with `head-bucket`, which answers 403 as well as 404 and
+# would send a bucket owned by someone else — the name is global — down the create path.
+if [[ "$(aws s3api list-buckets --query "Buckets[?Name=='${BUCKET}'].Name | [0]" --output text)" == "$BUCKET" ]]; then
   echo "Bucket ${BUCKET} already exists."
 else
   echo "Creating ${BUCKET} in ${REGION}..."
