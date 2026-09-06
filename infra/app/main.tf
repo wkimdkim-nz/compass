@@ -48,8 +48,25 @@ locals {
   # is running rather than a pointer someone may have moved.
   image = "${local.foundation.ecr_repository_url}:${var.image_tag}"
 
+  # <account>.dkr.ecr.<region>.amazonaws.com/<name>, as `scripts/push-image.sh` also splits it. The
+  # foundation stack outputs only the URL, so the repository's name is taken from it rather than
+  # written down a second time.
+  ecr_repository_name = element(split("/", local.foundation.ecr_repository_url), 1)
+
   # The one container in the one task definition. Named here because three separate resources have
   # to agree on it — the task definition, the service's load balancer block, and the log stream
   # prefix — and a mismatch between the first two is rejected only when the service is created.
   container_name = "api"
+}
+
+# Asked purely so that a tag which is not there fails the *plan*, by name, in one line.
+#
+# ⚠️ Nothing else catches it usefully. A task definition will happily name an image that does not
+# exist; the failure then arrives as a task that stops before the container runs, and the reason
+# lives in the stopped task's status rather than in any application log — the same place, and the
+# same kind of silence, as the ARM64 landmine. A tag is a hand-typed argument to every apply, so
+# this is the likeliest way to reach that silence.
+data "aws_ecr_image" "api" {
+  repository_name = local.ecr_repository_name
+  image_tag       = var.image_tag
 }

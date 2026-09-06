@@ -97,7 +97,12 @@ terraform -chdir=infra/app apply -var "image_tag=$(git rev-parse --short=12 HEAD
 The apply blocks until the service is **stable**, not merely created: the task has to start, pass
 the target group's health check and stay up. That is deliberate — without it an apply reports
 success while the task is crash-looping, and the failure surfaces minutes later as an unexplained
-502 from the public site. Expect a few minutes.
+502 from the public site. Expect a few minutes, most of it the load balancer being provisioned.
+
+A task that cannot start does not make that wait open-ended. The service's deployment circuit
+breaker gives up after a run of failed starts, so the apply fails rather than hanging until
+Terraform's own timeout — and the reason is in the stopped task's status
+(`aws ecs describe-tasks`), not in the log group, because the container never ran.
 
 Then tear it down at the end of the session. This is the cost lever, and it takes the origin
 record with it, so the site goes on serving the SPA and `/api/*` returns an origin error again. A

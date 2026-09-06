@@ -19,7 +19,7 @@ output "service_name" {
 }
 
 output "image" {
-  description = "The image this environment is running, tag included. Tags are immutable, so this identifies exactly what is deployed."
+  description = "The image this stack is running, tag included. Tags are immutable, so this identifies exactly what is deployed."
   value       = local.image
 }
 

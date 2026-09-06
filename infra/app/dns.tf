@@ -3,7 +3,7 @@
 # CloudFront's `/api/*` origin is the string `api-origin.financial-compass.dev`, fixed in the
 # foundation stack. This record is what that name points at, and it lives *here*, so it is created
 # with the load balancer and destroyed with it. CloudFront's configuration never changes when the
-# environment is rebuilt, and the site keeps serving the SPA while it is torn down — `/api/*`
+# ephemeral stack is rebuilt, and the site keeps serving the SPA while it is torn down — `/api/*`
 # simply returns an origin error, which is the correct result rather than a fault.
 #
 # ⚠️ This record must never be moved to the foundation stack. Left behind after a destroy, it

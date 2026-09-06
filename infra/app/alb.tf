@@ -35,6 +35,13 @@ resource "aws_lb" "api" {
 
 # `ip` targets, not `instance`: an awsvpc task has its own elastic network interface and is
 # registered by address. There is no instance to register — Fargate has no EC2 host to name.
+#
+# ⚠️ A change that *replaces* this — the port, the protocol, the target type — fails mid-apply on a
+# duplicate name, because the fixed name below cannot be held by two target groups at once and the
+# listener rule holds the old one until the new one exists. It is left fixed anyway: this stack's
+# normal mode is destroy-and-recreate rather than mutation, so the recovery is a `destroy` and a
+# fresh apply. `name_prefix` is not the escape it looks like — ELB caps a target group's prefix at
+# six characters, which would trade a legible name for an unreadable one on every console screen.
 resource "aws_lb_target_group" "api" {
   name        = "compass-api"
   vpc_id      = local.foundation.vpc_id

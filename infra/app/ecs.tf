@@ -9,7 +9,7 @@ resource "aws_ecs_cluster" "compass" {
 }
 
 # Destroyed with the stack, like everything else here, so a work session's logs do not outlive the
-# environment they describe. Retention still matters: without it the group is created with logs
+# stack they describe. Retention still matters: without it the group is created with logs
 # kept forever, and a group recreated on every rebuild would accumulate them indefinitely.
 resource "aws_cloudwatch_log_group" "api" {
   name              = "/ecs/compass-api"
@@ -17,6 +17,17 @@ resource "aws_cloudwatch_log_group" "api" {
 }
 
 locals {
+  # Stated here rather than offered as variables, and the reason is money. AWS documents the
+  # Fargate default two ways — 256/512 in the API reference, 1024/2048 in the developer guide — a
+  # fourfold swing between roughly $10.80 and $43.22 a month, so ADR 0009 fixed the size rather
+  # than letting whichever page you read decide the bill. Fixing it and then exposing it as an
+  # overridable variable would put the same decision back on the command line.
+  #
+  # 256 CPU units is a quarter vCPU. It permits 512, 1024 or 2048 MiB of memory; 512 is the floor
+  # and is what ADR 0009 chose.
+  task_cpu    = 256
+  task_memory = 512
+
   # ⚠️ A placeholder, and the only thing in this stack that is. #44 replaces it with the RDS
   # endpoint and adds the two injected secrets beside it.
   #
@@ -37,23 +48,23 @@ locals {
   # they are not why a task would be unhealthy: the container answers /api/health 200 about two
   # seconds after start with exactly this environment, which is the shape of the whole slice.
   #
-  # The rest of the string is already production-shaped, so #44 changes the host and nothing else:
-  # `Trust Server Certificate=true` because Npgsql 8 validates certificates under `SSL Mode=Require`
-  # and RDS's authority is not in the image's trust store, and `Maximum Pool Size=20` because
-  # Npgsql defaults to 100 while a db.t4g.micro tops out near it — and a deployment runs two tasks.
-  placeholder_connection_string = "Host=127.0.0.1;Port=5432;Database=compass;SSL Mode=Require;Trust Server Certificate=true;Maximum Pool Size=20;Timeout=2"
+  # Deliberately nothing more than a host, a database and a short timeout. It would be easy to
+  # write the production settings here too and leave #44 only a hostname to change, but the two
+  # that matter — `Trust Server Certificate=true` and `Maximum Pool Size=20` — are load-bearing
+  # against a real RDS instance and are #44's to add with the instance they are load-bearing for.
+  # Half-written here, they would read as already settled.
+  placeholder_connection_string = "Host=127.0.0.1;Port=5432;Database=compass;Timeout=2"
 
-  # Declared once, so that when #44 adds the migration task definition the two cannot drift apart
-  # and connect to different databases.
+  # The container's whole environment. #44 adds the two injected secrets beside it and gives the
+  # migration task the same declaration, so the two cannot connect to different databases.
   task_environment = [
     # Set explicitly even though Production is already the value an unset ASPNETCORE_ENVIRONMENT
     # takes. The session cookie's SecurePolicy is Always outside Development, and that must not
     # rest on an implicit default (#19).
     { name = "ASPNETCORE_ENVIRONMENT", value = "Production" },
 
-    # Also explicit, and also already the base image's default via ASPNETCORE_HTTP_PORTS. The
-    # target group depends on this number silently, so it is written where the target group's
-    # reader will find it rather than left to a base image's convention.
+    # Also explicit, and also already the base image's default via ASPNETCORE_HTTP_PORTS. Written
+    # down rather than left to a base image's convention, for the reason main.tf gives.
     { name = "ASPNETCORE_URLS", value = "http://+:${local.container_port}" },
 
     { name = "ConnectionStrings__Default", value = local.placeholder_connection_string },
@@ -66,9 +77,10 @@ resource "aws_ecs_task_definition" "api" {
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
 
-  # Passed explicitly. See variables.tf for the fourfold swing that hangs on not defaulting these.
-  cpu    = var.task_cpu
-  memory = var.task_memory
+  # Passed explicitly. See the locals above for the fourfold swing that hangs on not defaulting
+  # these.
+  cpu    = local.task_cpu
+  memory = local.task_memory
 
   execution_role_arn = aws_iam_role.task_execution.arn
 
@@ -150,6 +162,20 @@ resource "aws_ecs_service" "api" {
   # reports success while the task is still crash-looping, and the failure surfaces minutes later
   # as an unexplained 502 from the public site.
   wait_for_steady_state = true
+
+  # What stops that wait from being an open-ended one. ECS otherwise replaces a failing task
+  # forever, so a task that cannot start — a wrong image tag, the X86_64 architecture default, a
+  # health check pointed at the wrong path — would keep the apply hanging until Terraform's own
+  # timeout rather than failing. The circuit breaker gives up after a run of failed starts and says
+  # so.
+  #
+  # `rollback = false` deliberately. There is no previous good deployment to roll back to on a
+  # stack that is created from empty every session, and on a rebuild a rollback would only replace
+  # a legible failure with a service quietly running the old image.
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = false
+  }
 
   # ECS refuses to register targets in a target group that is not attached to a load balancer, and
   # here the *rule* is what attaches it — the listener's own default action is a fixed response.
