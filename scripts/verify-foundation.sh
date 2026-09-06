@@ -15,6 +15,16 @@ set -euo pipefail
 DOMAIN="${1:-financial-compass.dev}"
 ORIGIN_HOSTNAME="api-origin.${DOMAIN}"
 RESOLVER="${RESOLVER:-8.8.8.8}"
+REGION="${REGION:-ap-southeast-2}"
+
+# What `scripts/push-image.sh` builds, and what the app stack's task definition must therefore
+# declare as its `cpu_architecture`.
+EXPECTED_ARCH="${EXPECTED_ARCH:-arm64}"
+
+ECR_REPOSITORY="compass-api"
+ORIGIN_SECRET_NAME="compass/cloudfront-origin-header"
+CONTAINER_PORT=8080
+DATABASE_PORT=5432
 
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
@@ -86,11 +96,11 @@ else
   fail "CloudFront's certificate for ${DOMAIN} is ISSUED in us-east-1" \
     "CloudFront reads certificates only from N. Virginia, whatever region the stack runs in"
 fi
-if aws_read acm list-certificates --region ap-southeast-2 --certificate-statuses ISSUED \
+if aws_read acm list-certificates --region "$REGION" --certificate-statuses ISSUED \
   --query "CertificateSummaryList[?DomainName=='${ORIGIN_HOSTNAME}'].CertificateArn | [0]" --output text >/dev/null; then
-  pass "the origin certificate for ${ORIGIN_HOSTNAME} is ISSUED in ap-southeast-2"
+  pass "the origin certificate for ${ORIGIN_HOSTNAME} is ISSUED in ${REGION}"
 else
-  fail "the origin certificate for ${ORIGIN_HOSTNAME} is ISSUED in ap-southeast-2" \
+  fail "the origin certificate for ${ORIGIN_HOSTNAME} is ISSUED in ${REGION}" \
     "the ALB's certificate must live in the ALB's own region"
 fi
 
@@ -215,6 +225,239 @@ else
           "${name} has CookieBehavior=${cookies} — only 'all' is guaranteed to carry the session cookie"
       fi
     fi
+  fi
+fi
+
+# 8 — The network the app stack starts in. A Fargate task with no route to an internet gateway
+#     does not start slowly, it does not start at all — ECS has no control-plane exemption — and
+#     the database's isolation has to be a fact about routing, not only about a security group.
+step "8. The VPC gives the task a way out and the database none (catches: a task that cannot start, or a reachable database)"
+if ! vpc_id="$(aws_read ec2 describe-vpcs --region "$REGION" \
+  --filters "Name=tag:Name,Values=compass" --query 'Vpcs[0].VpcId' --output text)"; then
+  fail "a VPC tagged compass exists" "describe-vpcs found none, or the session cannot read EC2"
+else
+  pass "VPC ${vpc_id} exists"
+
+  subnets="$(aws_read ec2 describe-subnets --region "$REGION" \
+    --filters "Name=vpc-id,Values=${vpc_id}" --output json)" || subnets='{"Subnets":[]}'
+  tier_azs() {
+    jq -r --arg prefix "compass-$1-" \
+      '[.Subnets[] | select((.Tags[]? | select(.Key == "Name") | .Value) | startswith($prefix)) | .AvailabilityZone] | unique | join(" ")' \
+      <<<"$subnets"
+  }
+  tier_ids() {
+    jq -r --arg prefix "compass-$1-" \
+      '[.Subnets[] | select((.Tags[]? | select(.Key == "Name") | .Value) | startswith($prefix)) | .SubnetId] | .[]' \
+      <<<"$subnets"
+  }
+
+  for tier in public private; do
+    azs="$(tier_azs "$tier")"
+    if [[ "$(wc -w <<<"$azs")" -ge 2 ]]; then
+      pass "the ${tier} tier spans two availability zones (${azs})"
+    else
+      fail "the ${tier} tier spans two availability zones" "found: ${azs:-none}"
+    fi
+  done
+
+  # Asked of each subnet's own route table, because "public" and "private" are names on a tag and
+  # the routing is the thing that makes them true.
+  routes_for() {
+    aws ec2 describe-route-tables --region "$REGION" \
+      --filters "Name=association.subnet-id,Values=$1" \
+      --query 'RouteTables[0].Routes[?DestinationCidrBlock==`0.0.0.0/0`].GatewayId' --output text 2>/dev/null
+  }
+  public_out=0 private_out=0
+  while read -r subnet_id; do
+    [[ -n "$subnet_id" ]] || continue
+    if [[ "$(routes_for "$subnet_id")" == igw-* ]]; then
+      public_out=$((public_out + 1))
+    fi
+  done < <(tier_ids public)
+  while read -r subnet_id; do
+    [[ -n "$subnet_id" ]] || continue
+    if [[ -n "$(routes_for "$subnet_id")" ]]; then
+      private_out=$((private_out + 1))
+    fi
+  done < <(tier_ids private)
+
+  if [[ "$public_out" -ge 2 ]]; then
+    pass "both public subnets route 0.0.0.0/0 to an internet gateway"
+  else
+    fail "both public subnets route 0.0.0.0/0 to an internet gateway" \
+      "${public_out} do — a Fargate task cannot pull its image, fetch its secret or start at all without one"
+  fi
+  if [[ "$private_out" -eq 0 ]]; then
+    pass "no private subnet has a route off the VPC"
+  else
+    fail "no private subnet has a route off the VPC" "${private_out} do — the database tier is not isolated"
+  fi
+
+  if group_azs="$(aws_read rds describe-db-subnet-groups --region "$REGION" \
+    --db-subnet-group-name compass \
+    --query 'DBSubnetGroups[0].Subnets[].SubnetAvailabilityZone.Name' --output text)" \
+    && [[ "$(tr '\t' '\n' <<<"$group_azs" | sort -u | wc -l)" -ge 2 ]]; then
+    pass "the db subnet group spans two availability zones"
+  else
+    fail "the db subnet group spans two availability zones" \
+      "RDS requires two even for a single-AZ instance, and rejects the group mid-apply otherwise"
+  fi
+fi
+
+# 9 — The chain. Each group must admit exactly one upstream: a second rule is not a smaller
+#     mistake than a wrong one, because the whole guarantee is "only through here".
+step "9. Each security group admits exactly one upstream (catches: a widened rule anywhere in the chain)"
+group_id() {
+  aws_read ec2 describe-security-groups --region "$REGION" \
+    --filters "Name=group-name,Values=compass-$1" "Name=vpc-id,Values=${vpc_id:-none}" \
+    --query 'SecurityGroups[0].GroupId' --output text
+}
+group_json() {
+  aws_read ec2 describe-security-groups --region "$REGION" --group-ids "$1" \
+    --query 'SecurityGroups[0]' --output json
+}
+
+# Exactly one ingress rule, on exactly the expected port, from exactly one source — `$4` being a
+# security group id or the literal `prefix-list`. "Exactly one" is the assertion, not a tidiness
+# preference: a second source is the whole guarantee gone, whatever it happens to be.
+assert_sole_ingress() {
+  local label="$1" json="$2" port="$3" expected="$4" consequence="$5"
+  local count rule sources source list_name
+
+  count="$(jq -r '.IpPermissions | length' <<<"$json")"
+  if [[ "$count" != "1" ]]; then
+    fail "the ${label} group has exactly one ingress rule" "it has ${count} — ${consequence}"
+    return
+  fi
+
+  rule="$(jq -c '.IpPermissions[0]' <<<"$json")"
+  if [[ "$(jq -r '"\(.FromPort)-\(.ToPort)"' <<<"$rule")" != "${port}-${port}" ]]; then
+    fail "the ${label} group admits port ${port} only" \
+      "it admits $(jq -r '"\(.FromPort)-\(.ToPort)"' <<<"$rule")"
+    return
+  fi
+
+  # Every source, from all four lists, flattened — so a CIDR sitting alongside the expected group
+  # is a failure rather than something the next line looks past.
+  sources="$(jq -r '[.IpRanges[].CidrIp, .Ipv6Ranges[].CidrIpv6, .PrefixListIds[].PrefixListId, .UserIdGroupPairs[].GroupId] | join(",")' <<<"$rule")"
+  if [[ "$sources" != *,* && -n "$sources" ]]; then
+    source="$sources"
+  else
+    fail "the ${label} group admits exactly one source on ${port}" \
+      "it admits ${sources:-nothing} — ${consequence}"
+    return
+  fi
+
+  if [[ "$expected" == "prefix-list" ]]; then
+    list_name="$(aws_read ec2 describe-managed-prefix-lists --region "$REGION" \
+      --prefix-list-ids "$source" --query 'PrefixLists[0].PrefixListName' --output text)" || list_name=""
+    if [[ "$list_name" == "com.amazonaws.global.cloudfront.origin-facing" ]]; then
+      pass "the ${label} group admits ${list_name} on ${port}, and nothing else"
+    else
+      fail "the ${label} group admits CloudFront's origin-facing prefix list on ${port}" \
+        "it admits ${list_name:-$source} — ${consequence}"
+    fi
+  elif [[ "$source" == "$expected" ]]; then
+    pass "the ${label} group admits ${expected} on ${port}, and nothing else"
+  else
+    fail "the ${label} group admits ${expected} on ${port}" "it admits ${source} — ${consequence}"
+  fi
+}
+
+alb_sg="$(group_id alb || true)"
+task_sg="$(group_id task || true)"
+db_sg="$(group_id database || true)"
+if [[ -z "$alb_sg" || -z "$task_sg" || -z "$db_sg" ]]; then
+  fail "all three security groups exist" "found alb=${alb_sg:-none} task=${task_sg:-none} database=${db_sg:-none}"
+else
+  assert_sole_ingress "load balancer" "$(group_json "$alb_sg")" 443 "prefix-list" \
+    "the path-routing arrangement can then be bypassed by reaching the origin directly"
+  assert_sole_ingress "task" "$(group_json "$task_sg")" "$CONTAINER_PORT" "$alb_sg" \
+    "the task is then reachable without passing the load balancer"
+  db_json="$(group_json "$db_sg")"
+  assert_sole_ingress "database" "$db_json" "$DATABASE_PORT" "$task_sg" \
+    "the database is then reachable by something other than the API"
+
+  # A database never opens a connection of its own, so egress here is always something added
+  # rather than something needed.
+  if [[ "$(jq -r '.IpPermissionsEgress | length' <<<"$db_json")" == "0" ]]; then
+    pass "the database group initiates nothing outbound"
+  else
+    fail "the database group initiates nothing outbound" \
+      "it has $(jq -r '.IpPermissionsEgress | length' <<<"$db_json") egress rule(s), which nothing in the design needs"
+  fi
+fi
+
+# 10 — The image. "It is in ECR" is not enough: an image built for the wrong architecture pushes
+#      perfectly and then fails to pull, before any application log exists to look at.
+step "10. ECR holds an image built for the architecture the task will run (catches: a task that never pulls)"
+# An existing but empty repository answers with `null` rather than failing, so both are the same
+# assertion: there is nothing here for a task definition to name.
+if ! newest="$(aws_read ecr describe-images --region "$REGION" --repository-name "$ECR_REPOSITORY" \
+  --query 'sort_by(imageDetails, &imagePushedAt)[-1]' --output json)" || [[ "$newest" == "null" ]]; then
+  fail "the ${ECR_REPOSITORY} repository holds a tagged image" \
+    "describe-images found none, or the repository does not exist"
+else
+  image_tag="$(jq -r '.imageTags[0] // empty' <<<"$newest")"
+  if [[ -z "$image_tag" ]]; then
+    fail "the newest image is tagged" "an untagged image cannot be named in a task definition"
+  else
+    pass "${ECR_REPOSITORY}:${image_tag} was pushed $(jq -r '.imagePushedAt' <<<"$newest")"
+
+    # The architecture lives in the image's config blob, not in its manifest, so it takes a
+    # presigned fetch to read. A multi-arch index carries it inline instead.
+    manifest="$(aws_read ecr batch-get-image --region "$REGION" --repository-name "$ECR_REPOSITORY" \
+      --image-ids "imageDigest=$(jq -r '.imageDigest' <<<"$newest")" \
+      --query 'images[0].imageManifest' --output text)" || manifest=""
+    arch=""
+    if [[ -n "$manifest" ]]; then
+      arch="$(jq -r '[.manifests[]?.platform.architecture] | unique | join(",")' <<<"$manifest" 2>/dev/null || true)"
+      if [[ -z "$arch" ]]; then
+        config_digest="$(jq -r '.config.digest // empty' <<<"$manifest" 2>/dev/null || true)"
+        if [[ -n "$config_digest" ]] && config_url="$(aws_read ecr get-download-url-for-layer \
+          --region "$REGION" --repository-name "$ECR_REPOSITORY" --layer-digest "$config_digest" \
+          --query downloadUrl --output text)"; then
+          arch="$(curl -sS --max-time 20 "$config_url" | jq -r '.architecture // empty' || true)"
+        fi
+      fi
+    fi
+    if [[ "$arch" == "$EXPECTED_ARCH" ]]; then
+      pass "the image is built for ${arch}"
+    else
+      fail "the image is built for ${EXPECTED_ARCH}" \
+        "it reports '${arch:-unreadable}' — the task definition's cpu_architecture must match, or the pull fails with no application log"
+    fi
+  fi
+fi
+
+# 11 — The other half of the origin lock. CloudFront's edge ranges are published and shared, so
+#      the prefix list alone proves "a CloudFront", not "this distribution". If these two values
+#      ever drift apart, every request through CloudFront is rejected at the listener — a total
+#      API outage whose cause is in neither the app's logs nor the load balancer's health checks.
+step "11. CloudFront sends the origin header the secret holds (catches: a locked-out origin, or an unlocked one)"
+if ! secret="$(aws_read secretsmanager get-secret-value --region "$REGION" \
+  --secret-id "$ORIGIN_SECRET_NAME" --query SecretString --output text)"; then
+  fail "the secret ${ORIGIN_SECRET_NAME} can be read by name" \
+    "the app stack reads it by name, never through remote state, so this name is the coupling"
+elif [[ -z "${cfg:-}" ]]; then
+  fail "the distribution's origin header can be checked" "the distribution configuration was not readable above"
+else
+  pass "the secret ${ORIGIN_SECRET_NAME} exists and holds a value"
+  header_name="$(jq -r '.header_name // empty' <<<"$secret")"
+  header_value="$(jq -r '.header_value // empty' <<<"$secret")"
+  sent="$(jq -r --arg host "$ORIGIN_HOSTNAME" --arg name "$header_name" \
+    '.DistributionConfig.Origins.Items[] | select(.DomainName == $host)
+     | .CustomHeaders.Items[]? | select(.HeaderName == $name) | .HeaderValue' <<<"$cfg")"
+  if [[ -z "$header_name" || -z "$header_value" ]]; then
+    fail "the secret holds {header_name, header_value}" "one or both keys are missing"
+  elif [[ -z "$sent" ]]; then
+    fail "CloudFront adds ${header_name} to origin requests" \
+      "no such custom header on the ${ORIGIN_HOSTNAME} origin — anything that can reach the ALB from a CloudFront range gets in"
+  elif [[ "$sent" == "$header_value" ]]; then
+    pass "CloudFront sends ${header_name} with the value the secret holds"
+  else
+    fail "CloudFront sends ${header_name} with the value the secret holds" \
+      "the two have drifted — the listener rule would reject every request CloudFront forwards"
   fi
 fi
 

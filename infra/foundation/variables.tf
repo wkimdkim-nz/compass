@@ -15,3 +15,9 @@ variable "hosted_zone_id" {
   type        = string
   default     = "Z1048295E8RMMBNI5Z3A"
 }
+
+variable "vpc_cidr" {
+  description = "The VPC's address range. Private space with no peering and no VPN to collide with, so the choice is arbitrary; /16 leaves room to renumber without touching what exists."
+  type        = string
+  default     = "10.20.0.0/16"
+}

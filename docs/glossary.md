@@ -106,6 +106,19 @@ differ from the past.
   resource*, letting the ephemeral stack destroy and recreate the ALB without touching CloudFront
   (ADR 0009). Not a user-facing hostname — the SPA never calls it directly. _Avoid_: "the API
   domain" (there isn't one; see **Same-site cookie delivery**).
+- **Security-group chain** — The deployed network's access model: each security group admits
+  exactly one upstream — the load balancer admits CloudFront's managed origin-facing prefix list,
+  the task admits the load balancer, the database admits the task — so no rule anywhere names a
+  CIDR (ADR 0009). It is what makes a *public-subnet* task safe, which ECS requires: a task with no
+  route out cannot start at all. _Avoid_: "the perimeter", "the firewall" — there is no single
+  boundary, which is the point.
+- **Origin header** — The secret header CloudFront adds to every `/api/*` origin request, checked
+  by the ALB's listener rule. The **security-group chain** admits CloudFront's *published, shared*
+  edge ranges, so the prefix list proves "a CloudFront" and this proves "this distribution". The
+  foundation stack generates it into Secrets Manager as `compass/cloudfront-origin-header` and the
+  app stack reads it **by name**, mirroring the **origin hostname**'s decoupling. The container
+  never sees it. _Avoid_: calling it a credential — it is an origin lock, and its value is
+  readable by anyone who can read the distribution's configuration.
 - **Ephemeral environment** — The deployed stack is torn down between work sessions with
   `terraform destroy` and rebuilt on demand; this is the **cost lever** that makes ADR 0009's
   topology affordable, not tidiness. Splits the infrastructure in two: a *foundation* stack that
