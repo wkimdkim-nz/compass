@@ -42,9 +42,26 @@ done
 # Every AWS read goes through here. A call that fails — most often because the session lacks the
 # permission — has to become a named failed assertion rather than aborting the run under `set -e`,
 # or the script stops halfway and reads as "the infrastructure is broken".
+#
+# ⚠️ An **expired session** is the exception, and it has to be, because it is indistinguishable
+# from absence otherwise: every remaining assertion fails at once and the report reads as an
+# infrastructure that has vanished. It is a precondition of the run rather than a fact about the
+# world, so it aborts with the same exit code as a missing command. Anything else keeps the
+# original behaviour and becomes a named failure.
 aws_read() {
-  local value
-  value="$(aws "$@" 2>/dev/null)" || return 1
+  local value stderr
+  stderr="$(mktemp)"
+  if ! value="$(aws "$@" 2>"$stderr")"; then
+    if grep -qiE 'expired|invalid.*(token|grant)|credential' "$stderr"; then
+      printf '\n\033[31mThe AWS session is not usable:\033[0m %s\n' "$(tr -d '\n' <"$stderr" | cut -c1-200)" >&2
+      printf 'Re-authenticate and run again — the assertions below it would all fail as absent.\n' >&2
+      rm -f "$stderr"
+      exit 2
+    fi
+    rm -f "$stderr"
+    return 1
+  fi
+  rm -f "$stderr"
   [[ -n "$value" && "$value" != "None" ]] || return 1
   printf '%s' "$value"
 }
@@ -411,28 +428,35 @@ else
   else
     pass "${ECR_REPOSITORY}:${image_tag} was pushed $(jq -r '.imagePushedAt' <<<"$newest")"
 
-    # The architecture lives in the image's config blob, not in its manifest, so it takes a
-    # presigned fetch to read. A multi-arch index carries it inline instead.
+    # The architecture lives in the image's config blob, not in its manifest, so a single-platform
+    # push takes a presigned fetch to read. An index carries it inline instead.
+    #
+    # ⚠️ BuildKit attaches provenance and SBOM attestations to the index as extra manifests whose
+    # platform is literally `unknown/unknown`. They are not images and nothing ever pulls them, so
+    # they are filtered out here — left in, a perfectly good arm64 image reports "arm64,unknown".
     manifest="$(aws_read ecr batch-get-image --region "$REGION" --repository-name "$ECR_REPOSITORY" \
       --image-ids "imageDigest=$(jq -r '.imageDigest' <<<"$newest")" \
       --query 'images[0].imageManifest' --output text)" || manifest=""
-    arch=""
+    arches=""
     if [[ -n "$manifest" ]]; then
-      arch="$(jq -r '[.manifests[]?.platform.architecture] | unique | join(",")' <<<"$manifest" 2>/dev/null || true)"
-      if [[ -z "$arch" ]]; then
+      arches="$(jq -r '[.manifests[]? | select(.platform.architecture != "unknown" and .platform.os != "unknown")
+        | .platform.architecture] | unique | join(" ")' <<<"$manifest" 2>/dev/null || true)"
+      if [[ -z "$arches" ]]; then
         config_digest="$(jq -r '.config.digest // empty' <<<"$manifest" 2>/dev/null || true)"
         if [[ -n "$config_digest" ]] && config_url="$(aws_read ecr get-download-url-for-layer \
           --region "$REGION" --repository-name "$ECR_REPOSITORY" --layer-digest "$config_digest" \
           --query downloadUrl --output text)"; then
-          arch="$(curl -sS --max-time 20 "$config_url" | jq -r '.architecture // empty' || true)"
+          arches="$(curl -sS --max-time 20 "$config_url" | jq -r '.architecture // empty' || true)"
         fi
       fi
     fi
-    if [[ "$arch" == "$EXPECTED_ARCH" ]]; then
-      pass "the image is built for ${arch}"
+    # Membership, not equality: what decides whether the task can pull is whether the expected
+    # architecture is *offered*. A deliberately multi-arch push is not a fault.
+    if [[ " ${arches} " == *" ${EXPECTED_ARCH} "* ]]; then
+      pass "the image offers ${EXPECTED_ARCH} (manifest: ${arches})"
     else
-      fail "the image is built for ${EXPECTED_ARCH}" \
-        "it reports '${arch:-unreadable}' — the task definition's cpu_architecture must match, or the pull fails with no application log"
+      fail "the image offers ${EXPECTED_ARCH}" \
+        "it offers '${arches:-unreadable}' — the task definition's cpu_architecture must match one of these, or the pull fails with no application log"
     fi
   fi
 fi
