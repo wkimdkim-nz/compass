@@ -205,10 +205,14 @@ else
     else
       cookies="$(jq -r '.OriginRequestPolicy.OriginRequestPolicyConfig.CookiesConfig.CookieBehavior' <<<"$policy")"
       name="$(jq -r '.OriginRequestPolicy.OriginRequestPolicyConfig.Name' <<<"$policy")"
-      if [[ "$cookies" == "all" || "$cookies" == "allExcept" ]]; then
-        pass "/api/* forwards cookies to the origin (${name}, CookieBehavior=${cookies})"
+      # Only `all` is accepted. An `allExcept` policy could exclude the session cookie and a
+      # whitelist could omit it, and this assertion exists to have no silent gap of its own; the
+      # stack pins the managed all-viewer policy, so `all` is also what a correct deploy reports.
+      if [[ "$cookies" == "all" ]]; then
+        pass "/api/* forwards all cookies to the origin (${name})"
       else
-        fail "/api/* forwards Cookie to the origin" "${name} has CookieBehavior=${cookies}"
+        fail "/api/* forwards Cookie to the origin" \
+          "${name} has CookieBehavior=${cookies} — only 'all' is guaranteed to carry the session cookie"
       fi
     fi
   fi
