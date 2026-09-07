@@ -9,8 +9,10 @@
 #
 # ⚠️ A direct request to the origin hostname from anywhere else never reaches the listener at all.
 # The security group drops it at TCP, so it **times out** rather than being answered — which is why
-# every check of this property needs a bounded wait, and why timeout-or-403 is the pass rather than
-# 403 alone.
+# every check of this property needs a bounded wait, and why a timeout or a refusal is the only
+# pass. A 403 is *not* one: it comes from the listener's default action below, so it proves the
+# request reached the load balancer and the security-group half of the lock is open, even though
+# the header half still held.
 
 resource "aws_lb" "api" {
   name               = "compass-api"
@@ -95,7 +97,8 @@ resource "aws_lb_listener" "https" {
   # rule that is deleted or mis-conditioned fails closed.
   #
   # 403 rather than 404, so a check of the origin lock has an unambiguous answer to look for when
-  # it does reach the listener — the far more common outcome is a timeout at the security group.
+  # it does reach the listener. Seeing it from outside CloudFront's ranges is itself a finding —
+  # the security group should have dropped the connection first — so it is a diagnosis, not a pass.
   default_action {
     type = "fixed-response"
 

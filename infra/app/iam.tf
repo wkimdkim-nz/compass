@@ -9,7 +9,7 @@
 # makes zero AWS calls: credentials arrive as environment variables the agent injected, so there is
 # no SDK in the image and nothing for a task role to hold (#19). Omitting it makes that structural
 # — a task with no role cannot acquire one by someone adding a policy to it — and it is why the
-# secret header is enforced at the listener and never handed to the container.
+# secret header is enforced at the listener rather than by anything the container is given.
 
 data "aws_iam_policy_document" "task_execution_assume" {
   statement {

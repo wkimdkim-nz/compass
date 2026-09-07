@@ -16,8 +16,10 @@
 # from the single lookup. The name is not a secret and does not need to be; carrying it here means
 # there is no second constant to keep in step across two stacks.
 #
-# ⚠️ The container never sees any of this. The listener rule enforces it in front of the task, and
-# the app makes no AWS calls at all (#19).
+# ⚠️ The container is never configured with any of this. The listener rule enforces it in front of
+# the task, and the app makes no AWS calls at all (#19). The header itself still reaches the task
+# on the wire — an ALB cannot strip a request header — which is why the API must never log request
+# headers.
 
 locals {
   origin_header_name = "X-Origin-Verify"

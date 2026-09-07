@@ -145,10 +145,12 @@ curl -sS -o /dev/null --max-time 10 https://api-origin.financial-compass.dev/api
 ```
 
 ⚠️ This one **passes by failing**. The origin must be unreachable except through CloudFront, and
-the security group rejects at TCP rather than answering, so the expected result is
-`curl: (28) Operation timed out` — exit 28 — or a connection refused. A bounded wait is therefore
-part of the check rather than a convenience. If it does answer, the only acceptable answer is
-`403`, from the listener's default action; a `200` means the origin lock is open.
+the security group rejects at TCP rather than answering, so the only passing results are
+`curl: (28) Operation timed out` — exit 28 — or a connection refused — exit 7. A bounded wait is
+therefore part of the check rather than a convenience. **Any HTTP response is a failure.** A `403`
+is the listener's default action, so it proves the request reached the load balancer: the
+security-group half of the lock is open even though the header half held. A `200` means both
+halves are.
 
 ## The network, in one paragraph
 

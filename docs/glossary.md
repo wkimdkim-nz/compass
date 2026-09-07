@@ -117,9 +117,10 @@ differ from the past.
   by the ALB's listener rule. The **security-group chain** admits CloudFront's *published, shared*
   edge ranges, so the prefix list proves "a CloudFront" and this proves "this distribution". The
   foundation stack generates it into Secrets Manager as `compass/cloudfront-origin-header` and the
-  app stack reads it **by name**, mirroring the **origin hostname**'s decoupling. The container
-  never sees it. _Avoid_: calling it a credential — it is an origin lock, and its value is
-  readable by anyone who can read the distribution's configuration.
+  app stack reads it **by name**, mirroring the **origin hostname**'s decoupling. The container is
+  never configured with it and nothing in the API reads it; the header does still reach the task on
+  the wire, since an ALB cannot strip a request header. _Avoid_: calling it a credential — it is an
+  origin lock, and its value is readable by anyone who can read the distribution's configuration.
 - **Ephemeral environment** — The deployed stack is torn down between work sessions with
   `terraform destroy` and rebuilt on demand; this is the **cost lever** that makes ADR 0009's
   topology affordable, not tidiness. Splits the infrastructure in two: a *foundation* stack that

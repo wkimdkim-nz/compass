@@ -122,7 +122,9 @@ resource "aws_ecs_task_definition" "api" {
       environment = local.task_environment
 
       # ⚠️ Deliberately not here: the origin header. The listener rule checks it in front of the
-      # task, so the container is never given the value and has no code that would read it.
+      # task, so the container is never configured with the value and has no code that reads it.
+      # It does still arrive on the wire — an ALB cannot strip a request header — so the one way
+      # it could leak from here is request-header logging. The API enables none, and must not.
 
       logConfiguration = {
         logDriver = "awslogs"
