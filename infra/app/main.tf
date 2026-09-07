@@ -59,14 +59,20 @@ locals {
   container_name = "api"
 }
 
-# Asked purely so that a tag which is not there fails the *plan*, by name, in one line.
+# What the registry holds, so that a tag which is not there fails the *plan* rather than the task.
 #
-# ⚠️ Nothing else catches it usefully. A task definition will happily name an image that does not
-# exist; the failure then arrives as a task that stops before the container runs, and the reason
-# lives in the stopped task's status rather than in any application log — the same place, and the
-# same kind of silence, as the ARM64 landmine. A tag is a hand-typed argument to every apply, so
-# this is the likeliest way to reach that silence.
-data "aws_ecr_image" "api" {
+# ⚠️ Nothing else catches a mistyped tag usefully. A task definition will happily name an image
+# that does not exist; the failure then arrives as a task that stops before the container runs,
+# with its reason in the stopped task's status rather than in any application log — the same
+# silence as the ARM64 landmine, and reachable by one hand-typed argument.
+#
+# ⚠️ The whole list, not `aws_ecr_image` asking after the one tag. That reads the tag as a
+# *precondition of reading at all* and fails the moment it is absent — including on a `destroy`,
+# where the tag is beside the point and the stack becomes undestroyable. That is not hypothetical:
+# the ECR lifecycle policy expires a tag once ten newer ones sit on top of it, so an environment
+# left up long enough would lose the tag it was built from and could not then be torn down. Listing
+# always succeeds, and the assertion moves to a precondition on the task definition, which
+# Terraform skips for a resource it is destroying.
+data "aws_ecr_images" "api" {
   repository_name = local.ecr_repository_name
-  image_tag       = var.image_tag
 }

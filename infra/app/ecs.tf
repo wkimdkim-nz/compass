@@ -95,6 +95,17 @@ resource "aws_ecs_task_definition" "api" {
     cpu_architecture        = "ARM64"
   }
 
+  # The tag has to be in the registry before this names it. Checked here rather than by the data
+  # source in main.tf so that it is an assertion about the deployment and not about being able to
+  # read at all — Terraform does not evaluate preconditions for a resource it is destroying, so a
+  # teardown never has to justify its tag.
+  lifecycle {
+    precondition {
+      condition     = contains(data.aws_ecr_images.api.image_ids[*].image_tag, var.image_tag)
+      error_message = "No image tagged ${var.image_tag} in ${local.ecr_repository_name}. Push one with scripts/push-image.sh, or name a tag that is there — a task definition would accept this tag and then fail to pull, with nothing in any application log."
+    }
+  }
+
   container_definitions = jsonencode([
     {
       name      = local.container_name
