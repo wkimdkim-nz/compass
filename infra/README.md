@@ -303,6 +303,12 @@ cached authenticated response is one user's data served to another and it does n
 path leaks it. `X-Cache` is the only cheap witness for that, and the `/api/*` behaviour uses
 CachingDisabled precisely so it always reads `Miss`.
 
+The health assertion wants exactly `200`, and redirects are not followed, so a `307` shows as a
+`307` rather than being quietly resolved. That is the answer the path most needs to reject: the
+target group matches `200` alone, so a redirect here means `UseHttpsRedirection()` has crept back
+into the API and every health check from the load balancer is in a loop — with nothing in the
+application's own logs to say so.
+
 The last assertion is the expensive one and the only one that changes anything: it forces a new
 deployment and waits for stability, which takes a few minutes. A forced deployment starts a second
 task before stopping the first, so a session issued by the old task has to be decrypted by a task

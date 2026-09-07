@@ -17,8 +17,10 @@
 # It cleans up nothing. Teardown is the cleanup (`terraform -chdir=infra/app destroy`), and each
 # run mints a fresh unique email so repeated runs never collide on the unique-username constraint.
 #
-# Needs: bash, curl, jq, and — for the last assertion only — an AWS session that can update and
-# describe the ECS service.
+# Needs: bash, curl, jq, and `aws` with a session that can update and describe the ECS service —
+# the last assertion forces a deployment, which no HTTP client can do. `terraform` as well when it
+# is run bare, because that is where it reads the base URL and the cluster and service from; given
+# all three as arguments it never looks.
 #
 # Usage: scripts/smoke-deployed.sh [base-url] [cluster] [service]
 #
@@ -67,17 +69,40 @@ if [[ -z "$cluster" || -z "$service" ]]; then
     echo "The app stack has no outputs, so it is not applied. Bring it up first — see infra/README.md." >&2
     exit 2
   fi
-  cluster="${cluster:-$(jq -r '.cluster_name.value' <<<"$app_outputs")}"
-  service="${service:-$(jq -r '.service_name.value' <<<"$app_outputs")}"
+  cluster="${cluster:-$(jq -r '.cluster_name.value // empty' <<<"$app_outputs")}"
+  service="${service:-$(jq -r '.service_name.value // empty' <<<"$app_outputs")}"
+  [[ -n "$cluster" && -n "$service" ]] || {
+    echo "The app stack has outputs but not cluster_name and service_name, so it is a stack this" >&2
+    echo "script does not know how to drive. Re-apply it, or pass them as arguments." >&2
+    exit 2
+  }
 fi
 
 base_url="${base_url%/}"
+
+# ⚠️ The scheme is settled here rather than assumed, because every later line depends on it and two
+# of them fail *silently* without it. `${base_url#*://}` is a no-op on a bare hostname, so `apex`
+# would keep a scheme it never had; and curl defaults a scheme-less URL to plaintext, so assertion
+# 1 would pass green over http while its name says HTTPS. The deployed site is https by
+# construction — CloudFront's viewer protocol policy is redirect-to-https — so a missing scheme is
+# filled in and a plaintext one is a mistake about what is being smoked, not a mode to support.
+case "$base_url" in
+  https://*) ;;
+  http://*) echo "The base URL is plaintext: ${base_url}. The deployed site is HTTPS only — CloudFront redirects http to https, so a plaintext run would assert against a redirect rather than the app." >&2; exit 2 ;;
+  *://*) echo "Unsupported scheme in base URL: ${base_url}" >&2; exit 2 ;;
+  *) base_url="https://${base_url}" ;;
+esac
+
 apex="${base_url#*://}"
 apex="${apex%%/*}"
 
-# The name CloudFront sends /api/* to, which assertion 2 proves is unreachable from here. Fixed in
-# the foundation stack as `api-origin.<domain>`; the override exists so a differently-named
-# environment does not have to edit this script.
+# The name CloudFront sends /api/* to, which assertion 2 proves is unreachable from here.
+#
+# Derived from the base URL rather than read out of the foundation stack's `origin_hostname`
+# output, deliberately and for the reason `verify-foundation.sh` gives for deriving the same name:
+# the point is to check the world rather than the plan, and a probe aimed by the state file cannot
+# fail when the state and the world disagree. The override is the escape hatch for a base URL that
+# is not the apex this origin belongs to.
 ORIGIN_HOSTNAME="${ORIGIN_HOSTNAME:-api-origin.${apex}}"
 
 # The AWS session is a *precondition*, not an assertion, so it is checked here rather than being
@@ -207,7 +232,7 @@ case "$origin_rc" in
   28) pass "the connection timed out after ${ORIGIN_TIMEOUT}s — dropped at the security group, as it should be" ;;
   7)  pass "the connection was refused — nothing is listening to anyone but CloudFront" ;;
   6)  fail "${ORIGIN_HOSTNAME} resolves" \
-        "DNS does not know the name, so the app stack's origin record is missing — /api/* returns an origin error from the edge and every assertion below would fail" ;;
+        "DNS does not know the name. Either the app stack's origin record is missing — /api/* then returns an origin error from the edge and every assertion below would fail — or the base URL is not the apex this origin belongs to, in which case set ORIGIN_HOSTNAME." ;;
   0)  fail "${ORIGIN_HOSTNAME} does not answer requests from here" \
         "it answered. Even a 403 is a finding: that comes from the listener's default action, so the request reached the load balancer and the security group is admitting more than CloudFront's origin-facing prefix list" ;;
   *)  fail "the direct-origin probe fails by timing out or being refused" \
@@ -217,12 +242,16 @@ esac
 # 3 — The port the target group depends on silently. It is the cheapest proof that a task is
 #     running, that the listener rule still carries the right header, and that the container is
 #     listening where the target group expects — none of which appears in any log when it is wrong.
-step "GET /api/health returns 200 (catches: the container port, the listener rule or the task is wrong, with nothing in any log)"
+step "GET /api/health returns 200 (catches: the container port, the listener rule, or a redirect the load balancer will loop on)"
 if ! http GET "$base_url/api/health"; then
   fail "GET /api/health answers" "$(curl_failed)"
 fi
+# ⚠️ Exactly 200, and redirects are deliberately not followed, so a 307 shows as a 307. That is the
+# one answer this path most needs to reject: the target group matches `200` alone, so a redirect
+# here means `UseHttpsRedirection()` has crept back into the API and every health check from the
+# load balancer is in a loop the application's own logs say nothing about.
 [[ "$status" == "200" ]] || fail "GET /api/health returns 200" \
-  "returned ${status}. 502/503 means no healthy target: the task is not running, or the target group's port or health path does not match the container. 403 means the listener rule's header no longer matches CloudFront's."
+  "returned ${status}. 307 means UseHttpsRedirection() is back in Program.cs and every load-balancer health check is looping. 502/503 means no healthy target: the task is not running, or the target group's port or health path does not match the container. 403 means the listener rule's header no longer matches CloudFront's."
 pass "the origin answers 200 through the public site"
 
 # 4 — Registration, and the cookie attributes read **off the raw Set-Cookie header**.
