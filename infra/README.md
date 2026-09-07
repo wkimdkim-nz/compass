@@ -92,11 +92,27 @@ terraform -chdir=infra/app init
 ```
 
 The image tag is the only thing the stack cannot work out for itself — a deployment names an image,
-so `image_tag` has no default. It is what `scripts/push-image.sh` printed, which is the commit
-`api/` was built from:
+so `image_tag` has no default. It is whatever `scripts/push-image.sh` last printed:
 
 ```bash
-terraform -chdir=infra/app apply -var "image_tag=$(git rev-parse --short=12 HEAD)"
+terraform -chdir=infra/app apply -var "image_tag=<tag>"
+```
+
+⚠️ **It is not `HEAD` unless `api/` changed and you pushed.** `push-image.sh` tags with the commit
+that was checked out when it ran, so a branch full of Terraform and prose leaves `HEAD` moving
+while the registry stands still — and `-var "image_tag=$(git rev-parse --short=12 HEAD)"` then
+fails the task definitions' precondition, which is the precondition working. Rebuilding to make
+`HEAD` true would push a second tag over identical bytes and expire an older one out of the
+lifecycle policy for nothing. Ask the registry what is actually there:
+
+```bash
+aws ecr describe-images --region ap-southeast-2 --repository-name compass-api --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text
+```
+
+Then confirm it still describes the code you are deploying — empty output means it does:
+
+```bash
+git diff --stat <tag>..HEAD -- api
 ```
 
 One apply does three things in an order it cannot rearrange: it creates the database, runs the
