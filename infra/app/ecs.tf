@@ -64,16 +64,11 @@ locals {
   # Exactly two, and they are the whole of what the ECS agent fetches on this stack's behalf. The
   # application never sees Secrets Manager: these arrive as ordinary environment variables and
   # DatabaseConnectionString.Resolve overlays them onto the connection string above, through the
-  # same code path the local tests walk.
-  #
-  # ⚠️ The `:username::` suffix is Secrets Manager's JSON-key selector —
-  # `<arn>:<json-key>:<version-stage>:<version-id>`, with the last two left empty for AWSCURRENT
-  # and the current version. Drop it and the container receives the entire JSON document as the
-  # value, so the API would connect as the literal user `{"username":"compass","password":...}`
-  # and the password would be in a log line the moment anything printed the connection string.
+  # same code path the local tests walk. rds.tf builds the two selectors and says what happens to
+  # a task definition that omits one.
   task_secrets = [
-    { name = "DB_USERNAME", valueFrom = "${local.database_secret_arn}:username::" },
-    { name = "DB_PASSWORD", valueFrom = "${local.database_secret_arn}:password::" },
+    { name = "DB_USERNAME", valueFrom = local.database_username_secret },
+    { name = "DB_PASSWORD", valueFrom = local.database_password_secret },
   ]
 
   # --- The image assertion, made by two task definitions ----------------------------------------
@@ -166,7 +161,7 @@ resource "aws_ecs_task_definition" "api" {
 # the Data Protection key ring lives in a migration-created table, so the loser of that race is not
 # a missing feature — **nobody can log in** (#12, #19, ADR 0007).
 resource "aws_ecs_task_definition" "migrate" {
-  family = "compass-migrate"
+  family = local.migrate_task_family
 
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -278,7 +273,7 @@ resource "terraform_data" "migrate" {
 # for the one observation #28 asks for — the live connection ceiling, recorded in infra/README.md —
 # and is otherwise a diagnostic, not part of any deploy. It costs nothing while it is not running.
 resource "aws_ecs_task_definition" "psql" {
-  family = "compass-psql"
+  family = local.psql_task_family
 
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -317,9 +312,10 @@ resource "aws_ecs_task_definition" "psql" {
         { name = "PGDATABASE", value = aws_db_instance.compass.db_name },
       ]
 
+      # The same two selectors the API's task definitions use, under the names libpq reads.
       secrets = [
-        { name = "PGUSER", valueFrom = "${local.database_secret_arn}:username::" },
-        { name = "PGPASSWORD", valueFrom = "${local.database_secret_arn}:password::" },
+        { name = "PGUSER", valueFrom = local.database_username_secret },
+        { name = "PGPASSWORD", valueFrom = local.database_password_secret },
       ]
 
       logConfiguration = {
@@ -363,8 +359,10 @@ resource "aws_ecs_service" "api" {
   }
 
   # The app has no startup work to do — migrations are the one-off task above, already finished by
-  # the time this service is touched — so this is short. It only has to cover the runtime starting,
-  # Kestrel binding, and the first connection to RDS.
+  # the time this service is touched — so this is short. It only has to cover the runtime starting
+  # and Kestrel binding. Nothing here waits on the database: the health path is shallow and never
+  # opens a connection, which is what keeps a database fault from becoming an endless
+  # kill-and-replace loop.
   health_check_grace_period_seconds = 60
 
   # The apply does not finish until the service is stable, which is what makes `terraform apply`

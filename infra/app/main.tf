@@ -58,11 +58,16 @@ locals {
   # prefix — and a mismatch between the first two is rejected only when the service is created.
   container_name = "api"
 
-  # The one-off tasks' containers. Each doubles as its log stream prefix and as the name
-  # `scripts/run-one-off-task.sh` reads an exit code out of, so the script takes the kind — the
-  # word after the script name — and derives both from it.
+  # The one-off tasks, keyed by the word `scripts/run-one-off-task.sh` takes as its first argument.
+  # The convention is established here so that the script has one place to point at: the key is the
+  # container's name and its log stream prefix, and `compass-<key>` is the task definition family.
+  # The script re-derives both from the kind it was given, which is only safe while this stays the
+  # one place either shape is decided.
   migrate_container_name = "migrate"
   psql_container_name    = "psql"
+
+  migrate_task_family = "compass-${local.migrate_container_name}"
+  psql_task_family    = "compass-${local.psql_container_name}"
 }
 
 # What the registry holds, so that a tag which is not there fails the *plan* rather than the task.

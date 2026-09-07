@@ -15,8 +15,9 @@
 # ⚠️ The 7-day tripwire (#19, #28). RDS rotates that managed secret every seven days by default,
 # ECS injects its two keys once at task start, and AWS has no channel to push a new value into a
 # running container — only a restart. This stack is safe from that *solely* because it is
-# ephemeral: a work session is hours, not days. "The environment becomes permanent" is the named
-# trigger to move to an application-side password provider, and nothing else is.
+# ephemeral: a work session is hours, not days. #19 names the trigger to move to an
+# application-side password provider — *"the environment becomes permanent"*, which here means this
+# app stack stops being destroyed between sessions — and nothing else is that trigger.
 
 resource "aws_db_instance" "compass" {
   identifier = "compass"
@@ -25,11 +26,22 @@ resource "aws_db_instance" "compass" {
   # Testcontainers image the API's own suite runs against, so the deployed database is not a
   # different major version from the one every test has ever seen.
   #
+  # ADR 0009 left this as parity *chosen but not verified*, and it is now verified — 18.1 through
+  # 18.6 are offered in ap-southeast-2, and `db.t4g.micro` on `gp3` is orderable against 18. Worth
+  # checking rather than assuming: an engine version a region does not offer is refused in the
+  # middle of the apply, after the load balancer has been provisioned.
+  #
+  #     aws rds describe-db-engine-versions --engine postgres --region ap-southeast-2 \
+  #       --query "DBEngineVersions[?starts_with(EngineVersion, '18')].EngineVersion"
+  #
   # The major version only. RDS resolves it to the current minor at creation and the provider
-  # prefix-matches, so `auto_minor_version_upgrade` picking up a patch does not then show as
-  # permanent drift in every plan.
+  # prefix-matches, so the minor upgrade below does not then show as permanent drift in every plan.
   engine         = "postgres"
   engine_version = "18"
+
+  # Stated, because the line above leans on it: pinning the major version alone is only safe while
+  # RDS is the thing allowed to move the minor.
+  auto_minor_version_upgrade = true
 
   # ADR 0009 and #10. 2 vCPU burstable, 1 GiB — the smallest current-generation instance, and the
   # class the pool ceiling below is sized against.
@@ -91,9 +103,19 @@ resource "aws_db_instance" "compass" {
 
 locals {
   # The RDS-managed secret, as a JSON document with exactly two keys — `username` and `password`.
-  # Three things reference it and they must agree: the execution role's inline policy (iam.tf), and
-  # the two `valueFrom` selectors in ecs.tf that pull the keys out one at a time.
+  # The execution role's inline policy (iam.tf) is scoped to this ARN and nothing else.
   database_secret_arn = aws_db_instance.compass.master_user_secret[0].secret_arn
+
+  # How a task definition asks for one key out of that document.
+  #
+  # ⚠️ `<arn>:<json-key>:<version-stage>:<version-id>`, with the last two left empty for AWSCURRENT
+  # and the current version. Written once because every task definition that reaches the database
+  # needs both, and because dropping the selector is a silent failure of a particular kind: the
+  # container receives the entire JSON document as the value, so it connects as the literal user
+  # `{"username":"compass","password":...}` and the password is in the first log line that prints
+  # a connection string.
+  database_username_secret = "${local.database_secret_arn}:username::"
+  database_password_secret = "${local.database_secret_arn}:password::"
 
   # Everything the API needs to reach the database *except* the credentials, which arrive
   # separately as injected secrets and are joined on at startup (DatabaseConnectionString.Resolve).

@@ -122,15 +122,34 @@ container="$(jq --arg name "$kind" '.containers[] | select(.name == $name)' <<<"
 exit_code="$(jq -r '.exitCode // empty' <<<"$container")"
 
 # The stream the task definition's awslogs options produce: <prefix>/<container>/<task-id>, and
-# both halves of that prefix are the kind. Empty when the container never ran.
-if log_events="$(aws logs get-log-events \
-      --log-group-name "$LOG_GROUP" \
-      --log-stream-name "${kind}/${kind}/${task_id}" \
-      --start-from-head --output json 2>/dev/null)"; then
+# both halves of that prefix are the kind (infra/app/main.tf).
+#
+# ⚠️ Retried, because a task can be stopped before its logs have arrived. The awslogs driver ships
+# in batches and CloudWatch accepts them asynchronously, so `wait tasks-stopped` returning is not a
+# promise that the stream exists yet — and the run where that matters is the failed one, whose
+# output is the only explanation of what went wrong. A few seconds of patience beats printing
+# nothing and blaming the migration.
+print_logs() {
+  local attempt events
+  for attempt in 1 2 3 4 5 6; do
+    if events="$(aws logs get-log-events \
+          --log-group-name "$LOG_GROUP" \
+          --log-stream-name "${kind}/${kind}/${task_id}" \
+          --start-from-head --output json 2>/dev/null)" \
+       && [[ "$(jq -r '.events | length' <<<"$events")" != "0" ]]; then
+      echo
+      jq -r '.events[].message' <<<"$events"
+      echo
+      return 0
+    fi
+    sleep 2
+  done
   echo
-  jq -r '.events[].message' <<<"$log_events"
+  echo "(nothing in ${LOG_GROUP} at ${kind}/${kind}/${task_id} — the container may never have run.)"
   echo
-fi
+}
+
+print_logs
 
 if [[ -z "$exit_code" ]]; then
   # No exit code means the container never ran at all — a pull that failed, a secret the execution

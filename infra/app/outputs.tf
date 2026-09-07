@@ -29,7 +29,7 @@ output "log_group" {
 }
 
 output "database_endpoint" {
-  description = "Host and port of the Postgres instance. Resolvable and reachable only from inside the VPC — `scripts/run-one-off-task.sh psql` is the way to query it."
+  description = "Host and port of the Postgres instance. The name resolves anywhere; it resolves to a private address, so only something inside the VPC can reach it — `scripts/run-one-off-task.sh psql` is the way to query it."
   value       = aws_db_instance.compass.endpoint
 }
 

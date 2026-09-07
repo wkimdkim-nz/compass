@@ -181,10 +181,10 @@ single secret ARN.
 
 > ⚠️ **The seven-day tripwire.** RDS rotates that managed secret every seven days by default,
 > injection happens **once** at task start, and AWS has no channel to push a new value into a
-> running container. This is safe **solely** because the stack is ephemeral — a work session is
-> hours. *"The environment becomes permanent"* is the named trigger to move to an application-side
-> password provider, and nothing else is
-> ([#19](https://github.com/wkimdkim-nz/compass/issues/19)).
+> running container. This is safe **solely** because the app stack is ephemeral — a work session is
+> hours. [#19](https://github.com/wkimdkim-nz/compass/issues/19) names the one trigger to move to
+> an application-side password provider: *"the environment becomes permanent"*, meaning this stack
+> stops being destroyed between sessions. Nothing else is that trigger.
 
 ## Looking inside the database
 
