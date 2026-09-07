@@ -174,6 +174,19 @@ master password is RDS's own and never enters Terraform state; the container rec
 injected secrets, `DB_USERNAME` and `DB_PASSWORD`, fetched by the ECS agent because the application
 makes no AWS calls at all.
 
+Then ask the deployed app whether it works. It is an HTTP client rather than a browser because
+nothing newly at risk out there is client-side — it is cookie attributes, the origin lock, cache
+behaviour and whether two secrets resolved, all of which curl asserts on more precisely than a
+rendered page can, and the SPA's own seam already owns the rest:
+
+```bash
+scripts/smoke-deployed.sh
+```
+
+Nine assertions, and [`infra/README.md`](infra/README.md) describes them — including the two
+results that read backwards, where the direct-origin assertion passes by *failing* and a cache hit
+on any `/api/*` response fails the whole run.
+
 ## Tests
 
 Two seams, one command each. Neither shares state between tests, and neither uses an in-memory

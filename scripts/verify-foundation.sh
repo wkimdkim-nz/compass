@@ -3,7 +3,7 @@
 # Verifies the foundation stack from outside itself.
 #
 # Every assertion is named for the silent failure it catches, and they run cheapest first, in the
-# same style as the deployed smoke test (#45). Nothing here reads Terraform state: the point is to
+# same style as `scripts/smoke-deployed.sh`. Nothing here reads Terraform state: the point is to
 # check the world rather than the plan, which is also why delegation is confirmed by asking the
 # `.dev` registry directly rather than by reading the console.
 #
