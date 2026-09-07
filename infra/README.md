@@ -213,16 +213,21 @@ So the way in is a third task definition, `compass-psql`, in the same network po
 with a Postgres client in it. It costs nothing while it is not running:
 
 ```bash
-scripts/run-one-off-task.sh psql -c 'SELECT count(*) FROM asp_net_users'
+scripts/run-one-off-task.sh psql -c 'SELECT count(*) FROM "AspNetUsers"'
 ```
 
-With no arguments it runs `SHOW max_connections`, which is the one observation below.
+Everything after `psql` is arguments to `psql` itself; the script supplies the binary. ⚠️ It has
+to, and this is not ergonomics: the postgres image's entrypoint reads a leading `-` as arguments to
+the *server* and tries to initialise a new database cluster, failing with a message about
+`POSTGRES_PASSWORD` that never mentions the query you asked for.
+
+With no arguments at all it runs `SHOW max_connections`, which is the one observation below.
 
 ### The connection ceiling
 
-`Maximum Pool Size=20` is in the connection string because Npgsql defaults to **100** and a
-`db.t4g.micro` tops out near it. A deployment runs two tasks at once, so the arithmetic that has to
-hold is **2 × 20 = 40 connections** against the instance's ceiling.
+`Maximum Pool Size=20` is in the connection string because Npgsql defaults to **100**. A deployment
+runs two tasks at once, so the arithmetic that has to hold is **2 × 20 = 40 connections** against
+the instance's ceiling.
 
 That ceiling is not something AWS publishes. The default parameter group sets
 `max_connections = LEAST({DBInstanceClassMemory/9531392},5000)`, and `DBInstanceClassMemory` is the
@@ -235,11 +240,18 @@ it is a one-time observation, not a per-rebuild assertion):
 scripts/run-one-off-task.sh psql
 ```
 
-| Instance | Engine | Observed `max_connections` | Against 2 × 20 |
-|---|---|---|---|
-| `db.t4g.micro` | Postgres 18 in `ap-southeast-2` | _not yet observed_ | — |
+| Instance | Engine | Observed `max_connections` | Reserved | Usable | Against 2 × 20 |
+|---|---|---|---|---|---|
+| `db.t4g.micro` | Postgres 18.6 in `ap-southeast-2` | **79** (observed 2026-09-07) | 3 | 76 | fits, 36 spare |
 
-⚠️ If it lands below 40, the pool ceiling is wrong and not the arithmetic: lower
+⚠️ **79, not the ~100 the design assumed.** The arithmetic that produced "near 100" —
+1 GiB ÷ 9531392 ≈ 112 — counts memory RDS keeps for itself, which is exactly why
+[#28](https://github.com/wkimdkim-nz/compass/issues/28) said to verify rather than compute. The
+pool ceiling still holds and is unchanged, but the headroom is a third of what the round number
+suggested: raising `Maximum Pool Size` past 38 would make a *deployment* the thing that exhausts
+the database.
+
+If a future instance class lands below 40, the pool ceiling is what moves — lower
 `Maximum Pool Size` in `local.database_connection_string` rather than assuming a deployment will
 not overlap.
 

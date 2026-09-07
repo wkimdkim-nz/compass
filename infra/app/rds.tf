@@ -127,10 +127,12 @@ locals {
   #     store. Without it the connection does not fall back to something weaker, it fails outright.
   #     `Verify-Full` with a baked-in RDS CA bundle was rejected as a second thing expiring on
   #     AWS's schedule (#19).
-  #   * `Maximum Pool Size=20` — Npgsql defaults to 100 and a `db.t4g.micro` tops out near it. A
-  #     deployment runs the old task and the new one at once, so the default would reach for 200
-  #     connections exactly while deploying. Two tasks × 20 is 40, against a ceiling recorded in
-  #     infra/README.md.
+  #   * `Maximum Pool Size=20` — Npgsql defaults to 100, and a deployment runs the old task and
+  #     the new one at once, so the default would reach for 200 connections exactly while
+  #     deploying. Two tasks × 20 is 40. ⚠️ The measured ceiling is **79**, not the ~100 the
+  #     arithmetic suggests — 1 GiB ÷ 9531392 ≈ 112 counts memory RDS keeps for itself. Observed
+  #     at first boot and recorded in infra/README.md: it fits, with 36 spare, and anything above
+  #     38 would make a deployment the thing that exhausts the database.
   #
   # `address` and `port` rather than `endpoint`, which is the two of them already joined by a colon
   # and would need splitting apart again to be written as a Npgsql keyword pair.

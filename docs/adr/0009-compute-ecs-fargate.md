@@ -139,11 +139,13 @@ only if the environment ever becomes persistent.
   > parity itself is unchanged: `infra/app/rds.tf` pins the major version only and lets
   > `auto_minor_version_upgrade` carry the minor.
   >
-  > The connection-pool half of the same line is settled too, but only by arithmetic:
-  > `Maximum Pool Size=20` against two concurrent tasks is 40. ⚠️ The **live** ceiling is not
-  > something AWS publishes — the default parameter group sets
-  > `max_connections = LEAST({DBInstanceClassMemory/9531392},5000)` — so it is observed once at the
-  > first boot of a rebuilt database and recorded in `infra/README.md`.
+  > The connection-pool half of the same line is settled too, and by measurement rather than
+  > arithmetic. ⚠️ **The live ceiling on `db.t4g.micro` is 79, not the ~100 assumed** — the default
+  > parameter group sets `max_connections = LEAST({DBInstanceClassMemory/9531392},5000)`, and
+  > 1 GiB ÷ 9531392 ≈ 112 counts memory RDS keeps for itself. `Maximum Pool Size=20` against two
+  > concurrent tasks is 40, so it fits with 36 spare — but the headroom is a third of what the
+  > round number suggested, and a pool above 38 would make a *deployment* exhaust the database.
+  > Observed at the first boot of the instance on 2026-09-07 and recorded in `infra/README.md`.
 - **Left open on purpose:** whether this account qualifies for **750 free ALB hours/month** for new
   AWS customers — if it does, the $18.40/mo ALB line vanishes. That changes the *runway*, not the
   design. **Scale-to-zero** is likewise not pursued: teardown is the cost lever.

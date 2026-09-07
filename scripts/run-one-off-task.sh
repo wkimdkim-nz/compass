@@ -8,7 +8,8 @@
 #
 # The first argument is the *kind*, which is both the task definition's suffix (`compass-<kind>`)
 # and its container's name — see infra/app/main.tf, where those two are named together for exactly
-# this reason. Anything after it replaces the container's command.
+# this reason. Anything after it is arguments to that kind's binary; with nothing after it, the
+# task definition's own command runs.
 #
 # ⚠️ The exit code is the point. `aws ecs run-task` succeeds when a task is *accepted*, not when it
 # works, so a migration that failed against the database and a migration that never started both
@@ -28,10 +29,21 @@ for cmd in aws jq terraform; do
   command -v "$cmd" >/dev/null || { echo "missing required command: $cmd" >&2; exit 2; }
 done
 
+# The kind, and the binary its image runs. Anything after the kind is arguments *to that binary*,
+# not a whole command line — `run-one-off-task.sh psql -c 'SELECT 1'` reads the way it should, and
+# nobody has to write `psql` twice.
+#
+# ⚠️ The prefix is not decoration. ECS `command` overrides replace the image's CMD outright, and
+# both images have an ENTRYPOINT that interprets what it is handed: the postgres image runs
+# `docker-entrypoint.sh`, which treats a leading `-` as arguments to the *server* and tries to
+# initialise a new database cluster instead of connecting to RDS. Without the prefix, `-c` alone
+# arrives and that is exactly what happens — the task fails with a message about
+# POSTGRES_PASSWORD that says nothing about the query you asked for.
 kind="${1:-}"
 case "$kind" in
-  migrate|psql) shift ;;
-  *) echo "usage: scripts/run-one-off-task.sh <migrate|psql> [command...]" >&2; exit 2 ;;
+  migrate) shift; command_prefix=(./efbundle) ;;
+  psql)    shift; command_prefix=(psql) ;;
+  *) echo "usage: scripts/run-one-off-task.sh <migrate|psql> [arguments...]" >&2; exit 2 ;;
 esac
 
 # Read once, so that running this by hand is not four `terraform output` invocations, and so that a
@@ -64,14 +76,15 @@ if ! aws sts get-caller-identity >/dev/null 2>&1; then
   exit 2
 fi
 
-# The container command override, as run-task's `--overrides` document. Absent when no command was
-# given, so the task definition's own command stands.
+# The container command override, as run-task's `--overrides` document. Absent when no arguments
+# were given, so the task definition's own command stands — which for `psql` is the connection
+# ceiling and for `migrate` is the migration itself.
 overrides=()
 if (( $# > 0 )); then
   # Null-delimited into jq rather than through jq's own `--args`, which goes on parsing what
-  # follows it as jq options — so `psql -c 'SHOW max_connections'` would arrive at ECS with the
-  # `-c` silently missing and psql would try to connect to a database called SHOW.
-  command_json="$(printf '%s\0' "$@" | jq -Rsc 'split("\u0000")[:-1]')"
+  # follows it as jq options — so `-c 'SHOW max_connections'` would arrive at ECS with the `-c`
+  # silently missing and psql would try to connect to a database called SHOW.
+  command_json="$(printf '%s\0' "${command_prefix[@]}" "$@" | jq -Rsc 'split("\u0000")[:-1]')"
   overrides=(--overrides "$(jq -nc --arg name "$kind" --argjson command "$command_json" \
     '{containerOverrides: [{name: $name, command: $command}]}')")
 fi

@@ -38,9 +38,11 @@ namespace Compass.Api.Data;
 /// baked-in RDS CA bundle was rejected: a second thing expiring on AWS's schedule.
 /// </description></item>
 /// <item><description>
-/// <c>Maximum Pool Size=20</c> — Npgsql defaults to 100 and a <c>db.t4g.micro</c> tops out near
-/// 100. A deployment runs the old and the new task concurrently, so the default would overshoot
-/// the database's connection ceiling exactly while deploying.
+/// <c>Maximum Pool Size=20</c> — Npgsql defaults to 100. A deployment runs the old and the new
+/// task concurrently, so the default would overshoot the database's connection ceiling exactly
+/// while deploying. The ceiling was measured at <b>79</b> on the deployed <c>db.t4g.micro</c>,
+/// not the ~100 the arithmetic suggests, so two tasks × 20 fits with 36 to spare — see
+/// <c>infra/README.md</c>, which is where that observation lives.
 /// </description></item>
 /// </list>
 /// <para>
