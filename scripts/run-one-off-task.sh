@@ -34,11 +34,13 @@ done
 # nobody has to write `psql` twice.
 #
 # ⚠️ The prefix is not decoration. ECS `command` overrides replace the image's CMD outright, and
-# both images have an ENTRYPOINT that interprets what it is handed: the postgres image runs
-# `docker-entrypoint.sh`, which treats a leading `-` as arguments to the *server* and tries to
-# initialise a new database cluster instead of connecting to RDS. Without the prefix, `-c` alone
-# arrives and that is exactly what happens — the task fails with a message about
-# POSTGRES_PASSWORD that says nothing about the query you asked for.
+# each image needs its binary back for a different reason. The API image has no ENTRYPOINT
+# (api/Dockerfile) — its CMD *is* the whole command line, so an override of bare arguments has
+# nothing to run them with. The postgres image does have one, `docker-entrypoint.sh`, which
+# treats a leading `-` as arguments to the *server* and tries to initialise a new database cluster
+# instead of connecting to RDS. Without the prefix, `-c` alone arrives and that is exactly what
+# happens — the task fails with a message about POSTGRES_PASSWORD that says nothing about the
+# query you asked for.
 kind="${1:-}"
 case "$kind" in
   migrate) shift; command_prefix=(./efbundle) ;;

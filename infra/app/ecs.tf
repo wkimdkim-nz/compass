@@ -2,8 +2,10 @@
 # refuses to serve traffic without.
 #
 # The service is the only long-running one. The other two are one-off tasks started with
-# `aws ecs run-task` — `migrate` on every apply, by the runner at the bottom of this file, and
-# `psql` by hand when someone needs to look inside a database nothing else can reach.
+# `aws ecs run-task` — `migrate` by the runner at the bottom of this file, on every apply that
+# registers a new revision of its task definition (a new image tag, a new database endpoint, a
+# change to the shared environment; an unchanged re-apply runs nothing, a fresh stack always runs
+# it once), and `psql` by hand when someone needs to look inside a database nothing else can reach.
 
 resource "aws_ecs_cluster" "compass" {
   name = "compass"
