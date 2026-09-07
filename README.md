@@ -126,8 +126,11 @@ against `dotnet run`.
 
 `dotnet ef database update` needs the SDK and the sources, and the runtime image has neither. The
 image therefore also carries **`efbundle`**, the committed migrations compiled into a standalone
-executable, which production runs as a one-off task with a `command` override. It reads the same
-configuration the app does, so it takes its credentials the same split way:
+executable, which production runs as a one-off ECS task with a `command` override — before the
+service is allowed to serve traffic, because the Data Protection key ring lives in a
+migration-created table and a service that wins that race breaks *login*
+([`infra/README.md`](infra/README.md) has the mechanism). It reads the same configuration the app
+does, so it takes its credentials the same split way:
 
 ```bash
 docker run --rm --add-host host.docker.internal:host-gateway -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api ./efbundle
@@ -163,6 +166,13 @@ scripts/verify-foundation.sh
 Until the app stack exists, `/api/*` returns an origin error. That is the DNS decoupling working,
 not a fault: CloudFront points at the *name* `api-origin.financial-compass.dev`, so the stack
 behind it can come and go without CloudFront's configuration ever changing.
+
+The app stack is one `terraform apply` and it holds the database. That apply creates RDS, runs the
+migration task against it and waits for it to finish, and only then brings the service up — an
+ordering the dependency graph enforces rather than a sequence anyone is asked to remember. The
+master password is RDS's own and never enters Terraform state; the container receives exactly two
+injected secrets, `DB_USERNAME` and `DB_PASSWORD`, fetched by the ECS agent because the application
+makes no AWS calls at all.
 
 ## Tests
 

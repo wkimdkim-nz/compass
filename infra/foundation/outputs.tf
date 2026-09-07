@@ -79,6 +79,11 @@ output "container_port" {
   value       = local.container_port
 }
 
+output "database_port" {
+  description = "The port the database security group admits the task on. The RDS instance must be created on it — a mismatch is not refused anywhere, it just never connects."
+  value       = local.database_port
+}
+
 output "ecr_repository_url" {
   description = "The registry the task definition names an image in. Tags are immutable."
   value       = aws_ecr_repository.api.repository_url

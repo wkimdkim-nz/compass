@@ -130,6 +130,22 @@ only if the environment ever becomes persistent.
   two AZs** even single-AZ; deploys run old and new tasks concurrently, **doubling DB
   connections** — size the pool; **verify Postgres 18 is offered on RDS in `ap-southeast-2`**
   (chosen for parity with the local `postgres:18-alpine`, not verified).
+
+  > **Amended 2026-09-07 (per [ticket #44](https://github.com/wkimdkim-nz/compass/issues/44)).**
+  > **Postgres 18 is offered in `ap-southeast-2` — 18.1 through 18.6 — and `db.t4g.micro` on `gp3`
+  > is orderable against it.** Checked with `aws rds describe-db-engine-versions` and
+  > `describe-orderable-db-instance-options` before the instance was written, because a version a
+  > region does not offer is refused in the middle of the apply rather than at plan time. The
+  > parity itself is unchanged: `infra/app/rds.tf` pins the major version only and lets
+  > `auto_minor_version_upgrade` carry the minor.
+  >
+  > The connection-pool half of the same line is settled too, and by measurement rather than
+  > arithmetic. ⚠️ **The live ceiling on `db.t4g.micro` is 79, not the ~100 assumed** — the default
+  > parameter group sets `max_connections = LEAST({DBInstanceClassMemory/9531392},5000)`, and
+  > 1 GiB ÷ 9531392 ≈ 112 counts memory RDS keeps for itself. `Maximum Pool Size=20` against two
+  > concurrent tasks is 40, so it fits with 36 spare — but the headroom is a third of what the
+  > round number suggested, and a pool above 38 would make a *deployment* exhaust the database.
+  > Observed at the first boot of the instance on 2026-09-07 and recorded in `infra/README.md`.
 - **Left open on purpose:** whether this account qualifies for **750 free ALB hours/month** for new
   AWS customers — if it does, the $18.40/mo ALB line vanishes. That changes the *runway*, not the
   design. **Scale-to-zero** is likewise not pursued: teardown is the cost lever.
