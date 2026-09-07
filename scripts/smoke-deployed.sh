@@ -17,8 +17,9 @@
 # It cleans up nothing. Teardown is the cleanup (`terraform -chdir=infra/app destroy`), and each
 # run mints a fresh unique email so repeated runs never collide on the unique-username constraint.
 #
-# Needs: bash, curl, jq, and `aws` with a session that can update and describe the ECS service —
-# the last assertion forces a deployment, which no HTTP client can do. `terraform` as well when it
+# Needs: bash, curl (built with telnet://, as every mainstream build is — assertion 2 says why), jq,
+# and `aws` with a session that can update and describe the ECS service — the last assertion
+# forces a deployment, which no HTTP client can do. `terraform` as well when it
 # is run bare, because that is where it reads the base URL and the cluster and service from; given
 # all three as arguments it never looks.
 #
@@ -44,6 +45,13 @@ ORIGIN_TIMEOUT="${ORIGIN_TIMEOUT:-15}"
 for cmd in curl jq; do
   command -v "$cmd" >/dev/null || { echo "missing required command: $cmd" >&2; exit 2; }
 done
+
+# The direct-origin probe is a raw TCP connection, which curl only offers as `telnet://` (assertion
+# 2 says why it has to be raw). Every mainstream build has it, but one without it would turn the
+# probe into a protocol error eight lines from the top of a run, so it is a precondition here.
+curl_version="$(curl --version)"
+grep -qE '^Protocols:.*[[:space:]]telnet([[:space:]]|$)' <<<"$curl_version" \
+  || { echo "curl was built without telnet:// support, which the direct-origin probe needs for a raw TCP connection" >&2; exit 2; }
 
 # --- What to point at ---------------------------------------------------------------------------
 
@@ -224,19 +232,45 @@ pass "the SPA is served at ${base_url}/"
 #     answered. That is why the wait is bounded and why timeout-or-refused is the pass. A 403 is
 #     NOT a pass: it is the listener's default action, so it proves the request reached the load
 #     balancer and the security-group half of the lock is open.
+#
+#     ⚠️ It is a raw TCP probe (`telnet://`), not the HTTPS request it looks like it should be,
+#     because the fact being asserted is "the handshake never completes" and an HTTPS request
+#     cannot report that. curl's connect phase is TCP and TLS together: when the phase as a whole
+#     runs out of time it exits 28 with `time_connect` still at zero even though the socket was
+#     accepted — verified against a listener that accepts and then says nothing — so an origin
+#     that admits the connection and stalls in TLS would be indistinguishable from a dropped
+#     packet. With `telnet://` the connect phase *is* the socket: `time_connect` is recorded the
+#     moment TCP completes, and a timeout with a recorded connect is a reached origin, not a lock.
+#     Once reached, the HTTPS request is made after all, purely to name in the failure how far it
+#     got. A host:port in ORIGIN_HOSTNAME is honoured; a bare host is probed on 443.
 step "Direct access to ${ORIGIN_HOSTNAME} is refused (catches: the origin is reachable without going through CloudFront)"
+origin_endpoint="$ORIGIN_HOSTNAME"
+[[ "$origin_endpoint" == *:* ]] || origin_endpoint="${origin_endpoint}:443"
 origin_rc=0
-curl -sS -o /dev/null "https://${ORIGIN_HOSTNAME}/api/health" \
-  --connect-timeout "$ORIGIN_TIMEOUT" --max-time "$ORIGIN_TIMEOUT" 2>"${workdir}/curl-err" || origin_rc=$?
+origin_connect="$(curl -sS -o /dev/null -w '%{time_connect}' "telnet://${origin_endpoint}" \
+  --connect-timeout "$ORIGIN_TIMEOUT" --max-time "$ORIGIN_TIMEOUT" </dev/null 2>"${workdir}/curl-err")" || origin_rc=$?
+never_connected='^0(\.0+)?$'
+if [[ ! "$origin_connect" =~ $never_connected ]]; then
+  # TCP completed, so the security group admitted this address and the assertion has already
+  # failed whatever curl's exit code says. The request that follows is only for the diagnostic.
+  if http GET "https://${ORIGIN_HOSTNAME}/api/health" --connect-timeout "$ORIGIN_TIMEOUT" --max-time "$ORIGIN_TIMEOUT"; then
+    origin_answer="TCP was accepted and it answered ${status}. Even a 403 is a finding: that comes from the listener's default action, so the request reached the load balancer and the security group is admitting more than CloudFront's origin-facing prefix list"
+  else
+    origin_answer="TCP was accepted after ${origin_connect}s and the HTTPS request then failed ($(curl_failed)). A stalled or broken handshake is not a lock: the security group already admitted this address"
+  fi
+  fail "${ORIGIN_HOSTNAME} does not accept connections from here" "$origin_answer"
+fi
 case "$origin_rc" in
-  28) pass "the connection timed out after ${ORIGIN_TIMEOUT}s — dropped at the security group, as it should be" ;;
+  28) if grep -q 'Resolving timed out' "${workdir}/curl-err"; then
+        fail "${ORIGIN_HOSTNAME} resolves" \
+          "DNS did not answer within ${ORIGIN_TIMEOUT}s, so nothing was probed. That is a resolver problem on this side, not a verdict on the origin — re-run."
+      fi
+      pass "no TCP connection in ${ORIGIN_TIMEOUT}s — dropped at the security group, as it should be" ;;
   7)  pass "the connection was refused — nothing is listening to anyone but CloudFront" ;;
   6)  fail "${ORIGIN_HOSTNAME} resolves" \
         "DNS does not know the name. Either the app stack's origin record is missing — /api/* then returns an origin error from the edge and every assertion below would fail — or the base URL is not the apex this origin belongs to, in which case set ORIGIN_HOSTNAME." ;;
-  0)  fail "${ORIGIN_HOSTNAME} does not answer requests from here" \
-        "it answered. Even a 403 is a finding: that comes from the listener's default action, so the request reached the load balancer and the security group is admitting more than CloudFront's origin-facing prefix list" ;;
   *)  fail "the direct-origin probe fails by timing out or being refused" \
-        "curl exited ${origin_rc}: $(tr -d '\n' <"${workdir}/curl-err" | cut -c1-200). A TLS-level error is not a pass either — the handshake means TCP was accepted, so the security group already admitted this address." ;;
+        "curl exited ${origin_rc} before TCP completed: $(tr -d '\n' <"${workdir}/curl-err" | cut -c1-200)" ;;
 esac
 
 # 3 — The port the target group depends on silently. It is the cheapest proof that a task is
@@ -372,6 +406,23 @@ location="$(header location)"
   "Location: ${location} — the cookie handler's OnRedirectToLogin is back to Identity's default"
 pass "401, no redirect"
 
+# The running task ARNs of the service, or a failed assertion. ⚠️ A failed `list-tasks` is reported
+# as what it is and never folded into "found none": an expired session, a missing ecs:ListTasks
+# permission and throttling all fail the command, and each would otherwise be blamed on the cluster
+# and service arguments — the one cause a failed command does not point at. "Found none" is reserved
+# for a command that succeeded and had nothing to list. Runs in a command substitution, so `fail`
+# exits only the subshell: callers append `|| exit 1` to make the exit the run's.
+running_tasks() {
+  local what="$1" arns
+  if ! arns="$(aws ecs list-tasks --cluster "$cluster" --service-name "$service" \
+      --desired-status RUNNING --query 'taskArns' --output text 2>"${workdir}/aws-err")"; then
+    fail "$what" "list-tasks failed on ${service}/${cluster}: $(tr -d '\n' <"${workdir}/aws-err" | cut -c1-300)"
+  fi
+  [[ -n "$arns" && "$arns" != "None" ]] \
+    || fail "$what" "list-tasks succeeded and found no running task on ${service}/${cluster} — check the cluster and service arguments"
+  printf '%s' "$arns"
+}
+
 # 9 — The most expensive assertion, and the last, because it is the only one that changes anything.
 #
 #     A forced deployment starts a *second* task before the first is stopped — the service runs at
@@ -383,10 +434,7 @@ pass "401, no redirect"
 #     The task ARN is compared before and after so a deployment that rolled nothing cannot pass by
 #     re-checking a session against the very task that issued it.
 step "The session survives a deployment (catches: an in-memory key ring — every deploy silently signs everyone out)"
-before="$(aws ecs list-tasks --cluster "$cluster" --service-name "$service" \
-  --desired-status RUNNING --query 'taskArns' --output text 2>/dev/null || true)"
-[[ -n "$before" && "$before" != "None" ]] || fail "the service has a running task to replace" \
-  "list-tasks found none on ${service}/${cluster} — check the cluster and service arguments"
+before="$(running_tasks "the service has a running task to replace")" || exit 1
 
 echo "  forcing a new deployment of ${service}..."
 aws ecs update-service --cluster "$cluster" --service "$service" --force-new-deployment >/dev/null \
@@ -397,9 +445,7 @@ aws ecs wait services-stable --cluster "$cluster" --services "$service" \
   || fail "the service reaches a steady state after the deployment" \
     "the waiter gave up or the deployment circuit breaker tripped. The reason is in the stopped task's status (aws ecs describe-tasks), not in the log group, if the container never ran."
 
-after="$(aws ecs list-tasks --cluster "$cluster" --service-name "$service" \
-  --desired-status RUNNING --query 'taskArns' --output text 2>/dev/null || true)"
-[[ -n "$after" && "$after" != "None" ]] || fail "the service is running a task after the deployment" "list-tasks found none"
+after="$(running_tasks "the service is running a task after the deployment")" || exit 1
 [[ "$after" != "$before" ]] || fail "the deployment actually replaced the task" \
   "the same task is running as before, so re-checking the session would prove nothing about a new one"
 

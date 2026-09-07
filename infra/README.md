@@ -293,10 +293,14 @@ Two of those are worth knowing about before you read a red line.
 
 **The direct-origin assertion passes by failing.** The origin must be unreachable except through
 CloudFront, and the security group rejects at TCP rather than answering, so the only passing
-results are `curl: (28) Operation timed out` or a connection refused — which is why the wait is
-bounded rather than generous. **Any HTTP response is a failure.** A `403` is the listener's default
-action, so it proves the request reached the load balancer: the security-group half of the lock is
-open even though the header half held. A `200` means both halves are.
+results are a TCP connection that never completes within the budget or one that is refused — which
+is why the wait is bounded rather than generous. The probe is a raw TCP connection (`telnet://`)
+rather than an HTTPS request, because curl runs TCP and TLS on one clock and cannot tell a dropped
+packet from an accepted socket that stalls in the handshake: both exit 28 with no connect time
+recorded. **A completed TCP handshake is a failure, whatever happens after it**, and only then does
+the script make the HTTPS request, to say how far it got. A `403` is the listener's default action,
+so it proves the request reached the load balancer: the security-group half of the lock is open
+even though the header half held. A `200` means both halves are.
 
 **A cache hit on any `/api/*` response fails the run outright**, wherever it appears, because a
 cached authenticated response is one user's data served to another and it does not matter which
