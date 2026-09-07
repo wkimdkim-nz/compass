@@ -269,30 +269,48 @@ routed the way their names claim, each security group admitting exactly one upst
 ECR built for the architecture the task will run, and CloudFront sending the origin header the
 secret holds.
 
-The ephemeral stack has no script of its own yet —
-[#45](https://github.com/wkimdkim-nz/compass/issues/45) builds `scripts/smoke-deployed.sh` and both
-checks below become two of its nine assertions. Until then they are two commands, and between them
-they prove the path-routing arrangement end to end:
+The ephemeral stack has its own script, and it is the **only** automated seam against the deployed
+environment. Run it after the apply:
 
 ```bash
-curl -sS -o /dev/null -w '%{http_code}\n' --max-time 30 https://financial-compass.dev/api/health
+scripts/smoke-deployed.sh
 ```
 
-`200`. Not `307`: `curl` is not following redirects here, so a redirect would show as one — and a
-redirect on this path means `UseHttpsRedirection()` has crept back into the API and every health
-check from the load balancer is in a loop.
+It reads the base URL and the cluster and service out of the two stacks' outputs, or takes them as
+arguments — `scripts/smoke-deployed.sh <base-url> <cluster> <service>` — so the same script runs
+from CI later without being rewritten. It registers two throwaway users on a fresh unique email
+each run and **cleans up nothing**: `terraform destroy` is the cleanup.
 
-```bash
-curl -sS -o /dev/null --max-time 10 https://api-origin.financial-compass.dev/api/health
-```
+Nine assertions, cheapest first, each named for the silent failure it catches: the SPA loads; the
+origin refuses direct access; `/api/health` returns 200; register returns 201 with `HttpOnly`,
+`Secure` and `SameSite=Lax` read off the raw header; the session check returns 200; a second user
+in a second cookie jar sees themselves on a cache miss; an authenticated write reads back; an
+unauthenticated call returns 401 with no `Location`; and the session survives a forced
+redeployment. It stops at the first failure, because it walks one session forwards and everything
+after a break would be noise.
 
-⚠️ This one **passes by failing**. The origin must be unreachable except through CloudFront, and
-the security group rejects at TCP rather than answering, so the only passing results are
-`curl: (28) Operation timed out` — exit 28 — or a connection refused — exit 7. A bounded wait is
-therefore part of the check rather than a convenience. **Any HTTP response is a failure.** A `403`
-is the listener's default action, so it proves the request reached the load balancer: the
-security-group half of the lock is open even though the header half held. A `200` means both
-halves are.
+Two of those are worth knowing about before you read a red line.
+
+**The direct-origin assertion passes by failing.** The origin must be unreachable except through
+CloudFront, and the security group rejects at TCP rather than answering, so the only passing
+results are `curl: (28) Operation timed out` or a connection refused — which is why the wait is
+bounded rather than generous. **Any HTTP response is a failure.** A `403` is the listener's default
+action, so it proves the request reached the load balancer: the security-group half of the lock is
+open even though the header half held. A `200` means both halves are.
+
+**A cache hit on any `/api/*` response fails the run outright**, wherever it appears, because a
+cached authenticated response is one user's data served to another and it does not matter which
+path leaks it. `X-Cache` is the only cheap witness for that, and the `/api/*` behaviour uses
+CachingDisabled precisely so it always reads `Miss`.
+
+The last assertion is the expensive one and the only one that changes anything: it forces a new
+deployment and waits for stability, which takes a few minutes. A forced deployment starts a second
+task before stopping the first, so a session issued by the old task has to be decrypted by a task
+that never saw it — which only works if the Data Protection key ring is the shared one in Postgres
+([ADR 0007](../docs/adr/0007-auth-dotnet-identity-cookies.md)). Left in memory, every deployment
+silently signs everyone out and nothing anywhere reports it. The task ARN is compared before and
+after, so a deployment that rolled nothing cannot pass by re-checking a session against the very
+task that issued it.
 
 ## The network, in one paragraph
 
