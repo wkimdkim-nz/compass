@@ -53,10 +53,16 @@ locals {
   # written down a second time.
   ecr_repository_name = element(split("/", local.foundation.ecr_repository_url), 1)
 
-  # The one container in the one task definition. Named here because three separate resources have
-  # to agree on it — the task definition, the service's load balancer block, and the log stream
+  # The one container in the service's task definition. Named here because three separate resources
+  # have to agree on it — the task definition, the service's load balancer block, and the log stream
   # prefix — and a mismatch between the first two is rejected only when the service is created.
   container_name = "api"
+
+  # The one-off tasks' containers. Each doubles as its log stream prefix and as the name
+  # `scripts/run-one-off-task.sh` reads an exit code out of, so the script takes the kind — the
+  # word after the script name — and derives both from it.
+  migrate_container_name = "migrate"
+  psql_container_name    = "psql"
 }
 
 # What the registry holds, so that a tag which is not there fails the *plan* rather than the task.

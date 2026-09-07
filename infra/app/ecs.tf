@@ -1,4 +1,9 @@
-# The service, its task definition, and where its logs go.
+# The three task definitions, the service that runs one of them, and the migration this stack
+# refuses to serve traffic without.
+#
+# The service is the only long-running one. The other two are one-off tasks started with
+# `aws ecs run-task` — `migrate` on every apply, by the runner at the bottom of this file, and
+# `psql` by hand when someone needs to look inside a database nothing else can reach.
 
 resource "aws_ecs_cluster" "compass" {
   name = "compass"
@@ -8,11 +13,15 @@ resource "aws_ecs_cluster" "compass" {
   # this phase needs.
 }
 
+# One group for all three task definitions below, which is why it is named for the stack and not
+# for the service. They are told apart by their log stream prefixes — `api/`, `migrate/`, `psql/` —
+# and share one retention policy rather than three.
+#
 # Destroyed with the stack, like everything else here, so a work session's logs do not outlive the
 # stack they describe. Retention still matters: without it the group is created with logs
 # kept forever, and a group recreated on every rebuild would accumulate them indefinitely.
-resource "aws_cloudwatch_log_group" "api" {
-  name              = "/ecs/compass-api"
+resource "aws_cloudwatch_log_group" "compass" {
+  name              = "/ecs/compass"
   retention_in_days = 7
 }
 
@@ -28,35 +37,13 @@ locals {
   task_cpu    = 256
   task_memory = 512
 
-  # ⚠️ A placeholder, and the only thing in this stack that is. #44 replaces it with the RDS
-  # endpoint and adds the two injected secrets beside it.
+  # --- Declared once, referenced by every task definition below ---------------------------------
   #
-  # It cannot simply be left out. The API resolves its connection string once at startup and throws
-  # when there is none (DatabaseConnectionString.Resolve), so the task needs *a* value to start —
-  # but nothing in this slice ever opens a connection, because the health path is shallow by design
-  # and no other request is made. That shallowness is exactly what lets this slice land green with
-  # no database, and `HealthTests` in the API's own suite is the proof: it boots the app against a
-  # database that is not there and demands 200 anyway.
-  #
-  # 127.0.0.1 rather than a plausible-looking hostname, for two reasons. It is refused instantly
-  # instead of waiting out a DNS lookup, so the one background attempt the Data Protection key ring
-  # makes at startup fails immediately rather than delaying the first health check. And it can
-  # never be mistaken for a database someone forgot to point somewhere.
-  #
-  # That attempt does leave three `fail:` lines in the log on every task start, ending in
-  # `KeyRingProvider[48]` — "Failed to connect to 127.0.0.1:5432". They are expected until #44, and
-  # they are not why a task would be unhealthy: the container answers /api/health 200 about two
-  # seconds after start with exactly this environment, which is the shape of the whole slice.
-  #
-  # Deliberately nothing more than a host, a database and a short timeout. It would be easy to
-  # write the production settings here too and leave #44 only a hostname to change, but the two
-  # that matter — `Trust Server Certificate=true` and `Maximum Pool Size=20` — are load-bearing
-  # against a real RDS instance and are #44's to add with the instance they are load-bearing for.
-  # Half-written here, they would read as already settled.
-  placeholder_connection_string = "Host=127.0.0.1;Port=5432;Database=compass;Timeout=2"
+  # ⚠️ This is the reason the service task and the migration task cannot connect to different
+  # databases (#28). Not discipline, and not a review checklist: there is one list, and a second
+  # copy would have to be written deliberately. Anything a task needs to reach Postgres belongs
+  # here rather than in a `container_definitions` block.
 
-  # The container's whole environment. #44 adds the two injected secrets beside it and gives the
-  # migration task the same declaration, so the two cannot connect to different databases.
   task_environment = [
     # Set explicitly even though Production is already the value an unset ASPNETCORE_ENVIRONMENT
     # takes. The session cookie's SecurePolicy is Always outside Development, and that must not
@@ -64,11 +51,39 @@ locals {
     { name = "ASPNETCORE_ENVIRONMENT", value = "Production" },
 
     # Also explicit, and also already the base image's default via ASPNETCORE_HTTP_PORTS. Written
-    # down rather than left to a base image's convention, for the reason main.tf gives.
+    # down rather than left to a base image's convention, for the reason main.tf gives. The
+    # migration task inherits it and ignores it — efbundle binds nothing — which is the price of
+    # one shared list and a cheap one.
     { name = "ASPNETCORE_URLS", value = "http://+:${local.container_port}" },
 
-    { name = "ConnectionStrings__Default", value = local.placeholder_connection_string },
+    # Host, port, database and the two settings that are load-bearing against a real RDS instance.
+    # rds.tf builds it and says why each part is there.
+    { name = "ConnectionStrings__Default", value = local.database_connection_string },
   ]
+
+  # Exactly two, and they are the whole of what the ECS agent fetches on this stack's behalf. The
+  # application never sees Secrets Manager: these arrive as ordinary environment variables and
+  # DatabaseConnectionString.Resolve overlays them onto the connection string above, through the
+  # same code path the local tests walk.
+  #
+  # ⚠️ The `:username::` suffix is Secrets Manager's JSON-key selector —
+  # `<arn>:<json-key>:<version-stage>:<version-id>`, with the last two left empty for AWSCURRENT
+  # and the current version. Drop it and the container receives the entire JSON document as the
+  # value, so the API would connect as the literal user `{"username":"compass","password":...}`
+  # and the password would be in a log line the moment anything printed the connection string.
+  task_secrets = [
+    { name = "DB_USERNAME", valueFrom = "${local.database_secret_arn}:username::" },
+    { name = "DB_PASSWORD", valueFrom = "${local.database_secret_arn}:password::" },
+  ]
+
+  # --- The image assertion, made by two task definitions ----------------------------------------
+  #
+  # Hoisted into locals because both task definitions name the image independently and Terraform
+  # has no shared precondition. See main.tf for why the check reads the whole tag list rather than
+  # asking after one tag, and why it lives on the task definitions rather than on the data source.
+  image_tag_present = contains(data.aws_ecr_images.api.image_ids[*].image_tag, var.image_tag)
+
+  image_tag_missing_message = "No image tagged ${var.image_tag} in ${local.ecr_repository_name}. Push one with scripts/push-image.sh, or name a tag that is there — a task definition would accept this tag and then fail to pull, with nothing in any application log."
 }
 
 resource "aws_ecs_task_definition" "api" {
@@ -101,8 +116,8 @@ resource "aws_ecs_task_definition" "api" {
   # teardown never has to justify its tag.
   lifecycle {
     precondition {
-      condition     = contains(data.aws_ecr_images.api.image_ids[*].image_tag, var.image_tag)
-      error_message = "No image tagged ${var.image_tag} in ${local.ecr_repository_name}. Push one with scripts/push-image.sh, or name a tag that is there — a task definition would accept this tag and then fail to pull, with nothing in any application log."
+      condition     = local.image_tag_present
+      error_message = local.image_tag_missing_message
     }
   }
 
@@ -120,6 +135,7 @@ resource "aws_ecs_task_definition" "api" {
       ]
 
       environment = local.task_environment
+      secrets     = local.task_secrets
 
       # ⚠️ Deliberately not here: the origin header. The listener rule checks it in front of the
       # task, so the container is never configured with the value and has no code that reads it.
@@ -129,9 +145,189 @@ resource "aws_ecs_task_definition" "api" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.api.name
+          "awslogs-group"         = aws_cloudwatch_log_group.compass.name
           "awslogs-region"        = var.region
           "awslogs-stream-prefix" = local.container_name
+        }
+      }
+    },
+  ])
+}
+
+# --- Migrations -----------------------------------------------------------------------------------
+#
+# The same image as the service, with a `command` override. `dotnet ef database update` needs the
+# SDK and the sources and the runtime image has neither, so api/Dockerfile also builds `efbundle` —
+# the committed migrations compiled into one executable — and the app is a CMD rather than an
+# ENTRYPOINT precisely so this override replaces it outright.
+#
+# ⚠️ Migrations are never applied at application startup, and the reason is not tidiness. A
+# deployment runs the old task and the new one at once, so a startup `Migrate()` races itself; and
+# the Data Protection key ring lives in a migration-created table, so the loser of that race is not
+# a missing feature — **nobody can log in** (#12, #19, ADR 0007).
+resource "aws_ecs_task_definition" "migrate" {
+  family = "compass-migrate"
+
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+
+  cpu    = local.task_cpu
+  memory = local.task_memory
+
+  # The same execution role, because this task fetches the same secret. And, like the service,
+  # deliberately no task role: efbundle makes no AWS calls either.
+  execution_role_arn = aws_iam_role.task_execution.arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
+
+  # The same assertion the service's task definition makes, from the same hoisted local. It has to
+  # be made twice because this task definition names the image independently and Terraform has no
+  # shared precondition — and it matters more here, because the runner below would otherwise spend
+  # two minutes waiting for a task that can never pull.
+  lifecycle {
+    precondition {
+      condition     = local.image_tag_present
+      error_message = local.image_tag_missing_message
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name      = local.migrate_container_name
+      image     = local.image
+      essential = true
+
+      # No portMappings: nothing listens. This runs, applies what is outstanding, and exits.
+      command = ["./efbundle"]
+
+      # ⚠️ The same two lists the service uses, not copies of them. This is the criterion "declared
+      # once and shared by both task definitions" (#28) actually holding: a migration applied to one
+      # database while the service talks to another is a failure with no error message anywhere.
+      environment = local.task_environment
+      secrets     = local.task_secrets
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.compass.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = local.migrate_container_name
+        }
+      }
+    },
+  ])
+}
+
+# What makes the ordering structural on a first manual deploy, which is the question #28 left open
+# and the one that breaks login if it is missed.
+#
+# There is no CI here yet, so there is no pipeline to sequence the two steps — and a sequence a
+# human is asked to remember is not a mechanism. This is: `terraform apply` runs the migration task
+# to completion, and the service below `depends_on` it, so a Terraform graph that has no way to
+# reorder itself is what enforces "migrate, then serve". If the migration fails, the provisioner
+# exits non-zero, the apply stops, and the service is never created or updated — so a stack whose
+# migration did not run is a stack with no service in front of it, rather than a service serving
+# 500s against a schema that is not there.
+#
+# ⚠️ A `local-exec` provisioner, which is a thing to reach for last and this is the case for it.
+# ECS has no "run this task and block" resource; `aws_ecs_task_definition` only registers. The
+# alternatives are worse in the specific way that matters: a second `terraform apply -target=...`
+# is a step someone skips, and a startup `Migrate()` is the race described above.
+resource "terraform_data" "migrate" {
+  # Re-run whenever the task definition gets a new revision — a new image tag, a new database
+  # endpoint, any change to the shared environment. An unchanged re-apply runs nothing, and a
+  # rebuilt stack always runs once because the resource is created fresh with the state.
+  triggers_replace = aws_ecs_task_definition.migrate.arn
+
+  provisioner "local-exec" {
+    command = "${path.module}/../../scripts/run-one-off-task.sh migrate"
+
+    # Passed rather than looked up. The script defaults these from `terraform output` when it is
+    # run by hand, but during this apply the outputs do not exist yet.
+    environment = {
+      REGION          = var.region
+      CLUSTER         = aws_ecs_cluster.compass.name
+      TASK_DEFINITION = aws_ecs_task_definition.migrate.arn
+      SUBNETS         = join(",", local.foundation.public_subnet_ids)
+      SECURITY_GROUPS = local.foundation.task_security_group_id
+      LOG_GROUP       = aws_cloudwatch_log_group.compass.name
+    }
+  }
+
+  # ⚠️ Nothing above references the execution role's *policies*, only the role itself, so the graph
+  # is otherwise free to start this task before the agent can pull an image or read the secret.
+  # Neither failure writes an application log — the task stops before its container runs, and the
+  # reason is only in the stopped task's status.
+  depends_on = [
+    aws_iam_role_policy_attachment.task_execution,
+    aws_iam_role_policy.task_execution_database_secret,
+  ]
+}
+
+# --- Looking inside a database nothing else can reach ---------------------------------------------
+#
+# The instance is private, in subnets with no route off the VPC, behind a security group that
+# admits one other security group. That is the design working, and it also means there is no way to
+# run a query from a laptop — no bastion, no public endpoint, and no `ecs execute-command`, which
+# would need the task role this stack deliberately does not have.
+#
+# So the way in is a task in the same network position as the API, with a client in it. It exists
+# for the one observation #28 asks for — the live connection ceiling, recorded in infra/README.md —
+# and is otherwise a diagnostic, not part of any deploy. It costs nothing while it is not running.
+resource "aws_ecs_task_definition" "psql" {
+  family = "compass-psql"
+
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+
+  cpu    = local.task_cpu
+  memory = local.task_memory
+
+  execution_role_arn = aws_iam_role.task_execution.arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
+
+  container_definitions = jsonencode([
+    {
+      name = local.psql_container_name
+
+      # The same image as docker-compose.yml, pulled through ECR Public rather than Docker Hub: the
+      # task authenticates to neither, and anonymous Docker Hub pulls are rate-limited per source
+      # address, which a public-subnet Fargate task shares with the rest of the region.
+      image     = "public.ecr.aws/docker/library/postgres:18-alpine"
+      essential = true
+
+      # Overridden per run by scripts/run-one-off-task.sh. This default is the observation the
+      # ticket asks for, so the task is useful with no arguments at all.
+      command = ["psql", "-c", "SHOW max_connections"]
+
+      # ⚠️ Not local.task_environment. psql reads libpq's variables, not .NET's configuration, so
+      # this is the one place the database is described a second way. The *credentials* still come
+      # from the one secret below, and the endpoint still comes from the one resource — what
+      # differs is only the spelling.
+      environment = [
+        { name = "PGHOST", value = aws_db_instance.compass.address },
+        { name = "PGPORT", value = tostring(aws_db_instance.compass.port) },
+        { name = "PGDATABASE", value = aws_db_instance.compass.db_name },
+      ]
+
+      secrets = [
+        { name = "PGUSER", valueFrom = "${local.database_secret_arn}:username::" },
+        { name = "PGPASSWORD", valueFrom = "${local.database_secret_arn}:password::" },
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.compass.name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = local.psql_container_name
         }
       }
     },
@@ -166,8 +362,9 @@ resource "aws_ecs_service" "api" {
     container_port   = local.container_port
   }
 
-  # The app has no startup work to do — migrations are a separate one-off task (#44) — so this is
-  # short. It only has to cover the runtime starting and Kestrel binding.
+  # The app has no startup work to do — migrations are the one-off task above, already finished by
+  # the time this service is touched — so this is short. It only has to cover the runtime starting,
+  # Kestrel binding, and the first connection to RDS.
   health_check_grace_period_seconds = 60
 
   # The apply does not finish until the service is stable, which is what makes `terraform apply`
@@ -190,9 +387,20 @@ resource "aws_ecs_service" "api" {
     rollback = false
   }
 
-  # ECS refuses to register targets in a target group that is not attached to a load balancer, and
-  # here the *rule* is what attaches it — the listener's own default action is a fixed response.
-  # Without this the first apply fails with a message about the target group having no load
-  # balancer, and the second one succeeds, which is a confusing way to learn it.
-  depends_on = [aws_lb_listener_rule.cloudfront]
+  # Two orderings Terraform cannot infer from the arguments above, and one of them is the whole of
+  # this ticket:
+  #
+  #   * **The migration first.** Nothing in this resource references the migration run, so without
+  #     this edge Terraform is free to start the service while the schema is still empty — and the
+  #     first thing that breaks is not a feature, it is login, because the Data Protection key ring
+  #     lives in a migration-created table.
+  #   * **The listener rule first.** ECS refuses to register targets in a target group that is not
+  #     attached to a load balancer, and here the *rule* is what attaches it — the listener's own
+  #     default action is a fixed response. Without this the first apply fails with a message about
+  #     the target group having no load balancer, and the second one succeeds, which is a confusing
+  #     way to learn it.
+  depends_on = [
+    terraform_data.migrate,
+    aws_lb_listener_rule.cloudfront,
+  ]
 }
