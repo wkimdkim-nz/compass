@@ -67,6 +67,14 @@ over the industry-default path, with eyes open (see the swap note in Consequence
   > - **DB down now means auth down.** A filesystem key ring kept cookie decryption working while
   >   the database was unreachable; this one does not. It is a further reason `/health` must not
   >   touch the database (ticket #19).
+  >
+  >   ⚠️ **The path is `/api/health`, not `/health`** — corrected here on 2026-09-08 per
+  >   [ticket #46](https://github.com/wkimdkim-nz/compass/issues/46), which found this line and
+  >   [#28](https://github.com/wkimdkim-nz/compass/issues/28) both still naming the shorter path
+  >   the build does not serve. CloudFront routes only `/api/*` to the origin, so nothing answers
+  >   on `/health` and the target group and the deployed smoke test must both name the longer one.
+  >   **The requirement is unchanged** — it is shallow, and it must not touch the database, for
+  >   exactly the reason above. Only the path was wrong.
   > - **Keys sit in the table as plain XML** — anyone who can read it can mint a cookie for any
   >   user. Accepted because RDS is private (ADR 0009) and the blast radius equals direct
   >   `AspNetUsers` access. There is no first-party AWS KMS protection provider to lean on, and the

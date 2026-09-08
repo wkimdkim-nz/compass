@@ -19,7 +19,7 @@ The thinnest possible slice that touches every layer. **No calculator, no FMP.**
       cookie makes necessary (ADR 0007).
 - [x] One authenticated write + read of a single row in the app Postgres, `user_id` FK'd to
       `AspNetUsers` (ADR 0008), in the *same* database as Identity's tables.
-- [ ] Deploy on AWS (`ap-southeast-2`): React → S3 + CloudFront; .NET → **Amazon ECS on Fargate**
+- [x] Deploy on AWS (`ap-southeast-2`): React → S3 + CloudFront; .NET → **Amazon ECS on Fargate**
       behind an internet-facing ALB (ADR 0009 — App Runner was reversed); DB → RDS Postgres, kept
       **private**. **Register a custom domain (Route 53); CloudFront serves the SPA at root and
       path-routes `/api/*` to the ALB so the cookie is same-site** (ADR 0007) — an `api.` subdomain
@@ -32,6 +32,19 @@ The thinnest possible slice that touches every layer. **No calculator, no FMP.**
 **Done when:** a logged-in user, in the deployed app, round-trips data through .NET to RDS. Every
 joint (cookie auth, same-site cookie delivery — Vite proxy in dev, CloudFront path-routing in prod,
 TLS, deploy, secrets) is proven.
+
+> ✅ **Met on 2026-09-08** ([#46](https://github.com/wkimdkim-nz/compass/issues/46)). Signed by a
+> human in a real browser at <https://financial-compass.dev> — register, log in, write a row, read
+> it back, log out — against an environment applied **from empty** that same day, because the
+> failure this box exists to catch (the migration task losing its race with the service, which
+> presents as broken *login* rather than as a missing table) only exists against a fresh database.
+> `scripts/smoke-deployed.sh` passed all nine assertions against that same environment first.
+>
+> **Phase 0 is therefore complete, and the environment it was proven on no longer exists** — it was
+> destroyed the same day, which is the cost lever and not a regression. What persists is the
+> foundation stack and the SPA it serves; see
+> [A work session, start to finish](../infra/README.md#a-work-session-start-to-finish) to stand the
+> rest back up.
 
 ## Phase 1 — The calculator (first real feature)
 
