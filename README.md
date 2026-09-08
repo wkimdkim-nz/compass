@@ -15,8 +15,8 @@ for the decisions the code below implements.
 permanently and the half that costs money does not: CloudFront and S3 serve the SPA all the time,
 while the API, its load balancer and the database exist only while someone is working on the
 project. That is what **ephemeral** means here — the expensive stack is created at the start of a
-work session and `terraform destroy`ed at the end, which is what turns ~$58/month into ~$3.50
-(ADR 0009), and it is a premise of the auth design rather than only a cost trick: the session key
+work session and `terraform destroy`ed at the end, which at roughly ten hours of use a week is what
+turns ~$58/month into ~$3.50 (ADR 0009), and it is a premise of the auth design rather than only a cost trick: the session key
 ring is meant to die with the user table (ADR 0007).
 
 So between sessions the page loads, and then registering or signing in fails — CloudFront answers

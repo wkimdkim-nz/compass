@@ -33,14 +33,16 @@ The thinnest possible slice that touches every layer. **No calculator, no FMP.**
 joint (cookie auth, same-site cookie delivery — Vite proxy in dev, CloudFront path-routing in prod,
 TLS, deploy, secrets) is proven.
 
-> ✅ **Met on 2026-09-08** ([#46](https://github.com/wkimdkim-nz/compass/issues/46)). Signed by a
-> human in a real browser at <https://financial-compass.dev> — register, log in, write a row, read
-> it back, log out — against an environment applied **from empty** that same day, because the
-> failure this box exists to catch (the migration task losing its race with the service, which
-> presents as broken *login* rather than as a missing table) only exists against a fresh database.
-> `scripts/smoke-deployed.sh` passed all nine assertions against that same environment first.
+> ✅ **Met on 2026-09-08** ([#46](https://github.com/wkimdkim-nz/compass/issues/46)). A human ran
+> the manual pass — register, log in, write a row, read it back, log out — in a real browser at
+> <https://financial-compass.dev> and reported it working. It ran against an **app stack applied
+> from empty** that same day, because the failure this box exists to catch (the migration task
+> losing its race with the service, which presents as broken *login* rather than as a missing
+> table) only exists against a fresh database, so a green run against a stack that had been up for
+> hours would have proved less. `scripts/smoke-deployed.sh` passed all nine assertions against that
+> same stack first.
 >
-> **Phase 0 is therefore complete, and the environment it was proven on no longer exists** — it was
+> **Phase 0 is therefore complete, and the app stack it was proven on no longer exists** — it was
 > destroyed the same day, which is the cost lever and not a regression. What persists is the
 > foundation stack and the SPA it serves; see
 > [A work session, start to finish](../infra/README.md#a-work-session-start-to-finish) to stand the
