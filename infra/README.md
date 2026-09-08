@@ -24,6 +24,114 @@ error — that is the correct result, not a fault.
 > record left pointing at a released load balancer hostname is a dangling alias on a same-site
 > subdomain, and whoever re-claims that hostname can forge authenticated requests (ADR 0009).
 
+## A work session, start to finish
+
+Everything below has a section of its own further down; this is the order, in one place, for
+someone starting from cold. **Cold means the ephemeral stack is destroyed** — its normal resting
+state — with the foundation stack up and the site serving the SPA. If even the foundation is
+missing, start at *Bringing the foundation stack up*; that is a one-time path, not part of a
+session.
+
+**0. Get a session.** The AWS CLI here is a console login rather than SSO, and it expires fast
+enough to go stale between two commands, so this is checked immediately before the apply rather
+than trusted from earlier:
+
+```bash
+aws login
+```
+
+```bash
+aws sts get-caller-identity
+```
+
+**1. Find the image tag.** This is the only input the stack cannot work out for itself, and the one
+step where a wrong answer is easy: **it is not `HEAD`**, for the reason *Bringing the ephemeral
+stack up* gives below. Ask the registry what is actually in it:
+
+```bash
+aws ecr describe-images --region ap-southeast-2 --repository-name compass-api --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text
+```
+
+Then confirm that tag still describes the code you are deploying — **empty output means it does**:
+
+```bash
+git diff --stat <tag>..HEAD -- api
+```
+
+Not empty means `api/` has moved since that image was built: push a new one (*Putting an image in
+the registry*) and use the tag it prints.
+
+**2. Bring the ephemeral stack up.** One apply creates the database, runs the migration task
+against it, waits for that to finish and only then brings the service up — an ordering the
+dependency graph enforces. `init` is needed once per clone, and is a no-op afterwards:
+
+```bash
+terraform -chdir=infra/app init
+```
+
+```bash
+terraform -chdir=infra/app apply -var "image_tag=<tag>"
+```
+
+Expect ten minutes or so, most of it RDS. It blocks until the service is *stable*, not merely
+created.
+
+**3. Ask the app whether it works.** Nine assertions, cheapest first, and the only automated seam
+against the deployed environment:
+
+```bash
+scripts/smoke-deployed.sh
+```
+
+**4. Work.** <https://financial-compass.dev> is live. `scripts/run-one-off-task.sh psql -c '...'`
+is the way into the database; there is no other.
+
+**5. Tear it down.** This is the cost lever, and the step that must not be skipped — every dominant
+line item is hourly. The tag satisfies the parser and means nothing here:
+
+```bash
+terraform -chdir=infra/app destroy -var "image_tag=none"
+```
+
+It takes the origin record with it, so the site goes on serving the SPA and `/api/*` returns an
+origin error again. That is the destroyed state, not a fault.
+
+**6. Check that the teardown actually finished.** A destroy that *reports* success is not the same
+as one that left nothing paid behind, and the residue bills quietly. Two commands, because a
+deleted instance leaves its two kinds of backup in two different places — a final snapshot lands
+among the **manual** snapshots, and retained automated backups outlive the instance under an API of
+their own that `describe-db-snapshots` does not answer for. Both should print nothing:
+
+```bash
+aws rds describe-db-snapshots --region ap-southeast-2 --snapshot-type manual --query 'DBSnapshots[?DBInstanceIdentifier==`compass`].DBSnapshotIdentifier' --output text
+```
+
+```bash
+aws rds describe-db-instance-automated-backups --region ap-southeast-2 --query 'DBInstanceAutomatedBackups[?DBInstanceIdentifier==`compass`].DBInstanceArn' --output text
+```
+
+`skip_final_snapshot` and `backup_retention_period` are set so that neither kind of residue is
+created in the first place (`deletion_protection` is the third of that trio, but it gates the
+destroy itself rather than any backup) — so this is a check on those settings still being what they
+were, not a routine clean-up.
+
+The other quiet failure is a Route 53 record that outlives the load balancer it aliased: a dangling
+alias on a same-site subdomain, which whoever next claims that released hostname can forge
+authenticated requests through — ADR 0009's DNS-decoupling bullet and ADR 0007's precondition 1,
+which record it in both places on purpose. The destroy takes the record with it, so the check is
+that the name no longer resolves:
+
+```bash
+dig +short api-origin.financial-compass.dev @1.1.1.1
+```
+
+And the foundation should be exactly as it was, which is the whole point of joining the two stacks
+by a name:
+
+```bash
+scripts/verify-foundation.sh
+```
+
 ## Bringing the foundation stack up
 
 State lives in S3 and never in git. The bucket cannot be created by the configuration whose state
@@ -83,37 +191,32 @@ log exists.
 
 ## Bringing the ephemeral stack up
 
+The commands are steps 1, 2 and 5 of *A work session, start to finish* above, and they live there
+rather than here so that there is one copy of each to keep true. This is what they do, and why each
+is shaped the way it is.
+
 This is the half that costs money, and the half that is thrown away. It needs the foundation stack
 applied and an image in the registry; it reads the network, the registry and the certificate out of
 the foundation stack's state, and the origin header out of Secrets Manager **by name**.
 
-```bash
-terraform -chdir=infra/app init
-```
-
 The image tag is the only thing the stack cannot work out for itself — a deployment names an image,
-so `image_tag` has no default. It is whatever `scripts/push-image.sh` last printed:
-
-```bash
-terraform -chdir=infra/app apply -var "image_tag=<tag>"
-```
+so `image_tag` has no default. It is whatever `scripts/push-image.sh` last printed.
 
 ⚠️ **It is not `HEAD` unless `api/` changed and you pushed.** `push-image.sh` tags with the commit
 that was checked out when it ran, so a branch full of Terraform and prose leaves `HEAD` moving
 while the registry stands still — and `-var "image_tag=$(git rev-parse --short=12 HEAD)"` then
-fails the task definitions' precondition, which is the precondition working. Rebuilding to make
-`HEAD` true would push a second tag over identical bytes and expire an older one out of the
-lifecycle policy for nothing. Ask the registry what is actually there:
+fails the task definitions' precondition, which is the precondition working. That is why step 1
+asks the registry rather than `git`.
 
-```bash
-aws ecr describe-images --region ap-southeast-2 --repository-name compass-api --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text
-```
-
-Then confirm it still describes the code you are deploying — empty output means it does:
-
-```bash
-git diff --stat <tag>..HEAD -- api
-```
+⚠️ But asking the registry is only half of it, because **the newest tag can be stale too**.
+Rebuilding to make `HEAD` true is waste **when `api/` has not moved** — it pushes a second tag over
+identical bytes and expires an older one out of the lifecycle policy for nothing. When `api/`
+*has* moved, the newest tag no longer describes the code being deployed, and the tag stops being
+evidence of what is running, which is the only reason it is a commit hash at all. Hence the second
+half of step 1: a non-empty `git diff --stat <tag>..HEAD -- api` is the case where you do push.
+⚠️ It can be non-empty for a change that cannot alter a single byte of IL — a comment, a doc
+string — and the answer is still to push, because "the tag describes `api/`" is a cheap rule that
+survives being applied without judgement and an expensive one to apply with it.
 
 One apply does three things in an order it cannot rearrange: it creates the database, runs the
 migration task against it and waits for that to finish, and only then creates or updates the
@@ -132,14 +235,10 @@ breaker gives up after a run of failed starts, so the apply fails rather than ha
 Terraform's own timeout — and the reason is in the stopped task's status
 (`aws ecs describe-tasks`), not in the log group, because the container never ran.
 
-Then tear it down at the end of the session. This is the cost lever, and it takes the origin
-record with it, so the site goes on serving the SPA and `/api/*` returns an origin error again. A
-destroy still has to be given every required variable even though it builds nothing, so the tag
-here satisfies the parser and means nothing:
-
-```bash
-terraform -chdir=infra/app destroy -var "image_tag=none"
-```
+Then tear it down at the end of the session (step 5). This is the cost lever, and it takes the
+origin record with it, so the site goes on serving the SPA and `/api/*` returns an origin error
+again. A destroy still has to be given every required variable even though it builds nothing, which
+is why the tag is passed to something that will not use it.
 
 ## How migrations are ordered, and why that is the load-bearing part
 
@@ -301,6 +400,15 @@ recorded. **A completed TCP handshake is a failure, whatever happens after it**,
 the script make the HTTPS request, to say how far it got. A `403` is the listener's default action,
 so it proves the request reached the load balancer: the security-group half of the lock is open
 even though the header half held. A `200` means both halves are.
+
+> ⚠️ **[#28](https://github.com/wkimdkim-nz/compass/issues/28) says the opposite**, in its
+> assertion 2: *"timeout-or-403 is the pass"*. The build is right and the spec's wording is wrong —
+> `alb.tf`'s listener answers a fixed `403` by default precisely so that reaching it has an
+> unambiguous signature, which makes a 403 the clearest possible evidence that the security group
+> admitted an address it should not have. Flagged on
+> [#46](https://github.com/wkimdkim-nz/compass/issues/46) rather than corrected in #28's body,
+> because a closed spec is a record of what was asked for. Recorded here because this is the page
+> someone reads while looking at a red line.
 
 **A cache hit on any `/api/*` response fails the run outright**, wherever it appears, because a
 cached authenticated response is one user's data served to another and it does not matter which
