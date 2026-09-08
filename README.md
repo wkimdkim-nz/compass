@@ -7,6 +7,26 @@ own through the API to Postgres. There is no calculator yet — see [`docs/roadm
 Read [`docs/glossary.md`](docs/glossary.md) for the project's vocabulary and [`docs/adr/`](docs/adr/)
 for the decisions the code below implements.
 
+## The deployed app
+
+<https://financial-compass.dev>
+
+**Expect to find it half-up.** The site is deliberately split so that the free half runs
+permanently and the half that costs money does not: CloudFront and S3 serve the SPA all the time,
+while the API, its load balancer and the database exist only while someone is working on the
+project. That is what **ephemeral** means here — the expensive stack is created at the start of a
+work session and `terraform destroy`ed at the end, which is what turns ~$58/month into ~$3.50
+(ADR 0009), and it is a premise of the auth design rather than only a cost trick: the session key
+ring is meant to die with the user table (ADR 0007).
+
+So between sessions the page loads, and then registering or signing in fails — CloudFront answers
+`/api/*` with an origin error because there is nothing behind that name. **That is the destroyed
+state working as designed, not an outage**, and nothing is wrong with the deployment. Bringing it
+back is a handful of commands in [`infra/README.md`](infra/README.md#a-work-session-start-to-finish).
+
+There is no public sign-up worth having yet: Phase 0 is a walking skeleton, so the only thing to do
+once signed in is write one line of text and read it back.
+
 ## Layout
 
 | Path | What it is |
@@ -143,9 +163,15 @@ Migrations are still never applied on application startup.
 The deployed shape is CloudFront serving the SPA at the root and path-routing `/api/*` to an ECS
 service behind an ALB, at `financial-compass.dev`. It is described in Terraform and split into a
 **foundation stack that persists** and an **app stack that is destroyed between work sessions** —
-the cost lever that makes the topology affordable (ADR 0009). Bring it up with
-[`infra/README.md`](infra/README.md), which is five commands: create the state bucket, `init`,
-`apply`, publish the SPA, push the image. The image is the last of those and a step of its own: the
+the cost lever that makes the topology affordable (ADR 0009).
+
+Taking that ephemeral half up and down again is the routine act, and it is written down on its own
+as [A work session, start to finish](infra/README.md#a-work-session-start-to-finish) — seven steps
+from cold, including where the image tag comes from and how to tell that a teardown left nothing
+paid behind. What the rest of this section describes is the **one-time** path underneath it:
+standing the foundation up from nothing. That is five commands in
+[`infra/README.md`](infra/README.md): create the state bucket, `init`, `apply`, publish the SPA,
+push the image. The image is the last of those and a step of its own: the
 deployed API runs from it, it is tagged with the commit it was built from, and the ECR repository
 it lands in has immutable tags. Pushing it deploys nothing — there is no auto-deploy-on-push for a
 standard ECS service:

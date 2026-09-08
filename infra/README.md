@@ -24,6 +24,114 @@ error — that is the correct result, not a fault.
 > record left pointing at a released load balancer hostname is a dangling alias on a same-site
 > subdomain, and whoever re-claims that hostname can forge authenticated requests (ADR 0009).
 
+## A work session, start to finish
+
+Everything below has a section of its own further down; this is the order, in one place, for
+someone starting from cold. **Cold means the ephemeral stack is destroyed** — its normal resting
+state — with the foundation stack up and the site serving the SPA. If even the foundation is
+missing, start at *Bringing the foundation stack up*; that is a one-time path, not part of a
+session.
+
+**0. Get a session.** The AWS CLI here is a console login rather than SSO, and it expires fast
+enough to go stale between two commands, so this is checked immediately before the apply rather
+than trusted from earlier:
+
+```bash
+aws login
+```
+
+```bash
+aws sts get-caller-identity
+```
+
+**1. Find the image tag.** This is the only input the stack cannot work out for itself, and the
+only step where a wrong answer is easy. **It is not `HEAD`.** `scripts/push-image.sh` tags with the
+commit that was checked out when it last ran, so a stretch of Terraform and prose leaves `HEAD`
+moving while the registry stands still. Ask the registry what is actually in it:
+
+```bash
+aws ecr describe-images --region ap-southeast-2 --repository-name compass-api --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' --output text
+```
+
+Then confirm that tag still describes the code you are deploying — **empty output means it does**:
+
+```bash
+git diff --stat <tag>..HEAD -- api
+```
+
+If it is not empty, `api/` has moved since that image was built, and the step you want is
+`scripts/push-image.sh` (*Putting an image in the registry*) to get a tag that describes it.
+
+**2. Bring the ephemeral stack up.** One apply creates the database, runs the migration task
+against it, waits for that to finish and only then brings the service up — an ordering the
+dependency graph enforces. `init` is needed once per clone, and is a no-op afterwards:
+
+```bash
+terraform -chdir=infra/app init
+```
+
+```bash
+terraform -chdir=infra/app apply -var "image_tag=<tag>"
+```
+
+Expect ten minutes or so, most of it RDS. It blocks until the service is *stable*, not merely
+created.
+
+**3. Ask the app whether it works.** Nine assertions, cheapest first, and the only automated seam
+against the deployed environment:
+
+```bash
+scripts/smoke-deployed.sh
+```
+
+**4. Work.** <https://financial-compass.dev> is live. `scripts/run-one-off-task.sh psql -c '...'`
+is the way into the database; there is no other.
+
+**5. Tear it down.** This is the cost lever, and it is the step that must not be skipped — every
+dominant line item is hourly. A destroy still has to be given every required variable even though
+it builds nothing, so the tag here satisfies the parser and means nothing:
+
+```bash
+terraform -chdir=infra/app destroy -var "image_tag=none"
+```
+
+It takes the origin record with it, so the site goes on serving the SPA and `/api/*` returns an
+origin error again. That is the destroyed state, not a fault.
+
+**6. Check that the teardown actually finished.** A destroy that *reports* success is not the same
+as one that left nothing paid behind, and the residue bills quietly. Two commands, because a
+deleted instance leaves its two kinds of backup in two different places — a final snapshot lands
+among the **manual** snapshots, and retained automated backups outlive the instance under an API of
+their own that `describe-db-snapshots` does not answer for. Both should print nothing:
+
+```bash
+aws rds describe-db-snapshots --region ap-southeast-2 --snapshot-type manual --query 'DBSnapshots[?DBInstanceIdentifier==`compass`].DBSnapshotIdentifier' --output text
+```
+
+```bash
+aws rds describe-db-instance-automated-backups --region ap-southeast-2 --query 'DBInstanceAutomatedBackups[?DBInstanceIdentifier==`compass`].DBInstanceArn' --output text
+```
+
+`skip_final_snapshot`, `deletion_protection` and `backup_retention_period` are set so that neither
+can happen, and each one alone breaks the cost lever — so this is a check on those three settings
+still being what they were, not a routine clean-up.
+
+The other quiet failure is a Route 53 record that outlives the load balancer it aliased: a dangling
+alias on a same-site subdomain, which whoever next claims that released hostname can forge
+authenticated requests through (ADR 0007, precondition 1). The destroy takes the record with it, so
+the check is that the name no longer resolves:
+
+```bash
+dig +short api-origin.financial-compass.dev @1.1.1.1
+```
+
+And the foundation should be exactly as it was, which is the whole point of joining the two stacks
+by a name:
+
+```bash
+scripts/verify-foundation.sh
+```
+
 ## Bringing the foundation stack up
 
 State lives in S3 and never in git. The bucket cannot be created by the configuration whose state
