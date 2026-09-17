@@ -38,9 +38,11 @@ TLS, deploy, secrets) is proven.
 Decisions from the grilling of 2026-09-17: market data is **SEC EDGAR + Finnhub, US domestic
 filers only** (ADR 0010, superseding 0005); one projection per user per ticker, in-memory
 cache, diluted weighted-average shares, exact seeding rules (ADR 0004, amended). The earlier draft
-tickets #54–#63 are closed; spec issue #65 replaces them and carries this order.
+tickets #54–#63 are closed; spec issue #65 replaces them and carries this order, broken into
+build tickets #66–#77 (sub-issues of #65 with native blocked-by edges).
 
-Ordered. Each item is one build ticket; **the design task blocks every UI ticket.**
+Ordered. Each item is one build ticket; **the design task blocks the token set, the UI and the
+deploy, so the tokens are built from the chosen look.**
 
 1. [ ] **Test CI.** GitHub Actions runs `dotnet test` and Vitest on every PR. No AWS, no
        secrets. Deploy CI via OIDC is a Later item.
@@ -51,13 +53,14 @@ Ordered. Each item is one build ticket; **the design task blocks every UI ticket
        and TypeScript (live preview), each passing every vector. Invalid inputs rejected
        explicitly, never NaN.
 4. [ ] **Tailwind + design tokens.** Tailwind via the Vite plugin, our own token set (spacing,
-       colour, numeric type), light and dark. Groundwork only; no page changes.
+       colour, numeric type), light and dark, built from the design's token values. Groundwork
+       only; no page changes. **Blocked by 5.**
 5. [ ] **Design.** Decide the look of the landing page and the calculator page before any UI is
        built: mobile-first, phone / tablet / desktop; the calculator is a **table** (rows =
        inputs, columns = Bear / Base / Bull, base facts above, outputs as the last rows, **X** as
        the headline with CAGR and future price beneath, the disclaimer under the output row); the
        landing page is a ticker box and one line on what Compass does. Candidates are generated
-       with agent skills the user adds for the purpose. **Blocks 8, 10 and 11.**
+       with agent skills the user adds for the purpose. **Blocks 4, 10 and 11.**
 6. [ ] **Configuration.** Finnhub key: `compass/finnhub-api-key` in the **foundation** stack,
        value set by hand, injected by name in the app-stack task definition; locally
        `dotnet user-secrets`. EDGAR User-Agent contact: an environment variable everywhere. With
