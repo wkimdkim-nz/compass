@@ -38,7 +38,7 @@ TLS, deploy, secrets) is proven.
 Decisions from the grilling of 2026-09-17: market data is **SEC EDGAR + Finnhub, US domestic
 filers only** (ADR 0010, superseding 0005); one projection per user per company, in-memory
 cache, diluted weighted-average shares, exact seeding rules (ADR 0004, amended). The earlier draft
-tickets #54–#63 are closed; the spec issue that replaces them carries this order.
+tickets #54–#63 are closed; spec issue #65 replaces them and carries this order.
 
 Ordered. Each item is one build ticket; **the design task blocks every UI ticket.**
 
