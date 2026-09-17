@@ -36,7 +36,7 @@ TLS, deploy, secrets) is proven.
 ## Phase 1 — The calculator (first real feature)
 
 Decisions from the grilling of 2026-09-17: market data is **SEC EDGAR + Finnhub, US domestic
-filers only** (ADR 0010, superseding 0005); one projection per user per company, in-memory
+filers only** (ADR 0010, superseding 0005); one projection per user per ticker, in-memory
 cache, diluted weighted-average shares, exact seeding rules (ADR 0004, amended). The earlier draft
 tickets #54–#63 are closed; spec issue #65 replaces them and carries this order.
 
