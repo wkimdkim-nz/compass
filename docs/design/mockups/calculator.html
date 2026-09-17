@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AAPL projection · Compass</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="tokens.css" />
+  <link rel="stylesheet" href="statement.css" />
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      if (p.get("theme")) document.documentElement.dataset.theme = p.get("theme");
+      document.documentElement.dataset.state = p.get("state") || "fresh";
+    })();
+  </script>
+  <style>
+    /* State switches for the mock-up: ?state=fresh|saved|404|422|503|modal */
+    [data-state] .only-saved, [data-state] .only-404, [data-state] .only-422, [data-state] .only-503, [data-state] .only-fresh { display: none; }
+    [data-state="fresh"] .only-fresh { display: revert; }
+    [data-state="saved"] .only-saved, [data-state="modal"] .only-saved { display: revert; }
+    [data-state="404"] .only-404 { display: revert; }
+    [data-state="422"] .only-422 { display: revert; }
+    [data-state="503"] .only-503 { display: revert; }
+    [data-state="saved"] .saved, [data-state="modal"] .saved { display: flex; }
+    .saved { display: none; }
+  </style>
+</head>
+<body>
+  <header class="sheet masthead">
+    <a class="brand" href="landing.html">Compass</a>
+    <nav aria-label="Account">
+      <a href="#">Sign out</a>
+    </nav>
+  </header>
+
+  <main class="sheet">
+    <h1><span class="only-fresh only-saved only-503">Apple Inc.</span><span class="only-404">XYZQ</span><span class="only-422">Taiwan Semiconductor</span> <span class="tag"><span class="only-fresh only-saved only-503">AAPL</span><span class="only-422">TSM</span></span></h1>
+    <p class="provenance">
+      <span class="only-fresh only-saved">Figures to <b>28 Jun 2025</b> · Fundamentals <b>SEC EDGAR</b> · Quote <b>Finnhub</b> · <i>Illustrative figures</i></span>
+      <span class="only-404 only-422 only-503">No filed figures loaded · <i>Illustrative</i></span>
+    </p>
+    <p class="saved">
+      <span>Your assumptions, saved <b>12 Sep 2026</b>, over today's figures</span>
+      <a href="?state=fresh">Restate to defaults</a>
+    </p>
+
+    <div class="statement-note only-404" role="status">
+      <p><b>No SEC filings found for XYZQ.</b> Compass covers US-listed companies that file with the SEC.</p>
+      <p>Enter the figures yourself; the projection works the same way.</p>
+    </div>
+    <div class="statement-note only-422" role="status">
+      <p><b>TSM files a 20-F, which Compass cannot read.</b> Only 10-K and 10-Q filers are pre-filled.</p>
+      <p>Enter the figures yourself; the projection works the same way.</p>
+    </div>
+    <div class="statement-note only-503" role="status">
+      <p><b>SEC EDGAR could not be reached just now.</b> Your saved assumptions are loaded; the filed figures are not.</p>
+      <p>Enter the figures yourself, or <a href="?state=fresh">try again</a>.</p>
+    </div>
+
+    <section aria-labelledby="facts">
+      <div class="caption">
+        <span id="facts">Base facts</span>
+        <span class="units">USD millions, except per share</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th scope="col">Figure</th><th scope="col" class="src-col">Source</th><th scope="col">Today</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="label">Share price <small class="src">Finnhub, per share</small></td>
+            <td class="src-col note">Finnhub, per share</td>
+            <td class="num"><input class="fig" data-k="price" value="234.07" inputmode="decimal" aria-label="Share price" /></td>
+          </tr>
+          <tr>
+            <td class="label">Revenue<span class="long">, trailing twelve months</span><span class="short"> TTM</span> <small class="src">SEC EDGAR</small></td>
+            <td class="src-col note">SEC EDGAR, TTM</td>
+            <td class="num"><input class="fig wide" data-k="revenue" value="391,035" inputmode="numeric" aria-label="Revenue, trailing twelve months, millions" /></td>
+          </tr>
+          <tr>
+            <td class="label">Shares <span class="long">outstanding, </span>diluted <small class="src">SEC EDGAR, weighted average</small></td>
+            <td class="src-col note">SEC EDGAR, weighted average</td>
+            <td class="num"><input class="fig wide" data-k="shares" value="15,204" inputmode="numeric" aria-label="Shares outstanding, diluted, millions" /></td>
+          </tr>
+          <tr>
+            <td class="label">Net margin <small class="src">Net income ÷ revenue</small></td>
+            <td class="src-col note">Net income ÷ revenue</td>
+            <td class="num"><span class="with-unit"><input class="fig" data-k="margin0" value="24" inputmode="numeric" aria-label="Current net margin, percent" /><span class="unit">%</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section aria-labelledby="assume">
+      <div class="caption">
+        <span id="assume">Assumptions</span>
+        <span class="units">Your guesses; the first draft comes from filed history</span>
+      </div>
+      <table id="scenarios">
+        <thead>
+          <tr><th scope="col">Input</th><th scope="col">Bear</th><th scope="col">Base</th><th scope="col">Bull</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="label">Horizon <small>years</small></td>
+            <td class="num"><input class="fig" data-s="0" data-k="years" value="5" inputmode="numeric" aria-label="Bear horizon, years" /></td>
+            <td class="num"><input class="fig" data-s="1" data-k="years" value="5" inputmode="numeric" aria-label="Base horizon, years" /></td>
+            <td class="num"><input class="fig" data-s="2" data-k="years" value="5" inputmode="numeric" aria-label="Bull horizon, years" /></td>
+          </tr>
+          <tr>
+            <td class="label">Revenue growth <small>% per year</small></td>
+            <td class="num"><input class="fig" data-s="0" data-k="growth" value="4" inputmode="numeric" aria-label="Bear revenue growth, percent per year" /></td>
+            <td class="num"><input class="fig" data-s="1" data-k="growth" value="8" inputmode="numeric" aria-label="Base revenue growth, percent per year" /></td>
+            <td class="num"><input class="fig" data-s="2" data-k="growth" value="12" inputmode="numeric" aria-label="Bull revenue growth, percent per year" /></td>
+          </tr>
+          <tr>
+            <td class="label">Future net margin <small>%</small></td>
+            <td class="num"><input class="fig" data-s="0" data-k="margin" value="22" inputmode="numeric" aria-label="Bear future net margin, percent" /></td>
+            <td class="num"><input class="fig" data-s="1" data-k="margin" value="24" inputmode="numeric" aria-label="Base future net margin, percent" /></td>
+            <td class="num"><input class="fig" data-s="2" data-k="margin" value="26" inputmode="numeric" aria-label="Bull future net margin, percent" /></td>
+          </tr>
+          <tr>
+            <td class="label">Exit multiple <small>P/E on earnings, or P/S on revenue</small></td>
+            <td class="num">
+              <input class="fig" data-s="0" data-k="multiple" value="22" inputmode="numeric" aria-label="Bear exit multiple" />
+              <span class="basis"><label><input type="radio" name="b0" checked /><span>P/E</span></label><label><input type="radio" name="b0" /><span>P/S</span></label></span>
+            </td>
+            <td class="num">
+              <input class="fig" data-s="1" data-k="multiple" value="28" inputmode="numeric" aria-label="Base exit multiple" />
+              <span class="basis"><label><input type="radio" name="b1" checked /><span>P/E</span></label><label><input type="radio" name="b1" /><span>P/S</span></label></span>
+            </td>
+            <td class="num">
+              <input class="fig" data-s="2" data-k="multiple" value="34" inputmode="numeric" aria-label="Bull exit multiple" />
+              <span class="basis"><label><input type="radio" name="b2" checked /><span>P/E</span></label><label><input type="radio" name="b2" /><span>P/S</span></label></span>
+            </td>
+          </tr>
+          <tr>
+            <td class="label">Share dilution <small>% per year; buybacks in parentheses</small></td>
+            <td class="num"><input class="fig" data-s="0" data-k="dilution" value="(2)" inputmode="numeric" aria-label="Bear share dilution, percent per year" /></td>
+            <td class="num"><input class="fig" data-s="1" data-k="dilution" value="(2)" inputmode="numeric" aria-label="Base share dilution, percent per year" /></td>
+            <td class="num"><input class="fig" data-s="2" data-k="dilution" value="(2)" inputmode="numeric" aria-label="Bull share dilution, percent per year" /></td>
+          </tr>
+          <tr class="subtotal-rule total" id="row-x">
+            <td class="label">Return multiple</td>
+            <td class="num x" data-out="x0">0.7<sup>×</sup></td>
+            <td class="num x" data-out="x1">1.2<sup>×</sup></td>
+            <td class="num x" data-out="x2">1.9<sup>×</sup></td>
+          </tr>
+          <tr class="double-rule"><td colspan="4"></td></tr>
+          <tr id="row-cagr">
+            <td class="label">CAGR <small>% per year</small></td>
+            <td class="num" data-out="c0">(6) %</td>
+            <td class="num" data-out="c1">4 %</td>
+            <td class="num" data-out="c2">14 %</td>
+          </tr>
+          <tr id="row-price">
+            <td class="label">Future share price <small>USD</small></td>
+            <td class="num" data-out="p0">168</td>
+            <td class="num" data-out="p1">281</td>
+            <td class="num" data-out="p2">443</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="footnote"><b>Hypothetical.</b> These figures follow from the assumptions above, which you chose. They are not a prediction and not investment advice.</p>
+    </section>
+
+    <div class="actions">
+      <button class="btn only-fresh only-404 only-422" type="button">Save projection</button>
+      <button class="btn only-saved only-503" type="button" id="update">Update projection</button>
+      <span class="note only-fresh">Saves your assumptions only; the filed figures are fetched fresh each time.</span>
+    </div>
+  </main>
+
+  <footer>
+    <div class="sheet">
+      <p>Compass projections are hypothetical, follow from assumptions the user chooses, and are for education only. They are not investment advice.</p>
+      <p>Fundamentals: SEC EDGAR. Quotes: Finnhub.</p>
+    </div>
+  </footer>
+
+  <div class="modal-backdrop" id="confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal">
+      <h2 id="confirm-title">Replace your saved projection for AAPL?</h2>
+      <p>The assumptions you saved on 12 Sep 2026 will be overwritten with the ones on this page. Filed figures are never stored.</p>
+      <div class="actions">
+        <button class="btn quiet" type="button" id="keep">Keep saved</button>
+        <button class="btn" type="button">Replace</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Live preview of the glossary formula so the mock-up behaves; the real page uses the shared TS calculator.
+    (function () {
+      var num = function (v) { var s = String(v).trim(); var neg = /^\(.*\)$/.test(s); s = s.replace(/[(),\s%]/g, ""); var n = parseFloat(s); if (isNaN(n)) return NaN; return neg ? -n : n; };
+      var fmtPct = function (n) { var r = Math.round(n); return r < 0 ? "(" + Math.abs(r) + ") %" : r + " %"; };
+      var fmtInt = function (n) { return Math.round(n).toLocaleString("en-US"); };
+      var read = function (k, s) { var el = document.querySelector('.fig[data-k="' + k + '"]' + (s === undefined ? ":not([data-s])" : '[data-s="' + s + '"]')); return num(el.value); };
+      var rows = [document.getElementById("row-x"), document.getElementById("row-cagr"), document.getElementById("row-price")];
+      var timer;
+      function compute() {
+        var price = read("price"), rev = read("revenue"), sh = read("shares");
+        for (var s = 0; s < 3; s++) {
+          var y = read("years", s), g = read("growth", s) / 100, m = read("margin", s) / 100, mult = read("multiple", s), d = read("dilution", s) / 100;
+          var pe = document.querySelector('input[name="b' + s + '"]:checked').nextElementSibling.textContent === "P/E";
+          var fr = rev * Math.pow(1 + g, y), fs = sh * Math.pow(1 + d, y);
+          var cap = pe ? fr * m * mult : fr * mult;
+          var fp = cap / fs, x = fp / price, cagr = Math.pow(x, 1 / y) - 1;
+          var ok = [price, rev, sh, y, g, m, mult, d].every(isFinite) && y > 0 && price > 0 && fs > 0;
+          document.querySelector('[data-out="x' + s + '"]').innerHTML = ok ? x.toFixed(1) + "<sup>×</sup>" : "—";
+          document.querySelector('[data-out="c' + s + '"]').textContent = ok ? fmtPct(cagr * 100) : "—";
+          document.querySelector('[data-out="p' + s + '"]').textContent = ok ? fmtInt(fp) : "—";
+        }
+        rows.forEach(function (r) { r.classList.add("changed"); });
+        clearTimeout(timer);
+        timer = setTimeout(function () { rows.forEach(function (r) { r.classList.remove("changed"); }); }, 700);
+      }
+      document.querySelectorAll(".fig").forEach(function (el) {
+        var initial = el.value;
+        el.addEventListener("input", function () { el.classList.toggle("edited", el.value !== initial); compute(); });
+      });
+      document.querySelectorAll('.basis input').forEach(function (el) { el.addEventListener("change", compute); });
+      var modal = document.getElementById("confirm");
+      var update = document.getElementById("update");
+      if (update) update.addEventListener("click", function () { modal.setAttribute("open", ""); document.getElementById("keep").focus(); });
+      document.getElementById("keep").addEventListener("click", function () { modal.removeAttribute("open"); });
+      if (document.documentElement.dataset.state === "modal") modal.setAttribute("open", "");
+      if (document.documentElement.dataset.state === "404" || document.documentElement.dataset.state === "422") {
+        document.querySelectorAll('.fig:not([data-s])').forEach(function (el) { el.value = ""; el.placeholder = "—"; });
+        document.querySelectorAll('[data-out]').forEach(function (el) { el.textContent = "—"; });
+        document.querySelectorAll('.fig[data-s]').forEach(function (el) { el.value = ""; el.placeholder = "—"; });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Compass</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="tokens.css" />
+  <link rel="stylesheet" href="statement.css" />
+  <style>
+    .cover { padding-top: var(--s-12); }
+    .cover h1 { font-size: calc(var(--text-title) * 1.25); margin-top: 0; }
+    .cover .one-line { font-size: var(--text-lg); line-height: 1.35; max-width: 32ch; margin: 0 0 var(--s-3); text-wrap: pretty; }
+    .cover .rule { border-top: var(--rule-w) solid var(--rule); margin: var(--s-4) 0; }
+    .specimen { margin-top: var(--s-16); }
+    .specimen .caption { margin-top: 0; }
+    @media (min-width: 48rem) {
+      .cover { padding-top: var(--s-16); }
+      .cover h1 { font-size: 3rem; }
+    }
+  </style>
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      if (p.get("theme")) document.documentElement.dataset.theme = p.get("theme");
+    })();
+  </script>
+</head>
+<body>
+  <header class="sheet masthead">
+    <a class="brand" href="landing.html">Compass</a>
+    <nav aria-label="Account">
+      <a href="#">Sign in</a>
+      <a href="#">Register</a>
+    </nav>
+  </header>
+
+  <main class="sheet">
+    <section class="cover" aria-labelledby="title">
+      <h1 id="title">Compass</h1>
+      <div class="rule" role="presentation"></div>
+      <p class="one-line">A stock projection you can argue with: pre-filled from the company's own SEC filings, edited by you, shown as a Bear / Base / Bull range.</p>
+      <p class="note">Figures in millions, except per-share data. US-listed companies filing with the SEC.</p>
+
+      <form class="entry" action="calculator.html" method="get">
+        <label for="ticker">Ticker</label>
+        <div class="line">
+          <input class="ticker" id="ticker" name="ticker" placeholder="e.g. AAPL" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="6" required />
+          <button class="btn" type="submit">Project</button>
+        </div>
+      </form>
+      <p class="note">Signed out? You will sign in first and land on your projection afterwards.</p>
+    </section>
+
+    <section class="specimen" aria-labelledby="spec">
+      <div class="caption">
+        <span id="spec">Specimen</span>
+        <span class="units">Illustrative figures for Apple Inc., not a prediction</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th scope="col"></th><th scope="col">Bear</th><th scope="col">Base</th><th scope="col">Bull</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="label">Revenue growth <span class="long">per year</span><span class="short">/yr</span></td><td class="num">4 %</td><td class="num">8 %</td><td class="num">12 %</td></tr>
+          <tr><td class="label">Exit multiple <small>P/E</small></td><td class="num">22</td><td class="num">28</td><td class="num">34</td></tr>
+          <tr class="subtotal-rule total">
+            <td class="label">Return multiple</td>
+            <td class="num x">0.7<sup>×</sup></td>
+            <td class="num x">1.2<sup>×</sup></td>
+            <td class="num x">1.9<sup>×</sup></td>
+          </tr>
+          <tr class="double-rule"><td colspan="4"></td></tr>
+          <tr><td class="label">CAGR <span class="long">per year</span><span class="short">/yr</span></td><td class="num">(6) %</td><td class="num">4 %</td><td class="num">14 %</td></tr>
+        </tbody>
+      </table>
+      <p class="footnote">Every figure above is a guess you can change. Compass fills the first draft from filed history and shows what the guesses imply.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="sheet">
+      <p>Compass projections are hypothetical, follow from assumptions the user chooses, and are for education only. They are not investment advice.</p>
+      <p>Fundamentals: SEC EDGAR. Quotes: Finnhub.</p>
+    </div>
+  </footer>
+</body>
+</html>
