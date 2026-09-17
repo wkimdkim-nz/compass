@@ -50,15 +50,22 @@ Persistence rule (single model, since FMP is in iteration 1):
 >    of provider responses (quote 15 minutes, fundamentals 24 hours) is infrastructure, not
 >    projection state, and does not break that rule. Base facts are still never written to the
 >    database.
-> 2. **One projection per user per company.** A user's projection for a company is the one place
->    that company's thesis lives; two theses are two scenarios, not two projections. Uniqueness is
+> 2. **One projection per user per ticker.** A user's projection for a ticker is the one place
+>    that thesis lives; two theses are two scenarios, not two projections. Uniqueness is
 >    on `(user_id, ticker)` with the ticker upper-cased; the row also stores the company name and
->    the EDGAR CIK so a reload does not re-resolve the ticker. `POST /api/projections` creates and
+>    the EDGAR CIK (null for manual entry) so a reload does not re-resolve the ticker. The key is
+>    the ticker, not the CIK, on purpose: an issuer with several share classes (Alphabet,
+>    Berkshire) has one CIK but a different price and share count per class, so each class is its
+>    own projection, and manual-entry rows have no CIK to key on. `POST /api/projections` creates and
 >    answers 409 if one exists; `PUT /api/projections/{ticker}` replaces and answers 404 if none.
 >    The UI asks for confirmation before replacing, and the two verbs are what stop a client that
 >    skipped the confirmation from overwriting silently. Entering a ticker that already has a
 >    saved projection loads the **saved assumptions** over fresh base facts, marked visibly as
->    saved data, with a reset-to-defaults action.
+>    saved data, with a reset-to-defaults action. A saved projection is readable whether or not
+>    the lookup can seed it: `GET /api/projections/{ticker}` returns the assumptions with empty
+>    base facts and the lookup's reason when the ticker is unknown, the filer unsupported, or
+>    the provider down, so manual-entry projections reload the same way every time. That route's
+>    own 404 means only "no saved projection".
 > 3. **Shares outstanding is the diluted weighted average**, current and historical, for the
 >    reasons in ADR 0010. The "Snapshot (base facts)" above gains a fourth member, **current net
 >    margin**, and a **figures-to date** (the period end the TTM figures run to), which the UI

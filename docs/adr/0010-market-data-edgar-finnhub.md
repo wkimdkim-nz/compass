@@ -18,7 +18,9 @@ any adapter was written:
   month than the whole ephemeral AWS stack.
 - [`../research/edgar-finnhub-alternatives.md`](../research/edgar-finnhub-alternatives.md)
   (2026-09-14): ADR 0005's named fallback, **SEC EDGAR + Finnhub free**, covers every base fact
-  and the history for **US domestic SEC filers**, at $0, with observed responses. The cost moves
+  and the history for **US domestic SEC filers**, at $0. EDGAR's coverage was **observed**;
+  Finnhub's quote endpoint is taken from its **documentation**, since every call without an
+  account returned 401 and no Finnhub data was seen. The cost moves
   into Compass: EDGAR returns raw filed XBRL facts, so revenue-tag mapping, TTM derivation and the
   share-count choice are ours. Neither it nor any other free source found covers ASX or NZX.
 
@@ -52,8 +54,13 @@ draft build tickets #54–#63.
 - **TTM is derived.** EDGAR has no TTM concept, and recent 10-Ks carry no fourth-quarter facts, so
   Q4 = FY − nine-month YTD. Revenue needs an ordered candidate list of tags per period, because
   the tag a company files under changes over time. Net income is `NetIncomeLoss`. Current net
-  margin is TTM net income ÷ TTM revenue. This normalisation is unit-tested against **recorded
-  `companyfacts` fixtures** checked into the test project.
+  margin is TTM net income ÷ TTM revenue. **Duplicates are resolved by filing date:** the same
+  period appears more than once in `companyfacts`, as a comparative in later filings and as a
+  restatement when one is made, so for each `(start, end)` period the fact taken is the one from
+  the **latest-filed 10-K or 10-Q** (including `/A` amendments), which is also the row EDGAR puts
+  the `frame` tag on. Facts from other forms are ignored. This normalisation is unit-tested against
+  **recorded `companyfacts` fixtures** checked into the test project, including at least one
+  repeated comparative and one restated period.
 - **Staleness is visible.** `companyfacts` was observed missing recent filings for three of
   fourteen filers checked. The lookup reports the period end its TTM figures run to, and the UI
   shows "figures to <period end>" beside the base facts.
@@ -68,8 +75,11 @@ draft build tickets #54–#63.
   it already injects the database credentials, mirroring the origin-header pattern of ADR 0009.
   Locally it comes from `dotnet user-secrets`. EDGAR needs no key but refuses requests without a
   **User-Agent carrying a contact address**; that address is an **environment variable** in every
-  environment, not a value in source. **With either setting absent, that port's stub is registered
-  and the API still starts.** Tests run against the stubs only.
+  environment, not a value in source. **With either setting absent, the stub is registered only in
+  Development and test; in every other environment the API refuses to start** and names the missing
+  setting, the way a missing database credential already does. A deployed task therefore either
+  talks to the real providers or is not healthy, and the smoke test cannot be satisfied by a stub.
+  Tests run against the stubs only.
 
 ## Consequences
 

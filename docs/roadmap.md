@@ -61,8 +61,8 @@ Ordered. Each item is one build ticket; **the design task blocks every UI ticket
 6. [ ] **Configuration.** Finnhub key: `compass/finnhub-api-key` in the **foundation** stack,
        value set by hand, injected by name in the app-stack task definition; locally
        `dotnet user-secrets`. EDGAR User-Agent contact: an environment variable everywhere. With
-       either absent the matching stub is registered and the API starts. Record the config key
-       names.
+       either absent the matching stub is registered **in Development and test only**; elsewhere
+       startup fails naming the missing setting. Record the config key names.
 7. [ ] **EDGAR normalisation.** Ticker → CIK via the SEC ticker file; `companyfacts` →
        TTM revenue (ordered tag list per period, Q4 = FY − 9M), TTM net income, current margin,
        diluted weighted-average shares, 3–5 years of annual history, figures-to date. 422 reasons
@@ -75,7 +75,9 @@ Ordered. Each item is one build ticket; **the design task blocks every UI ticket
 9. [ ] **Projection persistence.** `projections` (unique on user + ticker; CIK, company name) →
        `scenarios` (≤3); no base facts stored. `POST` creates (409 if exists), `PUT /{ticker}`
        replaces (404 if none), both recompute in .NET and return outputs; `GET /{ticker}`
-       returns saved assumptions plus live base facts, or empty base facts on 503. Owner-only.
+       returns saved assumptions plus live base facts, or empty base facts and the lookup's
+       reason whenever the lookup cannot seed (unknown ticker, unsupported filer, provider
+       down); this route's own 404 means only "no saved projection". Owner-only.
        **Retire `Note`** end to end in this ticket, smoke assertions rewritten here.
 10. [ ] **Landing + calculator UI.** `/` landing with the ticker box; `/projections/{ticker}` the
         calculator: pre-fill from the lookup, saved assumptions loaded over fresh facts when a
