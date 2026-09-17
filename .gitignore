@@ -21,3 +21,6 @@ dist/
 *.tfplan
 *.tfvars
 crash.log
+
+# Impeccable per-machine settings
+.impeccable/config.local.json
