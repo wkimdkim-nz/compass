@@ -1,13 +1,13 @@
 # Roadmap — Compass
 
 Ordered build plan. The guiding principle (grilling round 4): **prove the seams end-to-end before
-adding features.** Four technologies are stacked here (React, .NET, Postgres/AWS, FMP) — the risk is
+adding features.** Four technologies are stacked here (React, .NET, Postgres/AWS, market data) — the risk is
 building each in isolation and discovering the joints (auth, same-site delivery, deploy) break late. Auth is
 .NET-native (ASP.NET Core Identity, ADR 0007); Supabase has been dropped.
 
 ## Phase 0 — Walking skeleton (de-risk the seams)
 
-The thinnest possible slice that touches every layer. **No calculator, no FMP.**
+The thinnest possible slice that touches every layer. **No calculator, no market data.**
 
 - [x] React app: register + log in against ASP.NET Core Identity; receive an `HttpOnly` session
       cookie (ADR 0007). No client-side token store. **No email path at all** — no `IEmailSender` is
@@ -19,7 +19,7 @@ The thinnest possible slice that touches every layer. **No calculator, no FMP.**
       cookie makes necessary (ADR 0007).
 - [x] One authenticated write + read of a single row in the app Postgres, `user_id` FK'd to
       `AspNetUsers` (ADR 0008), in the *same* database as Identity's tables.
-- [ ] Deploy on AWS (`ap-southeast-2`): React → S3 + CloudFront; .NET → **Amazon ECS on Fargate**
+- [x] Deploy on AWS (`ap-southeast-2`): React → S3 + CloudFront; .NET → **Amazon ECS on Fargate**
       behind an internet-facing ALB (ADR 0009 — App Runner was reversed); DB → RDS Postgres, kept
       **private**. **Register a custom domain (Route 53); CloudFront serves the SPA at root and
       path-routes `/api/*` to the ALB so the cookie is same-site** (ADR 0007) — an `api.` subdomain
@@ -35,11 +35,65 @@ TLS, deploy, secrets) is proven.
 
 ## Phase 1 — The calculator (first real feature)
 
-- [ ] Ticker lookup → .NET calls FMP (key in Secrets Manager), returns base facts + history (ADR 0005).
-- [ ] Pre-fill Bear/Base/Bull from FMP history; all fields editable (ADR 0004).
-- [ ] Live projection compute in TS as the user types; authoritative recompute in .NET on save.
-- [ ] Save / load a projection (assumptions only; base facts re-fetched live on load).
-- [ ] "Not financial advice" disclaimer by the output and in the footer (ADR 0006).
+Decisions from the grilling of 2026-09-17: market data is **SEC EDGAR + Finnhub, US domestic
+filers only** (ADR 0010, superseding 0005); one projection per user per company, in-memory
+cache, diluted weighted-average shares, exact seeding rules (ADR 0004, amended). The earlier draft
+tickets #54–#63 are closed; the spec issue that replaces them carries this order.
+
+Ordered. Each item is one build ticket; **the design task blocks every UI ticket.**
+
+1. [ ] **Test CI.** GitHub Actions runs `dotnet test` and Vitest on every PR. No AWS, no
+       secrets. Deploy CI via OIDC is a Later item.
+2. [ ] **Shared projection vectors.** `spec/projection-vectors.json`: hand-computed cases from the
+       glossary formula, P/E and P/S paths, edge cases (0% growth, buybacks, 1-year horizon, zero
+       margin on P/S), tolerance in the header. The glossary points at it.
+3. [ ] **Two calculators.** Pure functions, double on both sides: .NET (authoritative on save)
+       and TypeScript (live preview), each passing every vector. Invalid inputs rejected
+       explicitly, never NaN.
+4. [ ] **Tailwind + design tokens.** Tailwind via the Vite plugin, our own token set (spacing,
+       colour, numeric type), light and dark. Groundwork only; no page changes.
+5. [ ] **Design.** Decide the look of the landing page and the calculator page before any UI is
+       built: mobile-first, phone / tablet / desktop; the calculator is a **table** (rows =
+       inputs, columns = Bear / Base / Bull, base facts above, outputs as the last rows, **X** as
+       the headline with CAGR and future price beneath, the disclaimer under the output row); the
+       landing page is a ticker box and one line on what Compass does. Candidates are generated
+       with agent skills the user adds for the purpose. **Blocks 8, 10 and 11.**
+6. [ ] **Configuration.** Finnhub key: `compass/finnhub-api-key` in the **foundation** stack,
+       value set by hand, injected by name in the app-stack task definition; locally
+       `dotnet user-secrets`. EDGAR User-Agent contact: an environment variable everywhere. With
+       either absent the matching stub is registered and the API starts. Record the config key
+       names.
+7. [ ] **EDGAR normalisation.** Ticker → CIK via the SEC ticker file; `companyfacts` →
+       TTM revenue (ordered tag list per period, Q4 = FY − 9M), TTM net income, current margin,
+       diluted weighted-average shares, 3–5 years of annual history, figures-to date. 422 reasons
+       for filers it cannot normalise. Unit-tested on recorded `companyfacts` fixtures. The
+       largest single item.
+8. [ ] **Ticker lookup.** `GET /api/tickers/{symbol}` behind two ports (fundamentals, quote) and
+       one lookup service; Finnhub adapter; stubs; in-memory cache (quote 15 min, fundamentals
+       and ticker map 24 h); 404 / 422 / 503 / partial-200 exactly as ADR 0010 states; seeded
+       Bear/Base/Bull per ADR 0004's amended rules, returned with the lookup.
+9. [ ] **Projection persistence.** `projections` (unique on user + ticker; CIK, company name) →
+       `scenarios` (≤3); no base facts stored. `POST` creates (409 if exists), `PUT /{ticker}`
+       replaces (404 if none), both recompute in .NET and return outputs; `GET /{ticker}`
+       returns saved assumptions plus live base facts, or empty base facts on 503. Owner-only.
+       **Retire `Note`** end to end in this ticket, smoke assertions rewritten here.
+10. [ ] **Landing + calculator UI.** `/` landing with the ticker box; `/projections/{ticker}` the
+        calculator: pre-fill from the lookup, saved assumptions loaded over fresh facts when a
+        projection exists (visibly marked, reset-to-defaults action), live X/CAGR on every
+        keystroke, Save for new / Update with a confirmation modal for existing, figures-to
+        date beside the base facts, whole-number percents and millions in the UI (decimals and
+        raw values on the wire), P/E vs P/S per scenario, the disclaimer beside the output and
+        in the footer (ADR 0006), 404 / 422 / 503 messages that leave the form usable.
+11. [ ] **Deploy + smoke.** Foundation secret applied, task definition injects it, EDGAR contact
+        env var set; `scripts/smoke-deployed.sh` gains lookup → save → load against the **real**
+        providers on AAPL; full work session (push, apply, migrate, smoke, browser pass, destroy).
+12. [ ] **Close out.** Roadmap ticked, glossary and ADRs reconciled with what was built, the
+        spec issue closed with pointers to the PRs.
+
+**Done when:** a logged-in user, in the deployed app, types a US ticker, gets a pre-filled
+Bear/Base/Bull form, edits it, sees X and CAGR update live, saves, reloads and sees the same
+assumptions with fresh base facts — disclaimer beside the output and in the footer — and the
+smoke script proves lookup → save → load against the real providers.
 
 ## Phase 2 — Make it usable for beginners
 
@@ -57,7 +111,11 @@ TLS, deploy, secrets) is proven.
       the user FK this is a *moderate migration*, not config-only — flip cookie→bearer on both ends,
       add a Cognito migration Lambda, and re-map `user_id` to the Cognito `sub` (ADR 0007/0008).
 - [ ] Migrate app DB RDS → Neon when the free tier lapses (ADR 0008).
-- [ ] Polish, error/rate-limit handling for FMP, caching.
+- [ ] NZX / ASX ticker lookup — no free source found (research notes, 2026-09-13/14); needs a
+      research spike and probably a paid provider before it is a ticket.
+- [ ] Deploy CI: build and push the image from GitHub Actions via OIDC role assumption.
+- [ ] Postgres-backed market-data cache, if the in-memory one ever proves insufficient.
+- [ ] Choose a component library, if the Phase 2 pages outgrow Tailwind + tokens.
 
 ## Reference — calculator inputs & sources
 
