@@ -1,7 +1,11 @@
 # ADR 0005 — Financial Modeling Prep (FMP) as the market-data provider
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 0010](0010-market-data-edgar-finnhub.md)
 **Date:** 2026-07-01
+
+> **Superseded 2026-09-17.** The free-tier assumption below was tested and failed — see
+> [`../research/fmp-free-tier.md`](../research/fmp-free-tier.md). The named fallback (SEC EDGAR +
+> Finnhub) was adopted in ADR 0010. Kept for the record of a route actually walked.
 
 ## Context
 

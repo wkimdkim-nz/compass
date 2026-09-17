@@ -1,6 +1,6 @@
 # ADR 0004 — Projections hold Bear/Base/Bull scenarios; snapshot vs. live inputs
 
-**Status:** Accepted
+**Status:** Accepted (amended 2026-09-17)
 **Date:** 2026-07-01
 
 ## Context
@@ -39,3 +39,45 @@ Persistence rule (single model, since FMP is in iteration 1):
 - Compute is duplicated: **TS** computes live in the browser for instant preview as the user types;
   **.NET** recomputes authoritatively (the formula is small enough that duplication is cheap). Both
   read the glossary formula as the single spec.
+
+> **Amended 2026-09-17 (Phase 1 grilling; provider now SEC EDGAR + Finnhub, ADR 0010).** Four
+> points the original left open, or that Phase 1's design changed. Every "FMP" above reads as
+> "the fundamentals source" or "the quote source" (ADR 0010).
+>
+> 1. **"Fetched live" means "not older than the cache TTL".** The persistence rule is about the
+>    *Projection*: a saved projection stores only the ticker and the Assumption Sets, and opening
+>    it fetches base facts afresh, so it is never a stale answer. A short-lived **in-memory** cache
+>    of provider responses (quote 15 minutes, fundamentals 24 hours) is infrastructure, not
+>    projection state, and does not break that rule. Base facts are still never written to the
+>    database.
+> 2. **One projection per user per ticker.** A user's projection for a ticker is the one place
+>    that thesis lives; two theses are two scenarios, not two projections. Uniqueness is
+>    on `(user_id, ticker)` with the ticker upper-cased; the row also stores the company name and
+>    the EDGAR CIK (null for manual entry) so a reload does not re-resolve the ticker. The key is
+>    the ticker, not the CIK, on purpose: an issuer with several share classes (Alphabet,
+>    Berkshire) has one CIK but a different price and share count per class, so each class is its
+>    own projection, and manual-entry rows have no CIK to key on. `POST /api/projections` creates and
+>    answers 409 if one exists; `PUT /api/projections/{ticker}` replaces and answers 404 if none.
+>    The UI asks for confirmation before replacing, and the two verbs are what stop a client that
+>    skipped the confirmation from overwriting silently. Entering a ticker that already has a
+>    saved projection loads the **saved assumptions** over fresh base facts, marked visibly as
+>    saved data, with a reset-to-defaults action. A saved projection is readable whether or not
+>    the lookup can seed it: `GET /api/projections/{ticker}` returns the assumptions with empty
+>    base facts and the lookup's reason when the ticker is unknown, the filer unsupported, or
+>    the provider down, so manual-entry projections reload the same way every time. That route's
+>    own 404 means only "no saved projection".
+> 3. **Shares outstanding is the diluted weighted average**, current and historical, for the
+>    reasons in ADR 0010. The "Snapshot (base facts)" above gains a fourth member, **current net
+>    margin**, and a **figures-to date** (the period end the TTM figures run to), which the UI
+>    shows so staleness is informed rather than silent.
+> 4. **Scenario defaults, made exact.** Base growth = trailing revenue CAGR over the years
+>    returned; **Bear = base − ½|base|; Bull = base + ½|base|** (identical to ½× and 1.5× for
+>    positive growth, and correctly ordered when the company is shrinking); future net margin =
+>    current margin for all three; dilution = share-count CAGR over the same years (negative for
+>    buybacks); horizon 5; exit multiple = current P/E, or current P/S when TTM net income ≤ 0.
+>    Fewer than two years of history gives **no defaults** rather than a CAGR over zero years.
+>    Which fields were pre-filled versus edited is not tracked.
+>
+> The duplicated compute is kept, and made honest: both calculators use **double** and are tested
+> against one hand-computed vectors file at the repo root, with the tolerance stated in the file.
+> Persisted assumptions remain `numeric` in Postgres (ADR 0008); outputs are never stored.
