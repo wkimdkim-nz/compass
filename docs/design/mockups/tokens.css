@@ -1,0 +1,96 @@
+/*
+  Compass Phase 1 tokens — "The Audited Statement" (issue #69).
+  This file is the token source the Tailwind ticket builds from. Light is the
+  statement page; dark is its microfiche negative. Both pairs meet WCAG 2.2 AA.
+*/
+
+:root {
+  /* Colour: paper and ink */
+  --paper: #ffffff;
+  --paper-2: #f6f5f1;        /* input hover / table caption band */
+  --ink: #111111;
+  --ink-2: #4a4a48;          /* secondary: units, sources, dates (8.6:1) */
+  --rule: #1f1f1f;           /* statement rules */
+  --hairline: #d8d6cf;       /* internal row rules */
+
+  /* Colour: the one accent, the auditor's blue pencil */
+  --pencil: #2b4c9b;         /* 7.3:1 on paper */
+  --pencil-ink: #ffffff;     /* text on a pencil fill */
+  --pencil-tint: #e8eef9;    /* row tint for a changed value */
+  --pencil-line: #2b4c9b;
+
+  /* Type */
+  --font: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --text: 1rem;              /* 16px body */
+  --text-sm: 0.875rem;       /* 14px labels, notes, sources */
+  --text-xs: 0.75rem;        /* 12px footnotes */
+  --text-lg: 1.25rem;        /* 20px table captions */
+  --text-title: 1.75rem;     /* 28px page heading (phone) */
+  --text-total: 2.25rem;     /* 36px the X (phone) */
+  --leading: 1.5;
+  --leading-tight: 1.15;
+  --wdth-text: 100;
+  --wdth-total: 75;          /* condensed numerals for totals */
+
+  /* Spacing: 4px base */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-6: 1.5rem;
+  --s-8: 2rem;
+  --s-12: 3rem;
+  --s-16: 4rem;
+  --row: 2.5rem;             /* 40px table row rhythm */
+  --measure: 40rem;          /* statement column */
+
+  /* Rules */
+  --rule-w: 1px;
+  --rule-total: 2px;         /* the double rule is two 1px lines 2px apart */
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1c1c1a;
+    --paper-2: #242422;
+    --ink: #e8e6e0;
+    --ink-2: #a7a49c;        /* 6.6:1 on paper */
+    --rule: #e8e6e0;
+    --hairline: #3a3936;
+    --pencil: #9db6f0;       /* 8.6:1 on paper */
+    --pencil-ink: #111111;
+    --pencil-tint: #26304a;
+    --pencil-line: #9db6f0;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #1c1c1a;
+  --paper-2: #242422;
+  --ink: #e8e6e0;
+  --ink-2: #a7a49c;
+  --rule: #e8e6e0;
+  --hairline: #3a3936;
+  --pencil: #9db6f0;
+  --pencil-ink: #111111;
+  --pencil-tint: #26304a;
+  --pencil-line: #9db6f0;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --text-title: 2.25rem;   /* 36px */
+    --text-total: 3rem;      /* 48px */
+    --row: 2.75rem;          /* 44px */
+    --measure: 48rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  :root {
+    --text-total: 3.5rem;    /* 56px */
+    --measure: 56rem;
+  }
+}

@@ -24,3 +24,6 @@ crash.log
 
 # Impeccable per-machine settings
 .impeccable/config.local.json
+
+# Impeccable decision-round transcripts (spent hands)
+.impeccable/questions/

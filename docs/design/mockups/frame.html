@@ -1,0 +1,19 @@
+<!doctype html>
+<!-- Capture harness: frames a mock-up at an exact width so narrow viewports can be shot with headless Chrome. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <style>html, body { margin: 0; background: #888; } body { display: flex; justify-content: center; } iframe { display: block; border: 0; }</style>
+  <script>
+    addEventListener("DOMContentLoaded", function () {
+      var p = new URLSearchParams(location.search);
+      var f = document.createElement("iframe");
+      f.src = p.get("src") + "?" + (p.get("q") || "");
+      f.width = p.get("w") || "390";
+      f.height = p.get("h") || "1200";
+      document.body.appendChild(f);
+    });
+  </script>
+</head>
+<body></body>
+</html>
