@@ -42,7 +42,7 @@ public static class NoteEndpoints
                 Id = Guid.CreateVersion7(),
                 UserId = caller.UserId(),
                 Text = body.Text,
-                CreatedAt = DateTimeOffset.UtcNow,
+                CreatedAt = PostgresNow(),
             };
             db.Notes.Add(note);
             await db.SaveChangesAsync();
@@ -51,6 +51,20 @@ public static class NoteEndpoints
 
         return routes;
     }
+
+    /// <summary>
+    /// The current time at the precision Postgres keeps. <c>timestamptz</c> stores microseconds
+    /// and .NET's clock counts 100ns ticks, so an untruncated value would be echoed by POST but
+    /// read back differently by GET. Linux clocks do produce sub-microsecond ticks; macOS ones
+    /// happen not to, which is why this only ever showed up on the CI runner.
+    /// </summary>
+    private static DateTimeOffset PostgresNow()
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new DateTimeOffset(now.Ticks - now.Ticks % TicksPerMicrosecond, TimeSpan.Zero);
+    }
+
+    private const long TicksPerMicrosecond = TimeSpan.TicksPerMillisecond / 1000;
 
     /// <summary>A ProblemDetails body whose one field error is <c>text</c>, the only field the client supplies.</summary>
     private static IResult TextError(string message) =>
