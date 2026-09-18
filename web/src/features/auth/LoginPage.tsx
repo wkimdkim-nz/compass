@@ -13,7 +13,7 @@ export function LoginPage() {
   };
 
   return (
-    <main>
+    <main className="phase0-column">
       <CredentialsForm
         title="Sign in"
         submitLabel="Sign in"
@@ -22,7 +22,7 @@ export function LoginPage() {
         formError={isStatus(error, 401) ? "Invalid email or password." : undefined}
         onSubmit={submit}
       />
-      <p>
+      <p className="mt-4 text-sm">
         New here? <Link to="/register">Create an account</Link>
       </p>
     </main>

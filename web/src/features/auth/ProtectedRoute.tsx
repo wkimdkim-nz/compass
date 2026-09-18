@@ -9,7 +9,11 @@ export function ProtectedRoute() {
   const { isLoading, isSuccess } = useGetMeQuery();
 
   if (isLoading) {
-    return <p role="status">Checking your session…</p>;
+    return (
+      <p role="status" className="note mt-8">
+        Checking your session…
+      </p>
+    );
   }
   if (!isSuccess) {
     return <Navigate to="/login" replace />;

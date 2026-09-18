@@ -13,7 +13,7 @@ export function RegisterPage() {
   };
 
   return (
-    <main>
+    <main className="phase0-column">
       <CredentialsForm
         title="Create an account"
         submitLabel="Register"
@@ -21,7 +21,7 @@ export function RegisterPage() {
         errors={fieldErrors(error)}
         onSubmit={submit}
       />
-      <p>
+      <p className="mt-4 text-sm">
         Already have an account? <Link to="/login">Sign in</Link>
       </p>
     </main>
