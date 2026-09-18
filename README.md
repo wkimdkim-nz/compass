@@ -272,3 +272,12 @@ Both are closed here:
   foreign key targets `"AspNetUsers".id`.
 - **Guid v7 everywhere.** EF Core already generates v7 keys; hand-created ids use
   `Guid.CreateVersion7()` so nothing in the database is v4.
+
+The PR gate ([#66](https://github.com/wkimdkim-nz/compass/issues/66)) surfaced one more:
+
+- **Timestamps are truncated to microseconds before they are saved.** Postgres `timestamptz`
+  keeps microseconds; .NET's clock counts 100ns ticks. Linux clocks do produce sub-microsecond
+  ticks, macOS ones happen not to, so a POST that echoed the untruncated value and a GET that
+  read the stored one agreed on a developer machine and disagreed on the CI runner. Any code
+  that stamps a row and returns the stamp must truncate first (see `PostgresNow` in
+  `NoteEndpoints.cs`, which the persistence work should keep or generalise when `Note` goes).

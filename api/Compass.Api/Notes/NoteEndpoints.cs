@@ -61,10 +61,8 @@ public static class NoteEndpoints
     private static DateTimeOffset PostgresNow()
     {
         var now = DateTimeOffset.UtcNow;
-        return new DateTimeOffset(now.Ticks - now.Ticks % TicksPerMicrosecond, TimeSpan.Zero);
+        return new DateTimeOffset(now.Ticks - now.Ticks % TimeSpan.TicksPerMicrosecond, TimeSpan.Zero);
     }
-
-    private const long TicksPerMicrosecond = TimeSpan.TicksPerMillisecond / 1000;
 
     /// <summary>A ProblemDetails body whose one field error is <c>text</c>, the only field the client supplies.</summary>
     private static IResult TextError(string message) =>
