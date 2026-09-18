@@ -237,6 +237,11 @@ cd web && npm test
 
 `npm run typecheck` runs the TypeScript compiler on its own.
 
+Both suites also run on every pull request to `main`, as the two jobs of the `Test` workflow in
+`.github/workflows/test.yml`. It reads the SDK version from `api/global.json` and the Node version
+from `web/.nvmrc`, uses no secrets and no AWS access, and both jobs must pass for the check to be
+green.
+
 ## What the API exposes
 
 All under `/api`, JSON bodies only, ProblemDetails on every error.
@@ -267,3 +272,12 @@ Both are closed here:
   foreign key targets `"AspNetUsers".id`.
 - **Guid v7 everywhere.** EF Core already generates v7 keys; hand-created ids use
   `Guid.CreateVersion7()` so nothing in the database is v4.
+
+The PR gate ([#66](https://github.com/wkimdkim-nz/compass/issues/66)) surfaced one more:
+
+- **Timestamps are truncated to microseconds before they are saved.** Postgres `timestamptz`
+  keeps microseconds; .NET's clock counts 100ns ticks. Linux clocks do produce sub-microsecond
+  ticks, macOS ones happen not to, so a POST that echoed the untruncated value and a GET that
+  read the stored one agreed on a developer machine and disagreed on the CI runner. Any code
+  that stamps a row and returns the stamp must truncate first (see `PostgresNow` in
+  `NoteEndpoints.cs`, which the persistence work should keep or generalise when `Note` goes).
