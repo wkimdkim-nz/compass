@@ -1,0 +1,49 @@
+# The pull-request gate (issue #66): the .NET tests and the web Vitest suite must both pass
+# before a change reaches main. It is the only workflow, it needs no AWS access, no repository
+# secret and no environment; the API tests start their own Postgres through Testcontainers on the
+# runner's Docker. Deploying from Actions via OIDC is a separate, later item.
+#
+# Versions are read from the repo's pins so the runner cannot drift from a developer machine:
+# `api/global.json` for the .NET SDK and `web/.nvmrc` for Node.
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet:
+    name: .NET tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: api/global.json
+
+      - name: Run the API tests on real Postgres (Testcontainers)
+        run: dotnet test api/Compass.slnx
+
+  web:
+    name: Vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      - name: Run the Vitest suite
+        run: npm test

@@ -237,6 +237,11 @@ cd web && npm test
 
 `npm run typecheck` runs the TypeScript compiler on its own.
 
+Both suites also run on every pull request to `main`, as the two jobs of the `Test` workflow in
+`.github/workflows/test.yml`. It reads the SDK version from `api/global.json` and the Node version
+from `web/.nvmrc`, uses no secrets and no AWS access, and both jobs must pass for the check to be
+green.
+
 ## What the API exposes
 
 All under `/api`, JSON bodies only, ProblemDetails on every error.

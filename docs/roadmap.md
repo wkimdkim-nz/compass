@@ -59,7 +59,7 @@ build tickets #66–#77 (sub-issues of #65 with native blocked-by edges).
 Ordered. Each item is one build ticket; **the design task blocks the token set, the UI and the
 deploy, so the tokens are built from the chosen look.**
 
-1. [ ] **Test CI.** GitHub Actions runs `dotnet test` and Vitest on every PR. No AWS, no
+1. [x] **Test CI.** GitHub Actions runs `dotnet test` and Vitest on every PR. No AWS, no
        secrets. Deploy CI via OIDC is a Later item.
 2. [ ] **Shared projection vectors.** `spec/projection-vectors.json`: hand-computed cases from the
        glossary formula, P/E and P/S paths, edge cases (0% growth, buybacks, 1-year horizon, zero
