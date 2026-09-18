@@ -1,17 +1,22 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// Shape guard for the shared vectors vectors (docs/glossary.md, "The core formula"). The
+// Shape guard for the shared vectors file (docs/glossary.md, "The core formula"). The
 // calculators (ticket #70) assert every case against the formula; this test only proves the
-// vectors is well-formed and that each case's three outputs agree with each other, so a
+// file is well-formed and that each case's three outputs agree with each other, so a
 // transcription slip is caught here rather than blamed on a calculator.
 const vectors = JSON.parse(
-  // Vitest runs from web/ (vite.config.ts); the vectors vectors sits at the repo root.
-  readFileSync(resolve(process.cwd(), "..", "spec", "projection-vectors.json"), "utf8"),
+  // The file sits at the repo root: web/src/projection -> ../../../spec.
+  readFileSync(
+    resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..", "spec", "projection-vectors.json"),
+    "utf8",
+  ),
 ) as VectorsFile;
 
-type Kind = "pe" | "ps";
+const KINDS = ["pe", "ps"] as const;
+type Kind = (typeof KINDS)[number];
 type Case = {
   id: string;
   inputs: {
@@ -47,7 +52,7 @@ describe("spec/projection-vectors.json", () => {
     const ids = vectors.cases.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
     const kinds = new Set(vectors.cases.map((c) => c.inputs.exitMultiple.kind));
-    expect(kinds).toEqual(new Set(["pe", "ps"]));
+    expect(kinds).toEqual(new Set(KINDS));
     expect(vectors.cases.some((c) => c.inputs.growthRate === 0)).toBe(true);
     expect(vectors.cases.some((c) => c.inputs.dilutionRate < 0)).toBe(true);
     expect(vectors.cases.some((c) => c.inputs.horizon === 1)).toBe(true);
@@ -74,7 +79,6 @@ describe("spec/projection-vectors.json", () => {
       expect(typeof v).toBe("number");
       expect(Number.isFinite(v)).toBe(true);
     }
-    expect(["pe", "ps"]).toContain(c.inputs.exitMultiple.kind);
     expect(c.working.length).toBeGreaterThan(0);
     // X is the price ratio and CAGR is its horizon-th root: the three outputs must agree.
     expect(within(c.expected.futurePrice / c.inputs.currentPrice, c.expected.x)).toBe(true);

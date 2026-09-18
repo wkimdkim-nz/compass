@@ -15,7 +15,7 @@
   },
   "tolerance": {
     "relative": 1e-9,
-    "rule": "For each of futurePrice, x and cagr: |actual - expected| <= 1e-9 x max(1, |expected|). Both calculators compute in double; expected values here are exact rationals written to at least 16 significant digits."
+    "rule": "For each of futurePrice, x and cagr: |actual - expected| <= 1e-9 x max(1, |expected|). Both calculators compute in double; expected values here are decimal expansions of exact rationals, written to at least 16 significant digits."
   },
   "how-to-read-a-case": "Every case is designed so the horizon-th root in the CAGR is exact: with the exit multiple equal to the multiple implied by the current price, X = ((1+g)/(1+d))^horizon and CAGR = (1+g)/(1+d) - 1 = (g-d)/(1+d); when the multiple changes, the case uses a horizon of 1 or 2, or a multiple ratio that is itself a perfect fifth power, so the root is still rational. 'working' walks the glossary formula line by line; 'closedForm' is the shortcut a reviewer can check the outputs against without a calculator.",
   "cases": [
