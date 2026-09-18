@@ -34,7 +34,7 @@ CAGR               = X^(1/horizon) − 1
 
 P/S path: `future_market_cap = future_revenue × exit_PS`, then divide by `future_shares`.
 
-The executable form of this formula is `spec/projection-vectors.json` at the repo root: hand-computed cases that both the .NET and the TypeScript calculator assert against (ADR 0004, amended). If this prose and that file disagree, the file is wrong until a case is re-derived by hand.
+The executable form of this formula is `spec/projection-vectors.json` at the repo root: hand-computed cases that both the .NET and the TypeScript calculator assert against, with the tolerance and the wire units (decimals, raw values, exit multiple as a `pe`/`ps` kind plus value) stated in its header (ADR 0004, amended). If this prose and that file disagree, the file is wrong until a case is re-derived by hand.
 
 ## Input guide (source for the Phase 2 education page)
 

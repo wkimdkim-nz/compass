@@ -1,0 +1,303 @@
+{
+  "title": "Compass projection vectors",
+  "formula": "docs/glossary.md, section 'The core formula'. future_revenue = ttmRevenue x (1+growthRate)^horizon; future_net_income = future_revenue x futureNetMargin; future_shares = dilutedShares x (1+dilutionRate)^horizon; future_market_cap = future_net_income x exitMultiple.value when kind is pe, or future_revenue x exitMultiple.value when kind is ps; futurePrice = future_market_cap / future_shares; x = futurePrice / currentPrice; cagr = x^(1/horizon) - 1.",
+  "purpose": "Hand-computed cases that both calculators (the .NET one, authoritative on save, and the TypeScript one, live preview) assert against, so the two cannot drift (ADR 0004, amended 2026-09-17). If the glossary prose and this file disagree, this file is wrong until a case is re-derived by hand.",
+  "units": {
+    "currentPrice": "currency per share, as quoted",
+    "ttmRevenue": "currency, raw (not millions)",
+    "dilutedShares": "shares, raw (not millions); the diluted weighted average",
+    "growthRate": "decimal per year (0.10 = 10%)",
+    "futureNetMargin": "decimal (0.20 = 20%); ignored on the ps path",
+    "exitMultiple": "object { kind: 'pe' | 'ps', value: number }. pe applies to future net income, ps to future revenue. A discriminated kind, never a bare number.",
+    "dilutionRate": "decimal per year; negative for a buyback",
+    "horizon": "whole years, >= 1",
+    "note": "Decimals on the wire is the rule (ADR 0004, amended). Whole-number percents and millions belong to the UI only."
+  },
+  "tolerance": {
+    "relative": 1e-9,
+    "rule": "For each of futurePrice, x and cagr: |actual - expected| <= 1e-9 x max(1, |expected|). Both calculators compute in double; expected values here are decimal expansions of exact rationals, written to at least 16 significant digits."
+  },
+  "how-to-read-a-case": "Every case is designed so the horizon-th root in the CAGR is exact: with the exit multiple equal to the multiple implied by the current price, X = ((1+g)/(1+d))^horizon and CAGR = (1+g)/(1+d) - 1 = (g-d)/(1+d); when the multiple changes, the case uses a horizon of 1 or 2, or a multiple ratio that is itself a perfect fifth power, so the root is still rational. 'working' walks the glossary formula line by line; 'closedForm' is the shortcut a reviewer can check the outputs against without a calculator.",
+  "cases": [
+    {
+      "id": "pe-base-5y",
+      "description": "Five-year base case on the P/E path: 10% growth, 20% future margin, 2% dilution, exit P/E 20. Worked by hand.",
+      "inputs": {
+        "currentPrice": 40,
+        "ttmRevenue": 1000000000,
+        "dilutedShares": 100000000,
+        "growthRate": 0.1,
+        "futureNetMargin": 0.2,
+        "exitMultiple": { "kind": "pe", "value": 20 },
+        "dilutionRate": 0.02,
+        "horizon": 5
+      },
+      "working": [
+        "1.1^5: 1.21, 1.331, 1.4641, 1.61051. future_revenue = 1,000,000,000 x 1.61051 = 1,610,510,000",
+        "future_net_income = 1,610,510,000 x 0.20 = 322,102,000",
+        "1.02^5: 1.02^2 = 1.0404; 1.0404^2 = 1.08243216; x 1.02 = 1.1040808032. future_shares = 110,408,080.32",
+        "future_market_cap = 322,102,000 x 20 = 6,442,040,000",
+        "futurePrice = 6,442,040,000 / 110,408,080.32 = 58.347541061567114",
+        "x = 58.347541061567114 / 40 = 1.4586885265391779",
+        "cagr = x^(1/5) - 1 = 0.078431372549019608"
+      ],
+      "closedForm": "Current EPS 2 at P/E 20 prices the share at 40, so the exit multiple equals the current one and x = (1.1/1.02)^5 = (55/51)^5 = 503284375/345025251. cagr = 55/51 - 1 = 4/51.",
+      "intermediates": {
+        "futureRevenue": 1610510000,
+        "futureNetIncome": 322102000,
+        "futureShares": 110408080.32,
+        "futureMarketCap": 6442040000
+      },
+      "expected": {
+        "futurePrice": 58.347541061567114,
+        "x": 1.4586885265391779,
+        "cagr": 0.078431372549019608
+      }
+    },
+    {
+      "id": "ps-base-5y",
+      "description": "Five-year base case on the P/S path: 25% growth, 5% dilution, exit P/S 6. The 8% margin is present and must be ignored.",
+      "inputs": {
+        "currentPrice": 60,
+        "ttmRevenue": 500000000,
+        "dilutedShares": 50000000,
+        "growthRate": 0.25,
+        "futureNetMargin": 0.08,
+        "exitMultiple": { "kind": "ps", "value": 6 },
+        "dilutionRate": 0.05,
+        "horizon": 5
+      },
+      "working": [
+        "1.25^5: 1.5625, 1.953125, 2.44140625, 3.0517578125. future_revenue = 500,000,000 x 3.0517578125 = 1,525,878,906.25",
+        "future_net_income = 1,525,878,906.25 x 0.08 = 122,070,312.5 (computed, not used: ps path)",
+        "1.05^5: 1.1025, 1.157625, 1.21550625, 1.2762815625. future_shares = 50,000,000 x 1.2762815625 = 63,814,078.125",
+        "future_market_cap = 1,525,878,906.25 x 6 = 9,155,273,437.5",
+        "futurePrice = 9,155,273,437.5 / 63,814,078.125 = 143.46792598909772",
+        "x = 143.46792598909772 / 60 = 2.3911320998182954",
+        "cagr = x^(1/5) - 1 = 0.19047619047619048"
+      ],
+      "closedForm": "Revenue per share 10 at P/S 6 prices the share at 60, so x = (1.25/1.05)^5 = (25/21)^5 = 9765625/4084101. cagr = 25/21 - 1 = 4/21.",
+      "intermediates": {
+        "futureRevenue": 1525878906.25,
+        "futureNetIncome": 122070312.5,
+        "futureShares": 63814078.125,
+        "futureMarketCap": 9155273437.5
+      },
+      "expected": {
+        "futurePrice": 143.46792598909772,
+        "x": 2.3911320998182954,
+        "cagr": 0.19047619047619048
+      }
+    },
+    {
+      "id": "pe-zero-growth-5y",
+      "description": "Zero revenue growth with 2% dilution over five years: the share count grows, the price shrinks, CAGR is negative.",
+      "inputs": {
+        "currentPrice": 20,
+        "ttmRevenue": 1000000000,
+        "dilutedShares": 100000000,
+        "growthRate": 0,
+        "futureNetMargin": 0.1,
+        "exitMultiple": { "kind": "pe", "value": 20 },
+        "dilutionRate": 0.02,
+        "horizon": 5
+      },
+      "working": [
+        "1.0^5 = 1. future_revenue = 1,000,000,000",
+        "future_net_income = 1,000,000,000 x 0.10 = 100,000,000",
+        "1.02^5 = 1.1040808032 (see pe-base-5y). future_shares = 110,408,080.32",
+        "future_market_cap = 100,000,000 x 20 = 2,000,000,000",
+        "futurePrice = 2,000,000,000 / 110,408,080.32 = 18.114616196598318",
+        "x = 18.114616196598318 / 20 = 0.9057308098299159",
+        "cagr = x^(1/5) - 1 = -0.019607843137254902"
+      ],
+      "closedForm": "EPS 1 at P/E 20 prices the share at 20, so x = (1/1.02)^5 = (50/51)^5 = 312500000/345025251. cagr = 50/51 - 1 = -1/51.",
+      "intermediates": {
+        "futureRevenue": 1000000000,
+        "futureNetIncome": 100000000,
+        "futureShares": 110408080.32,
+        "futureMarketCap": 2000000000
+      },
+      "expected": {
+        "futurePrice": 18.114616196598318,
+        "x": 0.9057308098299159,
+        "cagr": -0.019607843137254902
+      }
+    },
+    {
+      "id": "pe-buyback-5y",
+      "description": "A buyback: negative dilution (-3% per year) shrinks the share count and lifts the per-share result above revenue growth alone.",
+      "inputs": {
+        "currentPrice": 30,
+        "ttmRevenue": 1000000000,
+        "dilutedShares": 100000000,
+        "growthRate": 0.05,
+        "futureNetMargin": 0.15,
+        "exitMultiple": { "kind": "pe", "value": 20 },
+        "dilutionRate": -0.03,
+        "horizon": 5
+      },
+      "working": [
+        "1.05^5 = 1.2762815625 (see ps-base-5y). future_revenue = 1,276,281,562.5",
+        "future_net_income = 1,276,281,562.5 x 0.15 = 191,442,234.375",
+        "0.97^5: 0.97^2 = 0.9409; 0.9409^2 = 0.88529281; x 0.97 = 0.8587340257. future_shares = 85,873,402.57",
+        "future_market_cap = 191,442,234.375 x 20 = 3,828,844,687.5",
+        "futurePrice = 3,828,844,687.5 / 85,873,402.57 = 44.587084858771074",
+        "x = 44.587084858771074 / 30 = 1.4862361619590358",
+        "cagr = x^(1/5) - 1 = 0.082474226804123711"
+      ],
+      "closedForm": "EPS 1.5 at P/E 20 prices the share at 30, so x = (1.05/0.97)^5 = (105/97)^5 = 12762815625/8587340257. cagr = 105/97 - 1 = 8/97.",
+      "intermediates": {
+        "futureRevenue": 1276281562.5,
+        "futureNetIncome": 191442234.375,
+        "futureShares": 85873402.57,
+        "futureMarketCap": 3828844687.5
+      },
+      "expected": {
+        "futurePrice": 44.587084858771074,
+        "x": 1.4862361619590358,
+        "cagr": 0.082474226804123711
+      }
+    },
+    {
+      "id": "pe-one-year-compression",
+      "description": "One-year horizon with multiple compression: 30% growth cannot outrun the P/E falling from an implied 41.7 to 25. With horizon 1, cagr must equal x - 1 exactly.",
+      "inputs": {
+        "currentPrice": 50,
+        "ttmRevenue": 1000000000,
+        "dilutedShares": 100000000,
+        "growthRate": 0.3,
+        "futureNetMargin": 0.12,
+        "exitMultiple": { "kind": "pe", "value": 25 },
+        "dilutionRate": 0.04,
+        "horizon": 1
+      },
+      "working": [
+        "future_revenue = 1,000,000,000 x 1.3 = 1,300,000,000",
+        "future_net_income = 1,300,000,000 x 0.12 = 156,000,000",
+        "future_shares = 100,000,000 x 1.04 = 104,000,000",
+        "future_market_cap = 156,000,000 x 25 = 3,900,000,000",
+        "futurePrice = 3,900,000,000 / 104,000,000 = 37.5",
+        "x = 37.5 / 50 = 0.75",
+        "cagr = 0.75^(1/1) - 1 = -0.25"
+      ],
+      "closedForm": "Future EPS 1.5 x 25 = 37.5; x = 3/4; over one year cagr = x - 1 = -1/4.",
+      "intermediates": {
+        "futureRevenue": 1300000000,
+        "futureNetIncome": 156000000,
+        "futureShares": 104000000,
+        "futureMarketCap": 3900000000
+      },
+      "expected": {
+        "futurePrice": 37.5,
+        "x": 0.75,
+        "cagr": -0.25
+      }
+    },
+    {
+      "id": "ps-zero-margin-2y",
+      "description": "Zero net margin on the P/S path: an unprofitable company growing 60% a year with 25% dilution, exit P/S compressing from an implied 9 to 4 over two years. Net income is 0 and must not zero the price.",
+      "inputs": {
+        "currentPrice": 45,
+        "ttmRevenue": 100000000,
+        "dilutedShares": 20000000,
+        "growthRate": 0.6,
+        "futureNetMargin": 0,
+        "exitMultiple": { "kind": "ps", "value": 4 },
+        "dilutionRate": 0.25,
+        "horizon": 2
+      },
+      "working": [
+        "1.6^2 = 2.56. future_revenue = 100,000,000 x 2.56 = 256,000,000",
+        "future_net_income = 256,000,000 x 0 = 0 (computed, not used: ps path)",
+        "1.25^2 = 1.5625. future_shares = 20,000,000 x 1.5625 = 31,250,000",
+        "future_market_cap = 256,000,000 x 4 = 1,024,000,000",
+        "futurePrice = 1,024,000,000 / 31,250,000 = 32.768",
+        "x = 32.768 / 45 = 0.72817777777777778",
+        "cagr = x^(1/2) - 1 = -0.14666666666666667"
+      ],
+      "closedForm": "Revenue per share 5 at price 45 implies P/S 9; x = (4/9) x (1.6/1.25)^2 = (4/9) x (32/25)^2 = 4096/5625. sqrt(x) = (2/3) x (32/25) = 64/75, so cagr = 64/75 - 1 = -11/75.",
+      "intermediates": {
+        "futureRevenue": 256000000,
+        "futureNetIncome": 0,
+        "futureShares": 31250000,
+        "futureMarketCap": 1024000000
+      },
+      "expected": {
+        "futurePrice": 32.768,
+        "x": 0.72817777777777778,
+        "cagr": -0.14666666666666667
+      }
+    },
+    {
+      "id": "pe-compression-5y",
+      "description": "Five years with the multiple changing: the same growth, margin and dilution as pe-base-5y, but the P/E compresses from an implied 25 to 8.192 (a ratio of (4/5)^5, so the root stays exact). Fast growth, a shrinking multiple, a loss.",
+      "inputs": {
+        "currentPrice": 50,
+        "ttmRevenue": 1000000000,
+        "dilutedShares": 100000000,
+        "growthRate": 0.1,
+        "futureNetMargin": 0.2,
+        "exitMultiple": { "kind": "pe", "value": 8.192 },
+        "dilutionRate": 0.02,
+        "horizon": 5
+      },
+      "working": [
+        "future_revenue = 1,000,000,000 x 1.61051 = 1,610,510,000 (see pe-base-5y)",
+        "future_net_income = 1,610,510,000 x 0.20 = 322,102,000",
+        "future_shares = 100,000,000 x 1.1040808032 = 110,408,080.32",
+        "future_market_cap = 322,102,000 x 8.192 = 2,638,659,584",
+        "futurePrice = 2,638,659,584 / 110,408,080.32 = 23.899152818817890",
+        "x = 23.899152818817890 / 50 = 0.47798305637635780",
+        "cagr = x^(1/5) - 1 = -0.13725490196078431"
+      ],
+      "closedForm": "EPS 2 at price 50 implies P/E 25; 8.192/25 = 0.32768 = (4/5)^5, so x = (4/5)^5 x (55/51)^5 = (44/51)^5 = 164916224/345025251. cagr = 44/51 - 1 = -7/51.",
+      "intermediates": {
+        "futureRevenue": 1610510000,
+        "futureNetIncome": 322102000,
+        "futureShares": 110408080.32,
+        "futureMarketCap": 2638659584
+      },
+      "expected": {
+        "futurePrice": 23.89915281881789,
+        "x": 0.4779830563763578,
+        "cagr": -0.13725490196078431
+      }
+    },
+    {
+      "id": "pe-steady-state",
+      "description": "Nothing changes: zero growth, zero dilution, exit multiple equal to the current one. The price is unchanged, x is exactly 1 and cagr exactly 0.",
+      "inputs": {
+        "currentPrice": 20,
+        "ttmRevenue": 1000000000,
+        "dilutedShares": 100000000,
+        "growthRate": 0,
+        "futureNetMargin": 0.1,
+        "exitMultiple": { "kind": "pe", "value": 20 },
+        "dilutionRate": 0,
+        "horizon": 5
+      },
+      "working": [
+        "future_revenue = 1,000,000,000 x 1^5 = 1,000,000,000",
+        "future_net_income = 1,000,000,000 x 0.10 = 100,000,000",
+        "future_shares = 100,000,000 x 1^5 = 100,000,000",
+        "future_market_cap = 100,000,000 x 20 = 2,000,000,000",
+        "futurePrice = 2,000,000,000 / 100,000,000 = 20",
+        "x = 20 / 20 = 1",
+        "cagr = 1^(1/5) - 1 = 0"
+      ],
+      "closedForm": "EPS 1 x P/E 20 = 20 = currentPrice; x = 1; cagr = 0.",
+      "intermediates": {
+        "futureRevenue": 1000000000,
+        "futureNetIncome": 100000000,
+        "futureShares": 100000000,
+        "futureMarketCap": 2000000000
+      },
+      "expected": {
+        "futurePrice": 20,
+        "x": 1,
+        "cagr": 0
+      }
+    }
+  ]
+}
