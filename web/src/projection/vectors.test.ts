@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Shape guard for the shared vectors file (docs/glossary.md, "The core formula"). The
+// Shape guard for the shared vectors vectors (docs/glossary.md, "The core formula"). The
 // calculators (ticket #70) assert every case against the formula; this test only proves the
-// file is well-formed and that each case's three outputs agree with each other, so a
+// vectors is well-formed and that each case's three outputs agree with each other, so a
 // transcription slip is caught here rather than blamed on a calculator.
-const file = JSON.parse(
-  // Vitest runs from web/ (vite.config.ts); the vectors file sits at the repo root.
+const vectors = JSON.parse(
+  // Vitest runs from web/ (vite.config.ts); the vectors vectors sits at the repo root.
   readFileSync(resolve(process.cwd(), "..", "spec", "projection-vectors.json"), "utf8"),
 ) as VectorsFile;
 
@@ -34,30 +34,30 @@ type VectorsFile = {
 };
 
 const within = (actual: number, expected: number) =>
-  Math.abs(actual - expected) <= file.tolerance.relative * Math.max(1, Math.abs(expected));
+  Math.abs(actual - expected) <= vectors.tolerance.relative * Math.max(1, Math.abs(expected));
 
 describe("spec/projection-vectors.json", () => {
   it("names the formula and states a tolerance", () => {
-    expect(file.formula).toContain("docs/glossary.md");
-    expect(file.tolerance.relative).toBeGreaterThan(0);
-    expect(file.tolerance.relative).toBeLessThanOrEqual(1e-6);
+    expect(vectors.formula).toContain("docs/glossary.md");
+    expect(vectors.tolerance.relative).toBeGreaterThan(0);
+    expect(vectors.tolerance.relative).toBeLessThanOrEqual(1e-6);
   });
 
   it("covers every path and edge the roadmap lists", () => {
-    const ids = file.cases.map((c) => c.id);
+    const ids = vectors.cases.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
-    const kinds = new Set(file.cases.map((c) => c.inputs.exitMultiple.kind));
+    const kinds = new Set(vectors.cases.map((c) => c.inputs.exitMultiple.kind));
     expect(kinds).toEqual(new Set(["pe", "ps"]));
-    expect(file.cases.some((c) => c.inputs.growthRate === 0)).toBe(true);
-    expect(file.cases.some((c) => c.inputs.dilutionRate < 0)).toBe(true);
-    expect(file.cases.some((c) => c.inputs.horizon === 1)).toBe(true);
+    expect(vectors.cases.some((c) => c.inputs.growthRate === 0)).toBe(true);
+    expect(vectors.cases.some((c) => c.inputs.dilutionRate < 0)).toBe(true);
+    expect(vectors.cases.some((c) => c.inputs.horizon === 1)).toBe(true);
     expect(
-      file.cases.some((c) => c.inputs.exitMultiple.kind === "ps" && c.inputs.futureNetMargin === 0),
+      vectors.cases.some((c) => c.inputs.exitMultiple.kind === "ps" && c.inputs.futureNetMargin === 0),
     ).toBe(true);
-    expect(file.cases.some((c) => c.inputs.horizon === 5)).toBe(true);
+    expect(vectors.cases.some((c) => c.inputs.horizon === 5)).toBe(true);
   });
 
-  it.each(file.cases.map((c) => [c.id, c] as const))("%s is complete and self-consistent", (_, c) => {
+  it.each(vectors.cases.map((c) => [c.id, c] as const))("%s is complete and self-consistent", (_, c) => {
     for (const v of [
       c.inputs.currentPrice,
       c.inputs.ttmRevenue,

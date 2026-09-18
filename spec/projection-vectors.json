@@ -15,9 +15,9 @@
   },
   "tolerance": {
     "relative": 1e-9,
-    "rule": "For each of futurePrice, x and cagr: |actual - expected| <= 1e-9 x max(1, |expected|). Both calculators compute in double; expected values here are exact rationals written to 17 significant digits."
+    "rule": "For each of futurePrice, x and cagr: |actual - expected| <= 1e-9 x max(1, |expected|). Both calculators compute in double; expected values here are exact rationals written to at least 16 significant digits."
   },
-  "how-to-read-a-case": "Every case is designed so the horizon-th root in the CAGR is exact: with the exit multiple equal to the multiple implied by the current price, X = ((1+g)/(1+d))^horizon and CAGR = (1+g)/(1+d) - 1 = (g-d)/(1+d); when the multiple changes, the case uses a horizon of 1 or 2 so the root is still rational. 'working' walks the glossary formula line by line; 'closedForm' is the shortcut a reviewer can check the outputs against without a calculator.",
+  "how-to-read-a-case": "Every case is designed so the horizon-th root in the CAGR is exact: with the exit multiple equal to the multiple implied by the current price, X = ((1+g)/(1+d))^horizon and CAGR = (1+g)/(1+d) - 1 = (g-d)/(1+d); when the multiple changes, the case uses a horizon of 1 or 2, or a multiple ratio that is itself a perfect fifth power, so the root is still rational. 'working' walks the glossary formula line by line; 'closedForm' is the shortcut a reviewer can check the outputs against without a calculator.",
   "cases": [
     {
       "id": "pe-base-5y",
@@ -108,7 +108,7 @@
         "1.02^5 = 1.1040808032 (see pe-base-5y). future_shares = 110,408,080.32",
         "future_market_cap = 100,000,000 x 20 = 2,000,000,000",
         "futurePrice = 2,000,000,000 / 110,408,080.32 = 18.114616196598318",
-        "x = 18.114616196598318 / 20 = 0.90573080982991590",
+        "x = 18.114616196598318 / 20 = 0.9057308098299159",
         "cagr = x^(1/5) - 1 = -0.019607843137254902"
       ],
       "closedForm": "EPS 1 at P/E 20 prices the share at 20, so x = (1/1.02)^5 = (50/51)^5 = 312500000/345025251. cagr = 50/51 - 1 = -1/51.",
@@ -227,6 +227,41 @@
         "futurePrice": 32.768,
         "x": 0.72817777777777778,
         "cagr": -0.14666666666666667
+      }
+    },
+    {
+      "id": "pe-compression-5y",
+      "description": "Five years with the multiple changing: the same growth, margin and dilution as pe-base-5y, but the P/E compresses from an implied 25 to 8.192 (a ratio of (4/5)^5, so the root stays exact). Fast growth, a shrinking multiple, a loss.",
+      "inputs": {
+        "currentPrice": 50,
+        "ttmRevenue": 1000000000,
+        "dilutedShares": 100000000,
+        "growthRate": 0.1,
+        "futureNetMargin": 0.2,
+        "exitMultiple": { "kind": "pe", "value": 8.192 },
+        "dilutionRate": 0.02,
+        "horizon": 5
+      },
+      "working": [
+        "future_revenue = 1,000,000,000 x 1.61051 = 1,610,510,000 (see pe-base-5y)",
+        "future_net_income = 1,610,510,000 x 0.20 = 322,102,000",
+        "future_shares = 100,000,000 x 1.1040808032 = 110,408,080.32",
+        "future_market_cap = 322,102,000 x 8.192 = 2,638,659,584",
+        "futurePrice = 2,638,659,584 / 110,408,080.32 = 23.899152818817890",
+        "x = 23.899152818817890 / 50 = 0.47798305637635780",
+        "cagr = x^(1/5) - 1 = -0.13725490196078431"
+      ],
+      "closedForm": "EPS 2 at price 50 implies P/E 25; 8.192/25 = 0.32768 = (4/5)^5, so x = (4/5)^5 x (55/51)^5 = (44/51)^5 = 164916224/345025251. cagr = 44/51 - 1 = -7/51.",
+      "intermediates": {
+        "futureRevenue": 1610510000,
+        "futureNetIncome": 322102000,
+        "futureShares": 110408080.32,
+        "futureMarketCap": 2638659584
+      },
+      "expected": {
+        "futurePrice": 23.89915281881789,
+        "x": 0.4779830563763578,
+        "cagr": -0.13725490196078431
       }
     },
     {
