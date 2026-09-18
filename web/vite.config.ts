@@ -1,13 +1,14 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // Same-site cookie delivery, locally: the SPA and the API are ONE origin because Vite forwards
 // `/api` to Kestrel UNREWRITTEN. This is the same rule CloudFront applies in production, and it
 // is what lets the session cookie attach with no CORS policy and no antiforgery token. Do not
 // "simplify" it into a separate API origin.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
     // A taken port must fail loudly: a silent shift to 5174 would break the proxy assumption.

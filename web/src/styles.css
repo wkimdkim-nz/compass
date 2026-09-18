@@ -1,38 +1,86 @@
-:root {
-  font-family: system-ui, sans-serif;
-  color-scheme: light dark;
+/*
+  The app stylesheet. Tailwind supplies the utilities and its preflight reset; every colour, size
+  and face they resolve to comes from tokens.css, and nothing here names a value of its own.
+*/
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  html {
+    background: var(--paper);
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans text-base leading-normal antialiased;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-variation-settings: "wdth" var(--wdth-text);
+  }
+
+  ::selection {
+    @apply bg-pencil-tint text-ink;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-pencil;
+  }
+
+  h1 {
+    @apply mt-8 mb-2 text-title font-semibold tracking-tight text-balance;
+  }
+
+  a {
+    @apply text-pencil underline decoration-1 underline-offset-[0.2em];
+  }
 }
 
-body {
-  margin: 0 auto;
-  max-width: 40rem;
-  padding: 1rem;
-}
+/* The statement vocabulary the mock-ups established, for the pages that already exist. */
+@layer components {
+  /* The page column: one measure wide, centred, with a phone gutter. */
+  .sheet {
+    @apply mx-auto w-full max-w-measure px-4;
+  }
 
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
+  /* The header rule: brand at one end, the account links at the other. */
+  .masthead {
+    @apply flex items-baseline justify-between gap-4 border-b border-rule py-4 text-sm;
+  }
+  .masthead .brand {
+    @apply font-semibold tracking-wide text-ink no-underline;
+  }
 
-label {
-  display: block;
-  margin-top: 0.75rem;
-}
+  /* A field: a label over a ruled entry line. */
+  .field {
+    @apply mt-3 block text-sm text-ink-2;
+  }
+  .entry {
+    @apply mt-1 block w-full rounded-none border-0 border-b border-rule bg-transparent py-2 text-base text-ink caret-pencil;
+  }
+  .entry:hover {
+    @apply bg-paper-2;
+  }
+  .entry:focus {
+    @apply border-pencil-line outline-none;
+  }
+  .entry[aria-invalid="true"] {
+    @apply border-pencil-line;
+  }
 
-input {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.4rem;
-  margin-top: 0.25rem;
-}
+  /* The one filled action, and its quiet form for secondary actions. */
+  .btn {
+    @apply mt-4 inline-flex min-h-11 cursor-pointer items-center rounded-sm border border-pencil bg-pencil px-4 py-2 font-medium text-pencil-ink;
+  }
+  .btn:hover {
+    @apply brightness-108;
+  }
+  .btn:disabled {
+    @apply cursor-default opacity-60;
+  }
+  .btn-quiet {
+    @apply mt-0 bg-transparent text-pencil;
+  }
 
-button {
-  margin-top: 0.75rem;
-}
-
-[role="alert"] {
-  color: #b00020;
+  /* A statement note: how the design prints anything that needs saying, errors included. */
+  .statement-note {
+    @apply my-2 list-none border-t border-b border-t-rule border-b-hairline py-3 pl-0 text-sm;
+  }
 }

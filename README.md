@@ -33,7 +33,7 @@ once signed in is write one line of text and read it back.
 |---|---|
 | `api/` | .NET 10 Web API (`Compass.Api`, minimal APIs) plus its xUnit integration tests. SDK pinned in `global.json`, `dotnet-ef` pinned in `.config/dotnet-tools.json`. |
 | `api/Dockerfile` | The runtime image ECS runs in production, carrying the app and a migration bundle. |
-| `web/` | Vite + React + TypeScript SPA with Redux Toolkit / RTK Query. Node version pinned in `.nvmrc`. |
+| `web/` | Vite + React + TypeScript SPA with Redux Toolkit / RTK Query, styled with Tailwind from one token file (see [`web/README.md`](web/README.md)). Node version pinned in `.nvmrc`. |
 | `docker-compose.yml` | Local Postgres 18. |
 | `infra/` | Terraform. Two stacks split along the billing line — see [`infra/README.md`](infra/README.md). |
 | `scripts/` | Bootstrapping, publishing and verifying the deployed stacks. |

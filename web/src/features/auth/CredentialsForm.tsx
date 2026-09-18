@@ -23,11 +23,16 @@ export function CredentialsForm({ title, submitLabel, busy, errors, formError, o
   return (
     <form onSubmit={submit} aria-labelledby="credentials-heading">
       <h1 id="credentials-heading">{title}</h1>
-      {formError && <p role="alert">{formError}</p>}
+      {formError && (
+        <p role="alert" className="statement-note">
+          {formError}
+        </p>
+      )}
       <FieldErrors messages={errors.general} />
-      <label>
+      <label className="field">
         Email
         <input
+          className="entry"
           type="email"
           name="email"
           autoComplete="email"
@@ -37,9 +42,10 @@ export function CredentialsForm({ title, submitLabel, busy, errors, formError, o
         />
       </label>
       <FieldErrors messages={errors.email} />
-      <label>
+      <label className="field">
         Password
         <input
+          className="entry"
           type="password"
           name="password"
           autoComplete="current-password"
@@ -49,7 +55,7 @@ export function CredentialsForm({ title, submitLabel, busy, errors, formError, o
         />
       </label>
       <FieldErrors messages={errors.password} />
-      <button type="submit" disabled={busy}>
+      <button type="submit" className="btn" disabled={busy}>
         {submitLabel}
       </button>
     </form>
@@ -59,7 +65,7 @@ export function CredentialsForm({ title, submitLabel, busy, errors, formError, o
 function FieldErrors({ messages }: { messages?: string[] }) {
   if (!messages?.length) return null;
   return (
-    <ul role="alert">
+    <ul role="alert" className="statement-note">
       {messages.map((message) => (
         <li key={message}>{message}</li>
       ))}

@@ -10,17 +10,19 @@ function Layout() {
   const [logout] = useLogoutMutation();
 
   return (
-    <>
-      <header>
-        <Link to="/">Compass</Link>
+    <div className="sheet">
+      <header className="masthead">
+        <Link to="/" className="brand">
+          Compass
+        </Link>
         {me && (
-          <button type="button" onClick={() => logout()}>
+          <button type="button" className="btn btn-quiet" onClick={() => logout()}>
             Sign out
           </button>
         )}
       </header>
       <Outlet />
-    </>
+    </div>
   );
 }
 

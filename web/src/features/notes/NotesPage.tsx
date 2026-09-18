@@ -19,24 +19,26 @@ export function NotesPage() {
   return (
     <main>
       <h1>Your notes</h1>
-      <p>Signed in as {me?.email}</p>
+      <p className="text-sm text-ink-2">Signed in as {me?.email}</p>
 
       <form onSubmit={submit}>
-        <label>
+        <label className="field">
           New note
-          <input name="text" value={text} onChange={(e) => setText(e.target.value)} />
+          <input className="entry" name="text" value={text} onChange={(e) => setText(e.target.value)} />
         </label>
-        <button type="submit" disabled={adding}>
+        <button type="submit" className="btn" disabled={adding}>
           Add note
         </button>
       </form>
 
-      {notes.isLoading && <p role="status">Loading notes…</p>}
-      {notes.data && notes.data.length === 0 && <p>No notes yet.</p>}
+      {notes.isLoading && <p role="status" className="mt-6 text-sm text-ink-2">Loading notes…</p>}
+      {notes.data && notes.data.length === 0 && <p className="mt-6 text-sm text-ink-2">No notes yet.</p>}
       {notes.data && notes.data.length > 0 && (
-        <ul aria-label="Notes">
+        <ul aria-label="Notes" className="mt-6">
           {notes.data.map((note) => (
-            <li key={note.id}>{note.text}</li>
+            <li key={note.id} className="border-b border-hairline py-2">
+              {note.text}
+            </li>
           ))}
         </ul>
       )}
