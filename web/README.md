@@ -20,13 +20,15 @@ component library. Every colour, size, face and rule the UI uses comes from **on
   namespaces, which is what turns them into utilities: `bg-paper`, `text-ink-2`,
   `border-hairline`, `text-total`, `max-w-measure`, `h-row`. Tailwind's own palette, type scale,
   radii and shadows are cleared there, so a utility for a colour outside the design does not
-  exist. Spacing is Tailwind's default 4px scale, which is the design's scale (`p-4` = `--s-4`).
+  exist. Spacing is the design's eight steps and its row rhythm (`p-4` reads `--s-4`, `min-h-row`
+  reads `--row`), so a step the design lacks, such as `p-5`, has no utility either.
 
 **To add a token:** declare the custom property in the `:root` block of `src/tokens.css`, give it
 its dark value in both dark blocks and its wider values in the breakpoint blocks if it has them,
 then map it in the `@theme` block under the Tailwind namespace that gives it the utility you want
 (`--color-*` for colours, `--text-*` for font sizes, `--spacing-*` for lengths, `--container-*`
-for widths). If it is a design decision rather than an implementation detail, add it to the
+for widths). The Phase 0 auth pages keep their own 40rem column (`.phase0-column` in
+`styles.css`) until the design covers them. If it is a design decision rather than an implementation detail, add it to the
 design's file too, so the parity test keeps the two in step.
 
 [`src/styles.css`](src/styles.css) is the app stylesheet: it imports Tailwind and the tokens,

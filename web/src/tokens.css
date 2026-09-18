@@ -114,10 +114,10 @@
   the dark and breakpoint values apply at runtime with no `dark:` or `md:` variant. Tailwind's
   own palette, font stacks, type scale, radii and shadows are cleared first: the design has one
   accent, one family, radii of at most 2px and no shadows, and a utility for anything else must
-  not exist. The spacing scale is Tailwind's default 4px base, which is the design's scale
-  (p-4 = --s-4 = 1rem), so --s-* is carried for parity with the design file rather than mapped;
-  the same goes for --rule-w and --rule-total (border-t = 1px, border-t-2 = 2px) and --wdth-*,
-  which the `condensed` utility in styles.css reads directly.
+  not exist. Spacing is the design's eight steps and its row rhythm, so p-4 reads --s-4 and a
+  step the design lacks (p-5, mt-7) has no utility. --rule-w and --rule-total are carried for
+  parity (border-t = 1px, border-t-2 = 2px), and --wdth-* are read by body and the `condensed`
+  utility in styles.css directly.
 */
 @theme inline reference {
   --color-*: initial;
@@ -153,6 +153,15 @@
   --leading-normal: var(--leading);
   --leading-tight: var(--leading-tight);
 
+  --spacing-*: initial;
+  --spacing-1: var(--s-1);
+  --spacing-2: var(--s-2);
+  --spacing-3: var(--s-3);
+  --spacing-4: var(--s-4);
+  --spacing-6: var(--s-6);
+  --spacing-8: var(--s-8);
+  --spacing-12: var(--s-12);
+  --spacing-16: var(--s-16);
   --spacing-row: var(--row);
   --container-measure: var(--measure);
 

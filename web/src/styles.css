@@ -48,6 +48,12 @@
     @apply mx-auto w-full max-w-measure px-4;
   }
 
+  /* The Phase 0 pages keep the 40rem column the old stylesheet gave them (issue #71 asks for no
+     layout change there); the statement measure belongs to the pages the design covers. */
+  .phase0-column {
+    @apply mx-auto max-w-[40rem];
+  }
+
   /* The header rule: brand at one end, the account links at the other. */
   .masthead {
     @apply flex items-baseline justify-between gap-4 border-b border-rule py-4 text-sm;
@@ -76,7 +82,7 @@
 
   /* The one filled action, and its quiet form for secondary actions. */
   .btn {
-    @apply mt-4 inline-flex min-h-11 cursor-pointer items-center rounded-sm border border-pencil bg-pencil px-4 py-2 font-medium text-pencil-ink;
+    @apply mt-4 inline-flex min-h-row cursor-pointer items-center rounded-sm border border-pencil bg-pencil px-4 py-2 font-medium text-pencil-ink;
   }
   .btn:hover {
     @apply brightness-108;
@@ -85,7 +91,8 @@
     @apply cursor-default opacity-60;
   }
   .btn-quiet {
-    @apply mt-0 bg-transparent text-pencil;
+    @apply bg-transparent text-pencil;
+    margin-top: 0;
   }
 
   /* A note: a secondary line in the smaller ink, for statuses, sources and units. */
@@ -95,7 +102,8 @@
 
   /* A statement note: how the design prints anything that needs saying, errors included. */
   .statement-note {
-    @apply my-2 list-none border-t border-b border-t-rule border-b-hairline py-3 pl-0 text-sm;
+    @apply my-2 list-none border-t border-b border-t-rule border-b-hairline py-3 text-sm;
+    padding-left: 0;
   }
 }
 

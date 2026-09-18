@@ -13,7 +13,7 @@ export function RegisterPage() {
   };
 
   return (
-    <main>
+    <main className="phase0-column">
       <CredentialsForm
         title="Create an account"
         submitLabel="Register"

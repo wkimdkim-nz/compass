@@ -13,7 +13,7 @@ export function LoginPage() {
   };
 
   return (
-    <main>
+    <main className="phase0-column">
       <CredentialsForm
         title="Sign in"
         submitLabel="Sign in"

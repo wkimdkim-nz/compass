@@ -48,10 +48,25 @@ describe("the rest of the UI", () => {
       return /\.(css|tsx?)$/.test(entry) && !/\.test\.tsx?$/.test(entry) && entry !== "tokens.css" ? [path] : [];
     });
 
+  // Every way CSS can spell a colour: hex, the colour functions, and the named colours, the
+  // last matched only inside a declaration's value so prose in a comment cannot trip it. In
+  // TSX the same applies to Tailwind arbitrary values on the colour utilities (`text-[red]`).
+  const hex = /#[0-9a-f]{3,8}\b/gi;
+  const functions = /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix|light-dark)\(/gi;
+  const named =
+    /\b(?:aqua|black|blue|brown|coral|crimson|cyan|fuchsia|gold|gray|grey|green|indigo|ivory|khaki|lime|magenta|maroon|navy|olive|orange|orchid|pink|plum|purple|red|salmon|silver|tan|teal|tomato|violet|white|yellow|(?:dark|light|medium|pale|deep|dim)[a-z]+)\b/gi;
+  const cssValue = /:\s*([^;{}]+)/g;
+  const arbitraryColourClass =
+    /\b(?:text|bg|border|outline|ring|fill|stroke|caret|accent|decoration|shadow|from|via|to)-\[([^\]]+)\]/g;
+
   it("hard-codes no colour outside the token file", () => {
     const offenders = sources(here).flatMap((path) => {
-      const text = readFileSync(path, "utf8");
-      const hits = text.match(/#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|color)\(/gi) ?? [];
+      const text = readFileSync(path, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+      const hits = [...(text.match(hex) ?? []), ...(text.match(functions) ?? [])];
+      const valueHolders = path.endsWith(".css")
+        ? [...text.matchAll(cssValue)].map((m) => m[1])
+        : [...text.matchAll(arbitraryColourClass)].map((m) => m[1]);
+      for (const value of valueHolders) hits.push(...(value.match(named) ?? []));
       return hits.length ? [`${path.slice(here.length)}: ${hits.join(", ")}`] : [];
     });
     expect(offenders).toEqual([]);
