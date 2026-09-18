@@ -70,7 +70,13 @@
     --pencil-ink: #111111;
     --pencil-tint: #26304a;
     --pencil-line: #9db6f0;
+    color-scheme: dark;
   }
+}
+
+/* The override: native controls and scrollbars must follow it too, hence color-scheme. */
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 :root[data-theme="dark"] {
@@ -84,6 +90,7 @@
   --pencil-ink: #111111;
   --pencil-tint: #26304a;
   --pencil-line: #9db6f0;
+  color-scheme: dark;
 }
 
 @media (min-width: 48rem) {
@@ -108,7 +115,9 @@
   own palette, font stacks, type scale, radii and shadows are cleared first: the design has one
   accent, one family, radii of at most 2px and no shadows, and a utility for anything else must
   not exist. The spacing scale is Tailwind's default 4px base, which is the design's scale
-  (p-4 = --s-4 = 1rem).
+  (p-4 = --s-4 = 1rem), so --s-* is carried for parity with the design file rather than mapped;
+  the same goes for --rule-w and --rule-total (border-t = 1px, border-t-2 = 2px) and --wdth-*,
+  which the `condensed` utility in styles.css reads directly.
 */
 @theme inline reference {
   --color-*: initial;

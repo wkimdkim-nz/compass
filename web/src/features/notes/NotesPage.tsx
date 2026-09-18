@@ -19,7 +19,7 @@ export function NotesPage() {
   return (
     <main>
       <h1>Your notes</h1>
-      <p className="text-sm text-ink-2">Signed in as {me?.email}</p>
+      <p className="note">Signed in as {me?.email}</p>
 
       <form onSubmit={submit}>
         <label className="field">
@@ -31,8 +31,8 @@ export function NotesPage() {
         </button>
       </form>
 
-      {notes.isLoading && <p role="status" className="mt-6 text-sm text-ink-2">Loading notes…</p>}
-      {notes.data && notes.data.length === 0 && <p className="mt-6 text-sm text-ink-2">No notes yet.</p>}
+      {notes.isLoading && <p role="status" className="note mt-6">Loading notes…</p>}
+      {notes.data && notes.data.length === 0 && <p className="note mt-6">No notes yet.</p>}
       {notes.data && notes.data.length > 0 && (
         <ul aria-label="Notes" className="mt-6">
           {notes.data.map((note) => (

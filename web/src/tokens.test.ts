@@ -25,7 +25,7 @@ describe("the token file", () => {
   const design = declarations(read("../../docs/design/mockups/tokens.css"));
   const app = declarations(read("./tokens.css"));
 
-  it("carries every token the design note declares, with the same values in the same order", () => {
+  it("carries every token the design note declares, with the same values wherever it is declared", () => {
     // `--font` is the one exception: the design loads Archivo from Google Fonts, the app
     // self-hosts it, and the self-hosted face registers under a different family name.
     const differences = [...design]

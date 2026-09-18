@@ -32,5 +32,6 @@ design's file too, so the parity test keeps the two in step.
 [`src/styles.css`](src/styles.css) is the app stylesheet: it imports Tailwind and the tokens,
 sets the page defaults (paper, ink, Archivo, tabular figures) in the base layer, and holds the
 small statement vocabulary the existing pages use (`.sheet`, `.masthead`, `.field`, `.entry`,
-`.btn`, `.statement-note`). Archivo is self-hosted from `@fontsource-variable/archivo`, imported
-in `main.tsx`.
+`.btn`, `.note`, `.statement-note`), plus the `condensed` utility that narrows the output
+totals to the design's width (`text-total font-semibold condensed`). Archivo is self-hosted from
+`@fontsource-variable/archivo`, imported in `main.tsx`.

@@ -1,19 +1,27 @@
 /*
   The app stylesheet. Tailwind supplies the utilities and its preflight reset; every colour, size
-  and face they resolve to comes from tokens.css, and nothing here names a value of its own.
+  and face they resolve to comes from tokens.css. The few bare numbers here (a hover brightness, a
+  disabled opacity, a control height) are Tailwind scale steps, not design values.
 */
 @import "tailwindcss";
 @import "./tokens.css";
 
 @layer base {
+  /* The paper extends past the body, so overscroll shows paper rather than the browser's default. */
   html {
     background: var(--paper);
   }
 
+  /*
+    Tabular lining figures everywhere, so columns of numerals align. Width goes through
+    font-stretch, which the self-hosted face registers as its wdth axis, so the `condensed`
+    utility below can narrow the totals; setting font-variation-settings here instead would
+    silently override any font-stretch beneath it.
+  */
   body {
     @apply bg-paper text-ink font-sans text-base leading-normal antialiased;
     font-variant-numeric: tabular-nums lining-nums;
-    font-variation-settings: "wdth" var(--wdth-text);
+    font-stretch: calc(var(--wdth-text) * 1%);
   }
 
   ::selection {
@@ -58,6 +66,7 @@
   .entry:hover {
     @apply bg-paper-2;
   }
+  /* Focus on an entry is the blue-pencil underline the design asks for, not the outline ring. */
   .entry:focus {
     @apply border-pencil-line outline-none;
   }
@@ -79,8 +88,21 @@
     @apply mt-0 bg-transparent text-pencil;
   }
 
+  /* A note: a secondary line in the smaller ink, for statuses, sources and units. */
+  .note {
+    @apply text-sm text-ink-2;
+  }
+
   /* A statement note: how the design prints anything that needs saying, errors included. */
   .statement-note {
     @apply my-2 list-none border-t border-b border-t-rule border-b-hairline py-3 pl-0 text-sm;
   }
+}
+
+/*
+  The numeric treatment for the outputs: the X totals are set condensed at the design's width.
+  Compose it with the size and weight the note gives them: `text-total font-semibold condensed`.
+*/
+@utility condensed {
+  font-stretch: calc(var(--wdth-total) * 1%);
 }
