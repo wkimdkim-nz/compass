@@ -133,7 +133,7 @@ every text pair above.
 
 **Spacing:** a 4px base scale (4, 8, 12, 16, 24, 32, 48, 64) with a table row rhythm of 40px on
 phones and 44px from tablet up; the statement column is 40rem, 48rem and 56rem at the three widths.
-Rules are 1px; the double rule is two 1px lines 4px apart. No shadows, no radii above 2px.
+Rules are 1px; the double rule is two 1px lines 2px apart. No shadows, no radii above 2px.
 
 **Numeric type:** one family, [Archivo](https://fonts.google.com/specimen/Archivo) (variable, with
 a width axis), so copy and totals share a voice. Body at normal width, 16px / 1.5; labels and notes

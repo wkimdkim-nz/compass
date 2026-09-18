@@ -24,7 +24,7 @@
     [data-state="404"] .only-404 { display: revert; }
     [data-state="422"] .only-422 { display: revert; }
     [data-state="503"] .only-503 { display: revert; }
-    [data-state="saved"] .saved, [data-state="modal"] .saved { display: flex; }
+    [data-state="saved"] .saved, [data-state="modal"] .saved, [data-state="503"] .saved { display: flex; }
     .saved { display: none; }
   </style>
 </head>
@@ -48,7 +48,7 @@
     </p>
 
     <div class="statement-note only-404" role="status">
-      <p><b>No SEC filings found for XYZQ.</b> Compass covers US-listed companies that file with the SEC.</p>
+      <p><b>No SEC filings found for XYZQ.</b> Compass covers US companies that file 10-K and 10-Q reports with the SEC.</p>
       <p>Enter the figures yourself; the projection works the same way.</p>
     </div>
     <div class="statement-note only-422" role="status">
@@ -228,10 +228,13 @@
       if (update) update.addEventListener("click", function () { modal.setAttribute("open", ""); document.getElementById("keep").focus(); });
       document.getElementById("keep").addEventListener("click", function () { modal.removeAttribute("open"); });
       if (document.documentElement.dataset.state === "modal") modal.setAttribute("open", "");
-      if (document.documentElement.dataset.state === "404" || document.documentElement.dataset.state === "422") {
+      var state = document.documentElement.dataset.state;
+      if (state === "404" || state === "422" || state === "503") {
+        // No filed figures: blank the base facts and the outputs.
         document.querySelectorAll('.fig:not([data-s])').forEach(function (el) { el.value = ""; el.placeholder = "—"; });
         document.querySelectorAll('[data-out]').forEach(function (el) { el.textContent = "—"; });
-        document.querySelectorAll('.fig[data-s]').forEach(function (el) { el.value = ""; el.placeholder = "—"; });
+        // 503 keeps the saved assumptions; 404 and 422 have nothing saved to load.
+        if (state !== "503") document.querySelectorAll('.fig[data-s]').forEach(function (el) { el.value = ""; el.placeholder = "—"; });
       }
     })();
   </script>

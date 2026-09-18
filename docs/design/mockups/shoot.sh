@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Re-captures the screenshots in docs/design/mockups/shots/ with headless Chrome at 2x.
-# Usage: docs/design/mockups/shoot.sh   (needs Google Chrome; fonts load from Google Fonts)
+# Usage: docs/design/mockups/shoot.sh   (macOS only: uses sips to crop; needs Google Chrome,
+# override its path with CHROME=...; fonts load from Google Fonts)
 # Chrome's headless window will not go below 500px wide, so every capture goes through
 # frame.html, which frames the page at the exact width, and is then cropped.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 out="$here/shots"
 mkdir -p "$out"
-chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+chrome="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
+[ "$(uname)" = Darwin ] || { echo "shoot.sh needs macOS (sips)" >&2; exit 1; }
+[ -x "$chrome" ] || { echo "Chrome not found at $chrome; set CHROME=" >&2; exit 1; }
 
 shot() { # name page query width height
   local w=$4 h=$5 win_w=$4
