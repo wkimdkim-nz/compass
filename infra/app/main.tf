@@ -32,6 +32,15 @@ data "aws_secretsmanager_secret_version" "origin_header" {
   secret_id = local.foundation.origin_secret_name
 }
 
+# The Finnhub API key, found by the name the foundation stack publishes (ADR 0010).
+#
+# ⚠️ The secret's *metadata*, deliberately, and not `aws_secretsmanager_secret_version`: all the task
+# definition needs is the ARN, and ECS fetches the value itself at task start. Reading the version
+# would copy the key into this stack's state, which is the one thing setting it by hand was for.
+data "aws_secretsmanager_secret" "finnhub_api_key" {
+  name = local.foundation.finnhub_secret_name
+}
+
 locals {
   foundation = data.terraform_remote_state.foundation.outputs
 

@@ -4,6 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Where `dotnet user-secrets` keeps the Finnhub API key locally (ADR 0010). Read in Development only. -->
+    <UserSecretsId>compass-api</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

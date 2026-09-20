@@ -24,6 +24,9 @@ EXPECTED_ARCH="${EXPECTED_ARCH:-arm64}"
 
 ECR_REPOSITORY="compass-api"
 ORIGIN_SECRET_NAME="compass/cloudfront-origin-header"
+FINNHUB_SECRET_NAME="compass/finnhub-api-key"
+# What infra/foundation/finnhub-secret.tf creates the secret holding, until the operator sets it.
+FINNHUB_SECRET_PLACEHOLDER="placeholder-set-by-hand-after-apply"
 CONTAINER_PORT=8080
 DATABASE_PORT=5432
 
@@ -553,6 +556,21 @@ else
     fail "CloudFront sends ${header_name} with the value the secret holds" \
       "the two have drifted — the listener rule would reject every request CloudFront forwards"
   fi
+fi
+
+# 12. The Finnhub key is Terraform's by name and the operator's by value (ADR 0010). Both halves
+#     fail late and far away: a missing secret stops the *app* stack's plan, and a placeholder
+#     starts a healthy task whose every quote comes back 401. The value is compared, never printed.
+step "12. The Finnhub API key has been set by hand (catches: a deployed API calling Finnhub with the placeholder)"
+if ! finnhub_key="$(aws_read secretsmanager get-secret-value --region "$REGION" \
+  --secret-id "$FINNHUB_SECRET_NAME" --query SecretString --output text)"; then
+  fail "the secret ${FINNHUB_SECRET_NAME} can be read by name" \
+    "the app stack injects it into the task by name — apply the foundation stack to create it"
+elif [[ -z "$finnhub_key" || "$finnhub_key" == "$FINNHUB_SECRET_PLACEHOLDER" ]]; then
+  fail "the secret ${FINNHUB_SECRET_NAME} holds a key" \
+    "it still holds Terraform's placeholder — set it with the put-secret-value command in infra/README.md"
+else
+  pass "the secret ${FINNHUB_SECRET_NAME} holds a value that is not the placeholder"
 fi
 
 printf '\n'

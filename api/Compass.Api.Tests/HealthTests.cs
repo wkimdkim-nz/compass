@@ -20,7 +20,7 @@ public class HealthTests(HealthTests.UnreachableDatabaseFactory factory)
     public sealed class UnreachableDatabaseFactory : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder) =>
-            builder.UseSetting(
+            builder.WithoutMarketDataSettings().UseSetting(
                 "ConnectionStrings:Default",
                 "Host=127.0.0.1;Port=1;Database=compass;Username=compass;Password=compass;Timeout=2");
     }

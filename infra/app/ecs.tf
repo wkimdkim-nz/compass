@@ -54,23 +54,33 @@ locals {
 
     # Also explicit, and also already the base image's default via ASPNETCORE_HTTP_PORTS. Written
     # down rather than left to a base image's convention, for the reason main.tf gives. The
-    # migration task inherits it and ignores it — efbundle binds nothing — which is the price of
+    # migration task inherits it and ignores it — efbundle listens on nothing — which is the price of
     # one shared list and a cheap one.
     { name = "ASPNETCORE_URLS", value = "http://+:${local.container_port}" },
 
     # Host, port, database and the two settings that are load-bearing against a real RDS instance.
     # rds.tf builds it and says why each part is there.
     { name = "ConnectionStrings__Default", value = local.database_connection_string },
+
+    # The contact address in the User-Agent SEC EDGAR insists on; the API binds it as
+    # `Edgar:ContactEmail` (ADR 0010). Not a secret, and not in source either — it arrives as a
+    # variable with no default. Outside Development the API refuses to start without it, and that
+    # includes the migration task, which boots the same host to find its DbContext: one more reason
+    # it belongs in the shared list.
+    { name = "Edgar__ContactEmail", value = var.edgar_contact_email },
   ]
 
-  # Exactly two, and they are the whole of what the ECS agent fetches on this stack's behalf. The
-  # application never sees Secrets Manager: these arrive as ordinary environment variables and
-  # DatabaseConnectionString.Resolve overlays them onto the connection string above, through the
-  # same code path the local tests walk. rds.tf builds the two selectors and says what happens to
-  # a task definition that omits one.
+  # Exactly three, and they are the whole of what the ECS agent fetches on this stack's behalf. The
+  # application never sees Secrets Manager: these arrive as ordinary environment variables. The
+  # first two DatabaseConnectionString.Resolve overlays onto the connection string above, through
+  # the same code path the local tests walk; rds.tf builds the two selectors and says what happens
+  # to a task definition that omits one. The third is the foundation stack's hand-set Finnhub key,
+  # a plain string and so named by its bare ARN with no JSON-key selector; the API binds it as
+  # `Finnhub:ApiKey` (ADR 0010).
   task_secrets = [
     { name = "DB_USERNAME", valueFrom = local.database_username_secret },
     { name = "DB_PASSWORD", valueFrom = local.database_password_secret },
+    { name = "Finnhub__ApiKey", valueFrom = data.aws_secretsmanager_secret.finnhub_api_key.arn },
   ]
 
   # --- The image assertion, made by two task definitions ----------------------------------------
@@ -261,6 +271,7 @@ resource "terraform_data" "migrate" {
   depends_on = [
     aws_iam_role_policy_attachment.task_execution,
     aws_iam_role_policy.task_execution_database_secret,
+    aws_iam_role_policy.task_execution_finnhub_secret,
   ]
 }
 

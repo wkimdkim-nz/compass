@@ -29,16 +29,16 @@ resource "aws_iam_role" "task_execution" {
 }
 
 # ECR pulls and CloudWatch Logs, which is what every task here needs before its container runs.
-# The one thing it does not cover is the database secret; that is the inline policy below, and
-# nothing else is ever attached to this role.
+# The one thing it does not cover is the two secrets the agent injects; those are the two inline
+# policies below, and nothing else is ever attached to this role.
 resource "aws_iam_role_policy_attachment" "task_execution" {
   role       = aws_iam_role.task_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# The one secret, named by its ARN rather than by a wildcard or a path prefix. The blast radius of
-# this deployment is therefore exactly one credential — which is the whole of the argument for
-# having the agent fetch it rather than the application (#28).
+# The database secret, named by its ARN rather than by a wildcard or a path prefix. With the Finnhub
+# key below, the blast radius of this deployment is exactly two credentials — which is the whole of
+# the argument for having the agent fetch them rather than the application (#28).
 #
 # ⚠️ No `kms:Decrypt` statement, and none is needed: RDS encrypts the managed secret with the
 # AWS-managed `aws/secretsmanager` key, which grants use through the calling service. A
@@ -55,4 +55,20 @@ resource "aws_iam_role_policy" "task_execution_database_secret" {
   name   = "compass-database-secret"
   role   = aws_iam_role.task_execution.id
   policy = data.aws_iam_policy_document.task_execution_database_secret.json
+}
+
+# The Finnhub API key, which lives in the foundation stack and is found by name (main.tf). Its own
+# policy rather than a second statement in the one above, so that each is still one ARN and one
+# reason. It is encrypted with the same AWS-managed key, so again no `kms:Decrypt`.
+data "aws_iam_policy_document" "task_execution_finnhub_secret" {
+  statement {
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [data.aws_secretsmanager_secret.finnhub_api_key.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "task_execution_finnhub_secret" {
+  name   = "compass-finnhub-secret"
+  role   = aws_iam_role.task_execution.id
+  policy = data.aws_iam_policy_document.task_execution_finnhub_secret.json
 }

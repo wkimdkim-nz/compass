@@ -6,7 +6,7 @@ billing line** ([ADR 0009](../docs/adr/0009-compute-ecs-fargate.md),
 
 | Stack | Holds | Lifecycle |
 |---|---|---|
-| `foundation/` | Hosted zone (adopted), both ACM certificates, the SPA bucket and CloudFront, the VPC and its subnets, the security-group chain, the ECR repository, and the CloudFront-to-origin secret | **Never destroyed.** Everything in it is free or near-free at rest. |
+| `foundation/` | Hosted zone (adopted), both ACM certificates, the SPA bucket and CloudFront, the VPC and its subnets, the security-group chain, the ECR repository, the CloudFront-to-origin secret, and the Finnhub API key's secret | **Never destroyed.** Everything in it is free or near-free at rest. |
 | `app/` | The load balancer and the listener rule that locks it to CloudFront, the origin hostname's record, the ECS cluster, its three task definitions and the service, and the RDS instance | **Created at the start of a work session, destroyed at the end.** Every dominant line item is in here. |
 
 The split is the cost lever, not tidiness: every dominant line item is hourly and dies with
@@ -69,6 +69,14 @@ dependency graph enforces. `init` is needed once per clone, and is a no-op after
 terraform -chdir=infra/app init
 ```
 
+The apply also needs the **EDGAR contact address** — `edgar_contact_email`, which has no default
+because it is not in source (ADR 0010). Export it once and both this apply and step 5's destroy
+pick it up:
+
+```bash
+export TF_VAR_edgar_contact_email=<you@example.com>
+```
+
 ```bash
 terraform -chdir=infra/app apply -var "image_tag=<tag>"
 ```
@@ -87,7 +95,8 @@ scripts/smoke-deployed.sh
 is the way into the database; there is no other.
 
 **5. Tear it down.** This is the cost lever, and the step that must not be skipped — every dominant
-line item is hourly. The tag satisfies the parser and means nothing here:
+line item is hourly. The tag satisfies the parser and means nothing here; the contact address is
+still required, and is still exported from step 2 unless this is a new shell:
 
 ```bash
 terraform -chdir=infra/app destroy -var "image_tag=none"
@@ -158,10 +167,27 @@ owns what is in it:
 scripts/deploy-spa.sh
 ```
 
-Then push an image — the next section — and only then verify. `verify-foundation.sh` asserts that
-the registry holds an image, so on a fresh stack it fails until one is there.
+**Then set the Finnhub API key, once, by hand.** Terraform creates the secret
+`compass/finnhub-api-key`, writes a placeholder into it once as the secret is created, and never
+writes to it again, so the key is in no variable and no state file, and it survives every
+teardown of the app stack (ADR 0010). Sign up at <https://finnhub.io>, copy the key from the
+dashboard, and hand it over on stdin — `file:///dev/stdin` keeps it out of the shell history and
+out of the process list. Run it, paste the key, press Enter, then Ctrl-D:
 
-> ⚠️ **Re-apply the foundation after pulling a change to its `outputs.tf`.** Outputs are the app
+```bash
+aws secretsmanager put-secret-value --region ap-southeast-2 --secret-id compass/finnhub-api-key --secret-string file:///dev/stdin
+```
+
+The same command replaces the key later. A running task does not notice — injection happens once,
+at task start — so follow a replacement with a rebuild of the app stack, or with
+`aws ecs update-service --force-new-deployment`.
+
+Then push an image — the next section — and only then verify. `verify-foundation.sh` asserts that
+the registry holds an image, so on a fresh stack it fails until one is there; it also fails while
+the Finnhub secret still holds the placeholder.
+
+> ⚠️ **Re-apply the foundation after pulling a change to its `outputs.tf`** — the change that added
+> the Finnhub secret is one, and until it is applied the app stack cannot plan. Outputs are the app
 > stack's only view of the network, and they are written by an apply, not by the file. The app
 > stack's plan otherwise fails with `This object does not have an attribute named ...` — which
 > reads like a bug in the app stack and is not. The apply itself is a no-op on every resource.
@@ -283,16 +309,43 @@ message anywhere. Anything either task needs to reach Postgres belongs in those 
 
 ## What the container is given, and what it is not
 
-Exactly two values are injected as secrets — `DB_USERNAME` and `DB_PASSWORD`, pulled key by key out
-of the RDS-managed secret with Secrets Manager's `<arn>:<json-key>::` selector. The rest of the
-connection string is a plain environment variable, and `DatabaseConnectionString.Resolve` joins them
-at startup through the same code path the local tests walk.
+Exactly three values are injected as secrets. Two are `DB_USERNAME` and `DB_PASSWORD`, pulled key
+by key out of the RDS-managed secret with Secrets Manager's `<arn>:<json-key>::` selector. The rest
+of the connection string is a plain environment variable, and `DatabaseConnectionString.Resolve`
+joins them at startup through the same code path the local tests walk. The third is the Finnhub API
+key.
+
+### The two market-data settings
+
+One setting per market-data port (ADR 0010). **This table is the one place their names are
+recorded**; the API's options classes, `FinnhubOptions` and `EdgarOptions` in
+`api/Compass.Api/MarketData/`, bind to exactly these keys.
+
+| Configuration key | Environment variable | What it is | Deployed | Locally |
+|---|---|---|---|---|
+| `Finnhub:ApiKey` | `Finnhub__ApiKey` | The quote source's API key | Injected by the ECS agent from the foundation stack's `compass/finnhub-api-key` secret, which the app stack finds **by name**. The operator sets its value by hand — *Bringing the foundation stack up* | `dotnet user-secrets` |
+| `Edgar:ContactEmail` | `Edgar__ContactEmail` | The contact address in the User-Agent SEC EDGAR requires | A plain environment variable on the task, from the app stack's `edgar_contact_email` variable. The operator supplies it with the apply — step 2 of *A work session* | An exported environment variable |
+
+Neither value is in source or in a `.tfvars`. **Only the Finnhub key is also out of Terraform
+state.** The contact address is not: it is a plain environment variable, so it is written into both
+task definitions and therefore into the **app** stack's state, and it is readable on the task
+definition by anyone who can call `ecs describe-task-definition`. That is acceptable because it is
+an address SEC EDGAR is sent in the clear on every request, not a credential, and because that
+state is destroyed with the stack — but it is not a secret and nothing here treats it as one. The
+repository root's `README.md` has the local commands.
+
+**A setting that is absent stubs its port only in Development.** There the API starts, logs a
+warning naming the stub port and the setting that would make it real, and calls nobody. In every
+other environment it refuses to start and the exception names the missing setting — so a deployed
+task either talks to the real providers or is not healthy. Blank counts as absent. Both settings
+are in the lists the service and the migration task share, and the migration task needs them too:
+`efbundle` boots the same host to find its `DbContext`, so it refuses to run on the same terms.
 
 **The ECS agent fetches; the application does not.** There is no task role on any of these task
 definitions, so there is nothing for the application to assume — the absence of application-side AWS
 access is structural rather than a matter of discipline. The execution role carries
-`AmazonECSTaskExecutionRolePolicy` plus one inline statement, `secretsmanager:GetSecretValue` on the
-single secret ARN.
+`AmazonECSTaskExecutionRolePolicy` plus two inline policies, each `secretsmanager:GetSecretValue` on
+one secret ARN: the RDS-managed secret and the Finnhub key.
 
 > ⚠️ **The seven-day tripwire.** RDS rotates that managed secret every seven days by default,
 > injection happens **once** at task start, and AWS has no channel to push a new value into a
@@ -365,8 +418,9 @@ resolver rather than off the console, both certificates issued in the region tha
 an alias (never a CNAME) at the apex, the SPA and its client-side routes over HTTPS, `/api/*`
 reaching the origin hostname with caching disabled and cookies forwarded, the network's two tiers
 routed the way their names claim, each security group admitting exactly one upstream, an image in
-ECR built for the architecture the task will run, and CloudFront sending the origin header the
-secret holds.
+ECR built for the architecture the task will run, CloudFront sending the origin header the
+secret holds, and the Finnhub secret holding something other than Terraform's placeholder — compared,
+never printed.
 
 The ephemeral stack has its own script, and it is the **only** automated seam against the deployed
 environment. Run it after the apply:
