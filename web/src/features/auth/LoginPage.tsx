@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router";
 import { useLoginMutation, type Credentials } from "./authApi";
 import { CredentialsForm } from "./CredentialsForm";
 import { useReturnTo } from "./useReturnTo";
-import { fieldErrors, isStatus } from "./problemDetails";
+import { fieldErrors, isStatus } from "../../app/problemDetails";
 
 export function LoginPage() {
   const [login, { isLoading, error }] = useLoginMutation();

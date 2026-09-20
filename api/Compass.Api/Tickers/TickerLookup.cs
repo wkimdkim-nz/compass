@@ -13,7 +13,7 @@ public sealed record BaseFactsResponse(
     double? CurrentNetMargin,
     DateOnly FiguresTo);
 
-/// <summary>What the ticker lookup answers with. Raw values and decimals: millions and whole-number percents are the UI's.</summary>
+/// <summary>What the ticker lookup answers with. Raw values and decimals: millions and percents are the UI's (ADR 0011).</summary>
 /// <param name="Scenarios">Bear, Base, Bull; or none, when there is nothing sound to seed from (see <see cref="ScenarioSeeder.Seed"/>).</param>
 /// <param name="Missing">The fields that could not be fetched, by their names here. Empty when everything was.</param>
 public sealed record TickerResponse(

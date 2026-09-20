@@ -50,7 +50,7 @@ describe("the landing page", () => {
     expect(field(/bull revenue growth/i)).toHaveValue("12");
     expect(field(/base share dilution/i)).toHaveValue("(1)");
     expect(outputs(/return multiple/i)).toEqual(["1.3×", "1.5×", "1.9×"]);
-    expect(outputs(/cagr/i)).toEqual(["5 %", "9 %", "13 %"]);
+    expect(outputs(/cagr/i)).toEqual(["5.1 %", "9.1 %", "13.1 %"]);
     expect(outputs(/future share price/i)).toEqual(["128", "155", "185"]);
   });
 
@@ -128,7 +128,7 @@ describe("the calculator", () => {
     for (const typed of ["", "abc", "-150", "1e999"]) {
       await retype(user, field(/bull revenue growth/i), typed);
       expect(outputs(/return multiple/i)).toEqual(["1.3×", "1.5×", "—"]);
-      expect(outputs(/cagr/i)).toEqual(["5 %", "9 %", "—"]);
+      expect(outputs(/cagr/i)).toEqual(["5.1 %", "9.1 %", "—"]);
       expect(outputs(/future share price/i)).toEqual(["128", "155", "—"]);
     }
     await retype(user, field(/^shares/i), "0");
@@ -157,7 +157,7 @@ describe("saving", () => {
 
     expect(await screen.findByRole("button", { name: /update projection/i })).toBeInTheDocument();
     expect(outputs(/return multiple/i)).toEqual(["4.3×", "4.3×", "4.3×"]);
-    expect(outputs(/cagr/i)).toEqual(["34 %", "34 %", "34 %"]);
+    expect(outputs(/cagr/i)).toEqual(["33.6 %", "33.6 %", "33.6 %"]);
     expect(fakeApi.requestCount("POST /api/projections")).toBe(1);
     expect(fakeApi.saves()[0]).toEqual({
       ticker: "AAPL",

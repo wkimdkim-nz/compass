@@ -13,7 +13,7 @@ Audience and job: a reviewer arriving cold to judge craft and honesty; a beginne
 
 Proof: provenance only. Filed figures, the figures-to date, named sources. No testimonials, counts, benchmarks, or accuracy claims; sample tickers marked illustrative.
 
-Constraints: mobile-first; light and dark both WCAG 2.2 AA; Tailwind with the project's own tokens, no component library; whole-number percents and millions in the UI; no per-input warnings; the disclaimer beside the output and in the footer.
+Constraints: mobile-first; light and dark both WCAG 2.2 AA; Tailwind with the project's own tokens, no component library; percents (8, not 0.08, to one decimal: ADR 0011) and millions in the UI; no per-input warnings; the disclaimer beside the output and in the footer.
 
 Anti-goals: broker terminal, generic SaaS template, decorative charts, prediction wording.
 

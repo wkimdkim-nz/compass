@@ -63,7 +63,7 @@ export function toWire(value: number, unit: Unit): number {
 export function formatOutputs(outputs: ProjectionOutputs): { x: string; cagr: string; futurePrice: string } {
   return {
     x: formatFigure(outputs.x, 1),
-    cagr: `${formatFigure(outputs.cagr * 100, 0)} %`,
+    cagr: `${formatFigure(outputs.cagr * 100, 1)} %`,
     futurePrice: formatFigure(outputs.futurePrice, decimalsFor(outputs.futurePrice)),
   };
 }

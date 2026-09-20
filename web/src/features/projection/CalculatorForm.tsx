@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { ProjectionOutputs } from "../../projection/calculator";
 import { Disclaimer } from "../../app/Disclaimer";
-import { detail, fieldErrors, isStatus } from "../auth/problemDetails";
+import { detail, fieldErrors, isStatus } from "../../app/problemDetails";
 import { ConfirmReplaceDialog } from "./ConfirmReplaceDialog";
 import { formatOutputs } from "./figures";
 import {
@@ -79,7 +79,7 @@ const KINDS: { kind: ExitMultipleKind; label: string }[] = [
   { kind: "ps", label: "P/S" },
 ];
 
-/** How long the output rows stay tinted after an edit, so the chain from a guess to the total shows. */
+/** How long the output rows hold their tint after an edit, so the chain from a guess to the total shows; the fade after it is the stylesheet's. */
 const TINT_MS = 700;
 
 type ServerOutputs = Partial<Record<ScenarioName, ProjectionOutputs>>;

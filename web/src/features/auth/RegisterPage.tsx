@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router";
 import { useRegisterMutation, type Credentials } from "./authApi";
 import { CredentialsForm } from "./CredentialsForm";
 import { useReturnTo } from "./useReturnTo";
-import { fieldErrors } from "./problemDetails";
+import { fieldErrors } from "../../app/problemDetails";
 
 export function RegisterPage() {
   const [register, { isLoading, error }] = useRegisterMutation();

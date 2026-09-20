@@ -27,6 +27,13 @@ to nothing lets a user type a figure and watch nothing change.
 
 - "Whole-number percents" in the roadmap, the design note and `web/README.md` is reworded to point
   here. The glossary's "Editable" for base facts now excepts the current net margin.
+- The CAGR output follows the same rule as a percent field: one decimal, whole values whole, so a
+  bear of 4.4% and a base of 4.0% do not both print 4.
+- Figures that are not percents or multiples keep their cents below 100 and print whole from 100 up
+  (revenue and shares in millions, the future share price). The share price field is the exception:
+  it always keeps its cents, since it is typed and saved as shown.
+- Restate-to-defaults reseeds the assumptions only. Base facts a user typed over stay: a saved
+  projection carries no base facts, so there is no saved figure for them to go back to.
 - What a field shows is what a save sends. A value finer than its field prints (a P/E of 28.04
   shown as 28) is saved as shown; that is accepted, the inputs are guesses.
 - The calculator mock-up still draws the current net margin as a field; the mock-up is a record of

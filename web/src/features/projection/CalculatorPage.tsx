@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { SerializedError } from "@reduxjs/toolkit";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { useParams } from "react-router";
-import { detail, isStatus } from "../auth/problemDetails";
+import { detail, isStatus } from "../../app/problemDetails";
 import { CalculatorForm } from "./CalculatorForm";
 import { useGetProjectionQuery, useLookUpTickerQuery, type TickerResponse } from "./projectionApi";
 
@@ -66,7 +66,7 @@ function lookupNotice({ ticker, found, error, hasSaved, retry }: NoticeProps): R
   return (
     <>
       <p>
-        <b>The company's figures could not be reached just now.</b>{" "}
+        <b>SEC EDGAR could not be reached just now.</b>{" "}
         {hasSaved ? "Your saved assumptions are loaded; the filed figures are not." : "Nothing is pre-filled."}
       </p>
       <p>

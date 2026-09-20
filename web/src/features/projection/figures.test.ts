@@ -73,7 +73,7 @@ describe("printing a figure", () => {
   it("prints the outputs as the statement does", () => {
     expect(formatOutputs({ x: 1.234, cagr: -0.0612, futurePrice: 281.4 })).toEqual({
       x: "1.2",
-      cagr: "(6) %",
+      cagr: "(6.1) %",
       futurePrice: "281",
     });
     expect(formatOutputs({ x: 0.5, cagr: 0.14, futurePrice: 12.345 }).futurePrice).toBe("12.35");

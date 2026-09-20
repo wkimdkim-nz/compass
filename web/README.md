@@ -29,7 +29,8 @@ then map it in the `@theme` block under the Tailwind namespace that gives it the
 (`--color-*` for colours, `--text-*` for font sizes, `--spacing-*` for lengths, `--container-*`
 for widths). The Phase 0 auth pages keep their own 40rem column (`.phase0-column` in
 `styles.css`) until the design covers them. If it is a design decision rather than an implementation detail, add it to the
-design's file too, so the parity test keeps the two in step.
+design's file too, so the parity test keeps the two in step. A token derived from one that already
+has dark values (`--scrim`, from `--ink`) follows the theme through it and is declared once.
 
 [`src/styles.css`](src/styles.css) is the app stylesheet: it imports Tailwind and the tokens,
 sets the page defaults (paper, ink, Archivo, tabular figures) in the base layer, and holds the
