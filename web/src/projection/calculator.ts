@@ -12,12 +12,14 @@ export type BaseFacts = {
   dilutedShares: number;
 };
 
-export type Assumptions = {
+/** One scenario's Assumption Set (docs/glossary.md). */
+export type AssumptionSet = {
   growthRate: number;
   /** Ignored on the P/S path. */
   futureNetMargin: number;
   exitMultiple: ExitMultiple;
   dilutionRate: number;
+  /** Whole years, >= 1. */
   horizon: number;
 };
 
@@ -26,6 +28,8 @@ export type ProjectionOutputs = { futurePrice: number; x: number; cagr: number }
 export type RejectionReason =
   | "notFinite"
   | "horizonNotPositive"
+  /** The API takes whole years only, so it has no twin for this one. */
+  | "horizonNotWhole"
   | "priceNotPositive"
   | "sharesNotPositive"
   | "revenueNegative"
@@ -43,8 +47,8 @@ export type ProjectionResult =
 /** What a form holds mid-keystroke: any field may be absent, and a half-typed number is NaN. */
 type Draft<T> = { readonly [K in keyof T]?: T[K] | null };
 export type DraftBaseFacts = Draft<BaseFacts>;
-export type DraftAssumptions = Draft<Omit<Assumptions, "exitMultiple">> & {
-  readonly exitMultiple?: { readonly kind: ExitMultiple["kind"]; readonly value?: number | null } | null;
+export type DraftAssumptionSet = Draft<Omit<AssumptionSet, "exitMultiple">> & {
+  readonly exitMultiple?: { readonly kind?: ExitMultiple["kind"] | null; readonly value?: number | null } | null;
 };
 
 const rejected = (reason: RejectionReason): ProjectionResult => ({ status: "rejected", reason });
@@ -56,17 +60,20 @@ const present = (v: number | null | undefined): v is number => v != null && !Num
  * value that is present and wrong is rejected with its reason, even while other fields are still
  * empty, and only a set with nothing wrong and something missing is `incomplete`.
  */
-export function calculateProjection(facts: DraftBaseFacts, assumptions: DraftAssumptions): ProjectionResult {
+export function calculateProjection(facts: DraftBaseFacts, assumptions: DraftAssumptionSet): ProjectionResult {
   const { currentPrice, ttmRevenue, dilutedShares } = facts;
   const { growthRate, futureNetMargin, dilutionRate, horizon } = assumptions;
   const kind = assumptions.exitMultiple?.kind;
   const multiple = assumptions.exitMultiple?.value;
   // The margin plays no part on the P/S path, so there it is neither required nor checked.
   const margin = kind === "ps" ? 1 : futureNetMargin;
+  // A multiple that does not yet say what it multiplies is a field still being filled in.
+  const kindChosen = kind === "pe" || kind === "ps";
 
   const values = [currentPrice, ttmRevenue, dilutedShares, growthRate, margin, multiple, dilutionRate, horizon];
   if (values.some((v) => present(v) && !Number.isFinite(v))) return rejected("notFinite");
   if (present(horizon) && horizon <= 0) return rejected("horizonNotPositive");
+  if (present(horizon) && !Number.isInteger(horizon)) return rejected("horizonNotWhole");
   if (present(currentPrice) && currentPrice <= 0) return rejected("priceNotPositive");
   if (present(dilutedShares) && dilutedShares <= 0) return rejected("sharesNotPositive");
   if (present(ttmRevenue) && ttmRevenue < 0) return rejected("revenueNegative");
@@ -77,9 +84,10 @@ export function calculateProjection(facts: DraftBaseFacts, assumptions: DraftAss
   if (present(dilutionRate) && dilutionRate <= -1) return rejected("dilutionNotAboveMinusOne");
   if (present(multiple) && multiple < 0) return rejected("exitMultipleNegative");
   // A loss at the horizon has no P/E price; the glossary's answer is to use P/S instead.
-  if (present(margin) && margin < 0) return rejected("marginNegativeOnPe");
+  if (kind === "pe" && present(margin) && margin < 0) return rejected("marginNegativeOnPe");
 
   if (
+    !kindChosen ||
     !present(currentPrice) ||
     !present(ttmRevenue) ||
     !present(dilutedShares) ||

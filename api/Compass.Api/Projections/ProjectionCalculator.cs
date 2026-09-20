@@ -38,7 +38,12 @@ public record AssumptionSet(
 
 public record ProjectionOutputs(double FuturePrice, double X, double Cagr);
 
-/// <summary>Why a projection was refused. The web calculator's reasons carry the same names.</summary>
+/// <summary>
+/// Why a projection was refused. The web calculator's reasons carry the same names, checked in the
+/// same order. It differs in two places, both because it reads a form rather than a saved set: a
+/// NaN there is a half-typed field (no outputs, no rejection), and it has one more reason, for a
+/// horizon that is not whole years, which <see cref="AssumptionSet.Horizon"/> cannot hold.
+/// </summary>
 public enum ProjectionRejection
 {
     NotFinite,

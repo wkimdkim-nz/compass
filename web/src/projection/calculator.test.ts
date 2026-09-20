@@ -1,29 +1,13 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { vectors, within } from "../test/projectionVectors";
 import { calculateProjection } from "./calculator";
-import type { Assumptions, BaseFacts, ExitMultiple, ProjectionResult } from "./calculator";
+import type { AssumptionSet, BaseFacts, ExitMultiple, ProjectionResult } from "./calculator";
 
-// The live-preview calculator against the shared vectors (ticket #70). The file is read from the
-// repo root, not copied, so a new case fails here and in the .NET suite until each side is fixed.
-// `vectors.test.ts` guards the file's own shape; this one only trusts it.
-const vectors = JSON.parse(
-  readFileSync(
-    resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..", "spec", "projection-vectors.json"),
-    "utf8",
-  ),
-) as {
-  tolerance: { relative: number };
-  cases: {
-    id: string;
-    inputs: BaseFacts & Assumptions;
-    expected: { futurePrice: number; x: number; cagr: number };
-  }[];
-};
-
+// The live-preview calculator against the shared vectors (ticket #70): a new case in the file
+// fails here and in the .NET suite until each side is fixed. `vectors.test.ts` guards the file's
+// own shape; this one only trusts it.
 const facts: BaseFacts = { currentPrice: 40, ttmRevenue: 1_000_000_000, dilutedShares: 100_000_000 };
-const assumptions: Assumptions = {
+const assumptions: AssumptionSet = {
   growthRate: 0.1,
   futureNetMargin: 0.2,
   exitMultiple: { kind: "pe", value: 20 },
@@ -45,15 +29,14 @@ describe("calculateProjection", () => {
     const outputs = outputsOf(calculateProjection(c.inputs, c.inputs));
 
     for (const key of ["futurePrice", "x", "cagr"] as const) {
-      const expected = c.expected[key];
-      const allowed = vectors.tolerance.relative * Math.max(1, Math.abs(expected));
-      expect(Math.abs(outputs[key] - expected), key).toBeLessThanOrEqual(allowed);
+      expect(within(outputs[key], c.expected[key]), `${key}: ${outputs[key]}`).toBe(true);
     }
   });
 
   it.each([
     ["a horizon of zero", {}, { horizon: 0 }, "horizonNotPositive"],
     ["a negative horizon", {}, { horizon: -3 }, "horizonNotPositive"],
+    ["a fractional horizon", {}, { horizon: 2.5 }, "horizonNotWhole"],
     ["a price of zero", { currentPrice: 0 }, {}, "priceNotPositive"],
     ["a negative price", { currentPrice: -1 }, {}, "priceNotPositive"],
     ["a share count of zero", { dilutedShares: 0 }, {}, "sharesNotPositive"],
@@ -95,7 +78,7 @@ describe("calculateProjection", () => {
   });
 
   it("never lets NaN or infinity out, whatever the combination", () => {
-    const samples = [-1e308, -2, -1, -0.5, 0, 0.5, 1, 7, 1e308, Infinity, -Infinity];
+    const samples = [-1e308, -2, -1, -0.5, 0, 0.5, 1, 7, 1e308, Infinity, -Infinity, NaN];
     for (const kind of ["pe", "ps"] as const) {
       for (const a of samples) {
         for (const b of samples) {
@@ -122,6 +105,8 @@ describe("calculateProjection", () => {
     ["a half-typed number", facts, { ...assumptions, dilutionRate: NaN }],
     ["no exit multiple", facts, { ...assumptions, exitMultiple: undefined }],
     ["an exit multiple with a kind but no value", facts, { ...assumptions, exitMultiple: { kind: "pe" } }],
+    ["an exit multiple with a value but no kind", facts, { ...assumptions, exitMultiple: { value: 20 } }],
+    ["a loss with no kind chosen yet", facts, { ...assumptions, futureNetMargin: -0.1, exitMultiple: { value: 20 } }],
     ["a missing margin on P/E", facts, { ...assumptions, futureNetMargin: undefined }],
   ] as const)("answers %s with no outputs rather than a throw", (_, f, a) => {
     expect(calculateProjection(f, a)).toEqual({ status: "incomplete" });
