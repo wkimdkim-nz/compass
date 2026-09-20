@@ -220,7 +220,11 @@ public static class EdgarNormaliser
 
     /// <summary>One concept's 10-K and 10-Q facts in one unit, one figure per period: the latest filed.</summary>
     private static Dictionary<Period, double> Series(Dictionary<string, CompanyConcept?>? taxonomy, string tag, string unit) =>
-        FactsByPeriod(taxonomy, tag, unit).ToDictionary(period => period.Key, period => period.Value[^1].Val);
+        Latest(FactsByPeriod(taxonomy, tag, unit));
+
+    /// <summary>Each period's figure as last filed.</summary>
+    private static Dictionary<Period, double> Latest(IEnumerable<KeyValuePair<Period, List<CompanyFact>>> factsByPeriod) =>
+        factsByPeriod.ToDictionary(period => period.Key, period => period.Value[^1].Val);
 
     /// <summary>
     /// A share-count <see cref="Series"/> with every figure on the count of the latest filing: one
@@ -242,9 +246,7 @@ public static class EdgarNormaliser
             // There is a split, or every restatement would reconcile with none. However wrong the
             // factors, no count filed since the last was first seen has been restated by a split's worth.
             var latestFirstSeen = splits.Max(split => split.FirstFiled);
-            return factsByPeriod
-                .Where(period => period.Value[^1].Filed >= latestFirstSeen)
-                .ToDictionary(period => period.Key, period => period.Value[^1].Val);
+            return Latest(factsByPeriod.Where(period => period.Value[^1].Filed >= latestFirstSeen));
         }
 
         return factsByPeriod.ToDictionary(period => period.Key, period =>
@@ -272,8 +274,8 @@ public static class EdgarNormaliser
     }
 
     /// <summary>Every period filed more than once, as each pair of successive filings: most repeat the count or correct it, and only a <see cref="Restatement.IsSplitSized"/> one shows a split.</summary>
-    private static List<Restatement> Restatements(IEnumerable<List<CompanyFact>> factsByPeriod) =>
-        factsByPeriod
+    private static List<Restatement> Restatements(IEnumerable<List<CompanyFact>> factsOfEachPeriod) =>
+        factsOfEachPeriod
             // One figure per filing day, the one Series takes: the last EDGAR lists.
             .Select(facts => facts.GroupBy(f => f.Filed).Select(sameDay => sameDay.Last()).ToList())
             .SelectMany(facts => facts.Zip(facts.Skip(1), (before, after) => (Before: before, After: after)))
@@ -328,10 +330,10 @@ public static class EdgarNormaliser
     {
         var between = splits
             .Where(split => split.FirstFiled > restatement.Before && split.FirstFiled <= restatement.After)
-            .Aggregate(1.0, (product, split) => product * split.Factor);
+            .ToList();
         return restatement.IsSplitSized
-            ? Math.Abs(restatement.Ratio / between - 1) <= SplitRoundingTolerance
-            : between == 1.0;
+            ? Math.Abs(restatement.Ratio / between.Aggregate(1.0, (product, split) => product * split.Factor) - 1) <= SplitRoundingTolerance
+            : between.Count == 0;
     }
 
     /// <summary>

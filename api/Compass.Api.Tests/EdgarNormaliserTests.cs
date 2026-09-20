@@ -465,6 +465,11 @@ public class EdgarNormaliserTests
     /// first seen: 2024 and 2025, both in the 10-K of 12 March 2026. 2023 is lost though it was
     /// right, and there is no revenue before it to go further back for.
     /// </para>
+    /// <para>
+    /// Mullen (now Bollinger Innovations), which consolidated three times in 2023, would have
+    /// been the fixture, but it has tagged no diluted count since the 10-Q of August 2024 and is
+    /// refused for having none.
+    /// </para>
     /// </summary>
     [Fact]
     public void Splits_that_do_not_reconcile_with_every_restatement_end_the_history_instead()
