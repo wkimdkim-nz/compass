@@ -5,7 +5,7 @@ namespace Compass.Api.Tests;
 /// <summary>
 /// The EDGAR normaliser against recorded <c>companyfacts</c> documents (ticket #72, ADR 0010). No
 /// network and no class fixture: the normaliser is pure, so each test reads a recorded document
-/// and asserts on the figures.
+/// and asserts on the figures. Where no recorded filer shows a case, the test says so and makes one up.
 /// </summary>
 /// <remarks>
 /// Every expected figure was derived by hand from the fixture, and the sums are written out in
@@ -253,6 +253,198 @@ public class EdgarNormaliserTests
         Assert.Equal([new AnnualFigures(new DateOnly(2025, 12, 31), 600_461_000, 379_864_000, 166_026_608)], millrose.History);
     }
 
+    /// <summary>
+    /// Nvidia split ten for one in June 2024. The 10-K filed in February 2025 restates fiscal 2023
+    /// (2,507,000,000 becomes 25,070,000,000) and the 10-Q filed on 28 August 2024 is the first
+    /// filing on the new count, but fiscal 2022 was last filed in February 2024 and no later 10-K
+    /// reaches back to it. Left as filed, the history would show the share count growing tenfold
+    /// in a year.
+    /// </summary>
+    [Fact]
+    public void A_year_no_filing_restated_after_a_split_is_put_on_the_post_split_count()
+    {
+        var nvidia = Normalised("NVDA");
+
+        // FY2026 215,938 − 6M FY2026 90,805 + 6M FY2027 177,837.
+        Assert.Equal(302_970 * Million, nvidia.TtmRevenue);
+        // FY2026 120,067 − 6M FY2026 45,197 + 6M FY2027 118,010.
+        Assert.Equal(192_880 * Million, nvidia.TtmNetIncome);
+        Assert.Equal(24_285_000_000, nvidia.DilutedShares);
+        Assert.Equal(
+            [
+                // Filed as 2,535,000,000, last on 21 February 2024; × 10.
+                Year("2022-01-30", 26_914, 9_752, 25_350_000_000),
+                Year("2023-01-29", 26_974, 4_368, 25_070_000_000),
+                Year("2024-01-28", 60_922, 29_760, 24_940_000_000),
+                Year("2025-01-26", 130_497, 72_880, 24_804_000_000),
+                Year("2026-01-25", 215_938, 120_067, 24_514_000_000),
+            ],
+            nvidia.History);
+    }
+
+    /// <summary>
+    /// Nvidia also split four for one in July 2021, first seen in the 10-Q filed on 20 August 2021.
+    /// Fiscal 2022 was filed after that on the four-for-one count already, so only the later split
+    /// applies to it: × 40 would be 101,400,000,000.
+    /// </summary>
+    [Fact]
+    public void A_split_is_applied_only_to_figures_last_filed_before_it()
+    {
+        var fiscal2022 = Normalised("NVDA").History[0];
+
+        Assert.Equal(new DateOnly(2022, 1, 30), fiscal2022.FiscalYearEnd);
+        Assert.Equal(25_350_000_000, fiscal2022.DilutedShares);
+    }
+
+    /// <summary>
+    /// Lucid consolidated one for ten in September 2025; the 10-Q filed on 5 November 2025 is the
+    /// first on the new count and the 10-K after it restates 2023 (2,081,772,622 becomes
+    /// 208,177,262) and 2024. The two years before were last filed in 2024 and 2025.
+    /// </summary>
+    [Fact]
+    public void A_reverse_split_divides_the_years_no_filing_restated()
+    {
+        Assert.Equal(
+            [
+                // Filed as 740,393,759; ÷ 10 is 74,039,375.9, to the whole share.
+                new AnnualFigures(new DateOnly(2021, 12, 31), 27_111_000, -2_579_761_000, 74_039_376),
+                // Filed as 1,693,258,608; ÷ 10 is 169,325,860.8.
+                new AnnualFigures(new DateOnly(2022, 12, 31), 608_181_000, -1_304_460_000, 169_325_861),
+                new AnnualFigures(new DateOnly(2023, 12, 31), 595_271_000, -2_828_420_000, 208_177_262),
+                new AnnualFigures(new DateOnly(2024, 12, 31), 807_832_000, -2_713_942_000, 244_517_654),
+                new AnnualFigures(new DateOnly(2025, 12, 31), 1_353_790_000, -2_698_051_000, 313_400_136),
+            ],
+            Normalised("LCID").History);
+    }
+
+    /// <summary>
+    /// A filer changing its fiscal year end reports the short year between on a 10-KT (and 10-QT),
+    /// which is a 10-K or 10-Q in every way the normaliser cares about. No such filer was recorded,
+    /// so this one is Nvidia with its latest 10-K, filed on 25 February 2026, or its latest 10-Q,
+    /// filed on 26 August 2026, relabelled. Ignored, either would leave no TTM to add up.
+    /// </summary>
+    [Theory]
+    [InlineData("2026-02-25", "10-KT")]
+    [InlineData("2026-02-25", "10-KT/A")]
+    [InlineData("2026-08-26", "10-QT")]
+    [InlineData("2026-08-26", "10-QT/A")]
+    public void A_transition_report_is_read_like_the_report_it_stands_in_for(string filed, string form)
+    {
+        var relabelled = Relabelled(EdgarFixtures.CompanyFacts("NVDA"), DateOnly.Parse(filed), form);
+
+        var nvidia = Assert.IsType<FundamentalsResult.Normalised>(EdgarNormaliser.Normalise(relabelled)).Fundamentals;
+
+        Assert.Equal(302_970 * Million, nvidia.TtmRevenue);
+        Assert.Equal(new DateOnly(2026, 1, 25), nvidia.History[^1].FiscalYearEnd);
+    }
+
+    /// <summary>
+    /// Made up, as are the filers below it: a calendar-year filer moves its year end to June and
+    /// files a 10-KT for the six months between. The short year is read, but it is not a fiscal
+    /// year, so the history stops at it.
+    /// </summary>
+    [Fact]
+    public void A_short_transition_year_ends_the_history()
+    {
+        var filer = Filer(
+            ("10-K", "2022-02-20", [("2020-01-01", "2020-12-31", 500), ("2021-01-01", "2021-12-31", 500)]),
+            ("10-KT", "2022-08-20", [("2022-01-01", "2022-06-30", 500)]),
+            ("10-K", "2023-08-20", [("2022-07-01", "2023-06-30", 500)]));
+
+        var fundamentals = Assert.IsType<FundamentalsResult.Normalised>(EdgarNormaliser.Normalise(filer)).Fundamentals;
+
+        Assert.Equal([new AnnualFigures(new DateOnly(2023, 6, 30), FilerRevenue, FilerNetIncome, 500)], fundamentals.History);
+    }
+
+    /// <summary>
+    /// Four for one, with the restated counts rounded to the million: 626,000,000 becomes
+    /// 2,502,000,000, a ratio of 3.9968, and 630,000,000 becomes 2,520,000,000. Two sightings, and
+    /// the median of them is the rounded one, which is read as four: 2018 is 620,000,000 × 4, where
+    /// × 3.9968 would be 2,478,019,169.
+    /// </summary>
+    [Fact]
+    public void A_ratio_left_off_the_whole_number_by_rounding_is_read_as_it()
+    {
+        var filer = Filer(
+            ("10-K", "2021-02-20", [Calendar(2018, 620_000_000), Calendar(2019, 626_000_000), Calendar(2020, 630_000_000)]),
+            ("10-K", "2022-02-20", [Calendar(2019, 2_502_000_000), Calendar(2020, 2_520_000_000), Calendar(2021, 2_530_000_000)]));
+
+        Assert.Equal(
+            [2_480_000_000, 2_502_000_000, 2_520_000_000, 2_530_000_000],
+            History(filer).Select(year => year.DilutedShares));
+    }
+
+    /// <summary>Three for two, the smallest split looked for: 627,000,000 becomes 941,000,000, a ratio of 1.5008.</summary>
+    [Fact]
+    public void Three_for_two_is_read_as_one_and_a_half()
+    {
+        var filer = Filer(
+            ("10-K", "2021-02-20", [Calendar(2018, 620_000_000), Calendar(2019, 627_000_000), Calendar(2020, 630_000_000)]),
+            ("10-K", "2022-02-20", [Calendar(2019, 941_000_000), Calendar(2020, 945_000_000), Calendar(2021, 950_000_000)]));
+
+        Assert.Equal(
+            [930_000_000, 941_000_000, 945_000_000, 950_000_000],
+            History(filer).Select(year => year.DilutedShares));
+    }
+
+    /// <summary>A restatement of 1.3 is under three for two, so it is taken for a correction and 2018 is left as filed.</summary>
+    [Fact]
+    public void A_restatement_under_three_for_two_is_not_a_split()
+    {
+        var filer = Filer(
+            ("10-K", "2021-02-20", [Calendar(2018, 620_000_000), Calendar(2019, 626_000_000), Calendar(2020, 630_000_000)]),
+            ("10-K", "2022-02-20", [Calendar(2019, 813_800_000), Calendar(2020, 819_000_000), Calendar(2021, 825_000_000)]));
+
+        Assert.Equal(620_000_000, History(filer)[0].DilutedShares);
+    }
+
+    /// <summary>
+    /// Ten for one in 2020, then four for one in 2021. 2017 was last filed before both, so it is
+    /// × 40. The first split has four sightings: 2018 and 2019 restated by the next 10-K, × 10,
+    /// and the quarter and half year to June 2019, not filed again until both splits had happened,
+    /// × 40. The median of an even number is the nearer to one for one of the middle two, so the
+    /// pair spanning both splits does not make the first split forty for one and 2017 × 160.
+    /// </summary>
+    [Fact]
+    public void Sightings_spanning_two_splits_do_not_set_the_factor_of_the_first()
+    {
+        var filer = Filer(
+            ("10-K", "2020-02-20", [Calendar(2017, 61_000_000), Calendar(2018, 62_000_000), Calendar(2019, 62_600_000)]),
+            ("10-K", "2021-02-20", [Calendar(2018, 620_000_000), Calendar(2019, 626_000_000), Calendar(2020, 630_000_000)]),
+            ("10-K", "2022-02-20", [Calendar(2019, 2_504_000_000), Calendar(2020, 2_520_000_000), Calendar(2021, 2_530_000_000)]));
+        Shares(filer).AddRange(
+        [
+            new CompanyFact(new DateOnly(2019, 4, 1), new DateOnly(2019, 6, 30), 62_500_000, "10-Q", new DateOnly(2019, 8, 5)),
+            new CompanyFact(new DateOnly(2019, 1, 1), new DateOnly(2019, 6, 30), 62_400_000, "10-Q", new DateOnly(2019, 8, 5)),
+            new CompanyFact(new DateOnly(2019, 4, 1), new DateOnly(2019, 6, 30), 2_500_000_000, "10-Q", new DateOnly(2021, 8, 5)),
+            new CompanyFact(new DateOnly(2019, 1, 1), new DateOnly(2019, 6, 30), 2_496_000_000, "10-Q", new DateOnly(2021, 8, 5)),
+        ]);
+
+        Assert.Equal(
+            [2_440_000_000, 2_480_000_000, 2_504_000_000, 2_520_000_000, 2_530_000_000],
+            History(filer).Select(year => year.DilutedShares));
+    }
+
+    /// <summary>
+    /// Of two facts for one period filed on one day, the later listed is the one taken, and so the
+    /// one a split is read from: here the 10-K after a four for one lists each comparative on the
+    /// old count and then on the new.
+    /// </summary>
+    [Fact]
+    public void A_split_is_read_from_the_fact_taken_of_two_filed_on_one_day()
+    {
+        var filer = Filer(
+            ("10-K", "2021-02-20", [Calendar(2018, 620_000_000), Calendar(2019, 626_000_000), Calendar(2020, 630_000_000)]),
+            ("10-K", "2022-02-20",
+            [
+                Calendar(2019, 626_000_000), Calendar(2019, 2_504_000_000),
+                Calendar(2020, 630_000_000), Calendar(2020, 2_520_000_000),
+                Calendar(2021, 2_530_000_000),
+            ]));
+
+        Assert.Equal(2_480_000_000, History(filer)[0].DilutedShares);
+    }
+
     /// <summary>TSMC files a 20-F in IFRS tags: <c>companyfacts</c> holds no us-gaap fact for it at all.</summary>
     [Fact]
     public void A_20_F_issuer_is_refused_as_not_a_US_domestic_filer()
@@ -350,6 +542,57 @@ public class EdgarNormaliserTests
 
     [Fact]
     public void No_document_at_all_is_refused_not_thrown_on() => Unsupported(null);
+
+    private const double FilerRevenue = 1_000 * Million, FilerNetIncome = 100 * Million;
+
+    /// <summary>
+    /// A made-up filer, for what no recorded one shows: each filing reports the periods given, all
+    /// with the same revenue and net income and each with its own diluted share count.
+    /// </summary>
+    private static CompanyFacts Filer(params (string Form, string Filed, (string Start, string End, double Shares)[] Periods)[] filings)
+    {
+        CompanyConcept Concept(string unit, Func<double, double> value) => new(new()
+        {
+            [unit] = filings
+                .SelectMany(filing => filing.Periods.Select(period => (CompanyFact?)new CompanyFact(
+                    DateOnly.Parse(period.Start), DateOnly.Parse(period.End), value(period.Shares), filing.Form, DateOnly.Parse(filing.Filed))))
+                .ToList(),
+        });
+
+        return new CompanyFacts("Made Up Inc", new()
+        {
+            ["us-gaap"] = new()
+            {
+                ["Revenues"] = Concept("USD", _ => FilerRevenue),
+                ["NetIncomeLoss"] = Concept("USD", _ => FilerNetIncome),
+                ["WeightedAverageNumberOfDilutedSharesOutstanding"] = Concept("shares", shares => shares),
+            },
+        });
+    }
+
+    private static (string Start, string End, double Shares) Calendar(int year, double shares) =>
+        ($"{year}-01-01", $"{year}-12-31", shares);
+
+    private static List<CompanyFact?> Shares(CompanyFacts filer) =>
+        filer.Facts!["us-gaap"]!["WeightedAverageNumberOfDilutedSharesOutstanding"]!.Units!["shares"]!;
+
+    private static IReadOnlyList<AnnualFigures> History(CompanyFacts filer) =>
+        Assert.IsType<FundamentalsResult.Normalised>(EdgarNormaliser.Normalise(filer)).Fundamentals.History;
+
+    /// <summary>The document as recorded, with every fact from the filing made on one day given another form.</summary>
+    private static CompanyFacts Relabelled(CompanyFacts facts, DateOnly filed, string form) =>
+        facts with
+        {
+            Facts = facts.Facts!.ToDictionary(
+                taxonomy => taxonomy.Key,
+                taxonomy => taxonomy.Value?.ToDictionary(
+                    concept => concept.Key,
+                    concept => concept.Value is null
+                        ? null
+                        : new CompanyConcept(concept.Value.Units?.ToDictionary(
+                            unit => unit.Key,
+                            unit => unit.Value?.Select(f => f?.Filed == filed ? f with { Form = form } : f).ToList())))),
+        };
 
     /// <summary>The document as recorded, less one us-gaap concept.</summary>
     private static CompanyFacts Without(CompanyFacts facts, string concept) =>
