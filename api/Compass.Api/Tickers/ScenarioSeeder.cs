@@ -48,7 +48,11 @@ public static class ScenarioSeeder
         SeededScenario Scenario(string name, double growthRate) =>
             new(name, growthRate, margin, new SeededExitMultiple(kind, multiple), dilution, Horizon);
 
-        return [Scenario("bear", growth - spread), Scenario("base", growth), Scenario("bull", growth + spread)];
+        // Base below −⅔ would put Bear below −100%, which both calculators reject: Bear stops at
+        // losing all of it (ADR 0004, amended 2026-09-20).
+        var bear = Math.Max(growth - spread, -1);
+
+        return [Scenario("bear", bear), Scenario("base", growth), Scenario("bull", growth + spread)];
     }
 
     /// <summary>

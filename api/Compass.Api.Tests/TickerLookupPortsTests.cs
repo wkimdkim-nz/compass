@@ -127,6 +127,30 @@ public class TickerLookupPortsTests(CompassApiFactory factory) : IClassFixture<C
     }
 
     /// <summary>
+    /// Revenue 100 → 1 in a year is −99%, and Bear at base − ½|base| would be −148.5%: a rate both
+    /// calculators reject. Bear stops at −100%, the lowest they take.
+    /// </summary>
+    [Fact]
+    public async Task A_collapsing_company_has_bear_no_lower_than_losing_everything()
+    {
+        var collapsing = new Fundamentals(1, 0.1, 0.1, 50, new DateOnly(2025, 12, 31),
+        [
+            new AnnualFigures(new DateOnly(2024, 12, 31), 100, 10, 50),
+            new AnnualFigures(new DateOnly(2025, 12, 31), 1, 0.1, 50),
+        ]);
+        var client = await SignedInClient(services => services
+            .UseFundamentals(new FixedFundamentals(collapsing))
+            .UseQuote(new FixedQuote(10)));
+
+        var scenarios = Scenarios(await (await client.GetAsync("/api/tickers/CLPS")).Body());
+
+        var rates = scenarios.Select(s => s.GetProperty("growthRate").GetDouble()).ToList();
+        Assert.Equal(-1, rates[0]);
+        Assert.Equal(-0.99, rates[1], Precision);
+        Assert.Equal(-0.495, rates[2], Precision);
+    }
+
+    /// <summary>
     /// Over one year any ratio has a root, so revenue 100 → −20 would read as growth of −120% a
     /// year. There is no rate to speak of, and so nothing to seed.
     /// </summary>

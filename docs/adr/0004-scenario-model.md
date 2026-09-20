@@ -78,6 +78,11 @@ Persistence rule (single model, since FMP is in iteration 1):
 >    Fewer than two years of history gives **no defaults** rather than a CAGR over zero years.
 >    Which fields were pre-filled versus edited is not tracked.
 >
+>    **Amended 2026-09-20 (Bear's floor, #73).** A base below −⅔ would put Bear below −100%, a
+>    rate both calculators reject, so the default would open on an error. **Bear is held at
+>    −100%**, the lowest rate they take. Seeding nothing was the alternative, and would have
+>    thrown away a sound Base and Bull for the sake of one bound.
+>
 > The duplicated compute is kept, and made honest: both calculators use **double** and are tested
 > against one hand-computed vectors file at the repo root, with the tolerance stated in the file.
 > Persisted assumptions remain `numeric` in Postgres (ADR 0008); outputs are never stored.

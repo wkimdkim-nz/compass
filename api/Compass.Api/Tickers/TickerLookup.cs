@@ -13,7 +13,7 @@ public sealed record BaseFactsResponse(
     DateOnly FiguresTo);
 
 /// <summary>What the ticker lookup answers with. Raw values and decimals: millions and whole-number percents are the UI's.</summary>
-/// <param name="Scenarios">Bear, Base, Bull; or none, when the history is too short to seed from.</param>
+/// <param name="Scenarios">Bear, Base, Bull; or none, when there is nothing sound to seed from (see <see cref="ScenarioSeeder.Seed"/>).</param>
 /// <param name="Missing">The fields that could not be fetched, by their names here. Empty when everything was.</param>
 public sealed record TickerResponse(
     string Ticker,
