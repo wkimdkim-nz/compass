@@ -1,8 +1,8 @@
 // The live-preview projection calculator: the glossary's core formula (docs/glossary.md) in
 // double, with no I/O. Its twin is `ProjectionCalculator` in the API, which is authoritative on
 // save; both assert every case in spec/projection-vectors.json, so the two cannot drift
-// (ADR 0004, amended 2026-09-17). Decimals and raw values in, as on the wire: whole-number
-// percents and millions belong to the UI.
+// (ADR 0004, amended 2026-09-17). Decimals and raw values in, as on the wire: percents
+// and millions belong to the UI (ADR 0011).
 
 export type ExitMultiple = { kind: "pe"; value: number } | { kind: "ps"; value: number };
 
