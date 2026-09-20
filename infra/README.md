@@ -326,8 +326,13 @@ recorded**; the API's options classes, `FinnhubOptions` and `EdgarOptions` in
 | `Finnhub:ApiKey` | `Finnhub__ApiKey` | The quote source's API key | Injected by the ECS agent from the foundation stack's `compass/finnhub-api-key` secret, which the app stack finds **by name**. The operator sets its value by hand — *Bringing the foundation stack up* | `dotnet user-secrets` |
 | `Edgar:ContactEmail` | `Edgar__ContactEmail` | The contact address in the User-Agent SEC EDGAR requires | A plain environment variable on the task, from the app stack's `edgar_contact_email` variable. The operator supplies it with the apply — step 2 of *A work session* | An exported environment variable |
 
-Neither value is in source, in a `.tfvars`, or in Terraform state. The repository root's
-`README.md` has the local commands.
+Neither value is in source or in a `.tfvars`. **Only the Finnhub key is also out of Terraform
+state.** The contact address is not: it is a plain environment variable, so it is written into both
+task definitions and therefore into the **app** stack's state, and it is readable on the task
+definition by anyone who can call `ecs describe-task-definition`. That is acceptable because it is
+an address SEC EDGAR is sent in the clear on every request, not a credential, and because that
+state is destroyed with the stack — but it is not a secret and nothing here treats it as one. The
+repository root's `README.md` has the local commands.
 
 **A setting that is absent stubs its port only in Development.** There the API starts, logs a
 warning naming the stub port and the setting that would make it real, and calls nobody. In every
