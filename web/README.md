@@ -53,5 +53,7 @@ The form holds **text** in the UI's units, percents (8, not 0.08, to one decimal
 millions, negatives in parentheses. The current net margin is printed, not typed: no formula takes it. It crosses to the wire's decimals and raw values in exactly one module,
 `features/projection/figures.ts`, used by `projectionForm.ts` both for the live preview (the
 TypeScript calculator in `src/projection`) and for the body of a save. After a save the output rows
-show the .NET calculator's figures from the response until the next keystroke. The disclaimer is
+show the .NET calculator's figures from the response until the next keystroke. The save path (create
+or replace, what the server refused, its outputs) is `useSaveProjection.ts`; the output rows are one
+component, `OutputRows.tsx`, shared by the calculator and the landing page's specimen. The disclaimer is
 one component, `app/Disclaimer.tsx`, used beside the outputs and in every page's footer.
