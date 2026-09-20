@@ -216,7 +216,7 @@ public static class EdgarNormaliser
 
     /// <summary>One concept's 10-K and 10-Q facts in one unit, one figure per period: the latest filed.</summary>
     private static Dictionary<Period, double> Series(Dictionary<string, CompanyConcept?>? taxonomy, string tag, string unit) =>
-        Filings(taxonomy, tag, unit).ToDictionary(period => period.Key, period => period.Value[^1].Val);
+        FactsByPeriod(taxonomy, tag, unit).ToDictionary(period => period.Key, period => period.Value[^1].Val);
 
     /// <summary>
     /// A share-count <see cref="Series"/> with every figure on the count of the latest filing: one
@@ -225,13 +225,15 @@ public static class EdgarNormaliser
     /// </summary>
     private static Dictionary<Period, double> SplitAdjustedSeries(Dictionary<string, CompanyConcept?>? taxonomy, string tag, string unit)
     {
-        var filings = Filings(taxonomy, tag, unit);
-        var splits = Splits(filings.Values);
-        return filings.ToDictionary(period => period.Key, period =>
+        var factsByPeriod = FactsByPeriod(taxonomy, tag, unit);
+        var splits = Splits(factsByPeriod.Values);
+        return factsByPeriod.ToDictionary(period => period.Key, period =>
         {
             var latest = period.Value[^1];
             var since = splits.Where(split => split.FirstFiled > latest.Filed).ToList();
-            return since.Count == 0 ? latest.Val : Math.Round(since.Aggregate(latest.Val, (shares, split) => shares * split.Factor));
+            return since.Count == 0
+                ? latest.Val
+                : Math.Round(since.Aggregate(latest.Val, (shares, split) => shares * split.Factor), MidpointRounding.AwayFromZero);
         });
     }
 
@@ -245,13 +247,17 @@ public static class EdgarNormaliser
     /// each 10-Q and 10-K of the year after it; the earliest restating filing dates it, since any
     /// filing on the new count restates its own comparatives. Every restatement whose earlier
     /// filing predates that day is a sighting of the same split, and the median of their ratios is
-    /// taken, so that one sighting which spans two splits does not set the factor.
+    /// taken, so that a sighting which spans two splits does not set the factor. A sighting that
+    /// spans two is further from one for one than the split itself, so the ratios are ranked by
+    /// that distance, and of an even number the nearer of the middle two is the median.
     /// </summary>
-    private static List<Split> Splits(IEnumerable<List<CompanyFact>> filings)
+    private static List<Split> Splits(IEnumerable<List<CompanyFact>> factsByPeriod)
     {
-        var restatements = filings
+        var restatements = factsByPeriod
+            // One figure per filing day, the one Series takes: the last EDGAR lists.
+            .Select(facts => facts.GroupBy(f => f.Filed).Select(sameDay => sameDay.Last()).ToList())
             .SelectMany(facts => facts.Zip(facts.Skip(1), (before, after) => (Before: before, After: after)))
-            .Where(pair => pair.Before.Filed < pair.After.Filed && pair.Before.Val > 0 && pair.After.Val > 0)
+            .Where(pair => pair.Before.Val > 0 && pair.After.Val > 0)
             .Select(pair => (Before: pair.Before.Filed, After: pair.After.Filed, Ratio: pair.After.Val / pair.Before.Val))
             .Where(restatement => restatement.Ratio >= MinSplitRatio || restatement.Ratio <= 1 / MinSplitRatio)
             .OrderBy(restatement => restatement.After)
@@ -261,8 +267,12 @@ public static class EdgarNormaliser
         while (restatements.Count > 0)
         {
             var firstFiled = restatements[0].After;
-            var sightings = restatements.Where(r => r.Before < firstFiled).Select(r => r.Ratio).Order().ToList();
-            splits.Add(new Split(firstFiled, WithoutRounding(sightings[sightings.Count / 2])));
+            var sightings = restatements
+                .Where(r => r.Before < firstFiled)
+                .Select(r => r.Ratio)
+                .OrderBy(ratio => Math.Abs(Math.Log(ratio)))
+                .ToList();
+            splits.Add(new Split(firstFiled, NearestSplitRatio(sightings[(sightings.Count - 1) / 2])));
             restatements.RemoveAll(r => r.Before < firstFiled);
         }
         return splits;
@@ -273,15 +283,15 @@ public static class EdgarNormaliser
     /// for one, or one for them, so a ratio within <see cref="SplitRoundingTolerance"/> of such a
     /// number is read as it; any other is kept as found.
     /// </summary>
-    private static double WithoutRounding(double ratio)
+    private static double NearestSplitRatio(double ratio)
     {
-        if (ratio < 1) return 1 / WithoutRounding(1 / ratio);
+        if (ratio < 1) return 1 / NearestSplitRatio(1 / ratio);
         var nearest = Math.Round(ratio * 2) / 2;
         return Math.Abs(ratio / nearest - 1) <= SplitRoundingTolerance ? nearest : ratio;
     }
 
     /// <summary>One concept's 10-K and 10-Q facts in one unit, by period, each period's in the order they were filed.</summary>
-    private static Dictionary<Period, List<CompanyFact>> Filings(Dictionary<string, CompanyConcept?>? taxonomy, string tag, string unit)
+    private static Dictionary<Period, List<CompanyFact>> FactsByPeriod(Dictionary<string, CompanyConcept?>? taxonomy, string tag, string unit)
     {
         var facts = taxonomy?.GetValueOrDefault(tag)?.Units?.GetValueOrDefault(unit) ?? [];
         return facts
