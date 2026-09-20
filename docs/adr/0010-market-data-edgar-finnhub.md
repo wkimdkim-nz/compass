@@ -130,3 +130,38 @@ draft build tickets #54–#63.
 >    ignored" excepts the 10-KT and 10-QT (and their `/A` amendments), filed for the short year
 >    when a filer moves its fiscal year end. The short year is read like any other period, but it
 >    is not a fiscal year, so the history walk still ends at it.
+
+> **Amended 2026-09-20 (inferred splits are checked, #88).** One addition to the amendment above;
+> of what it lists as not covered, the serial reverse-splitter is now caught, though not adjusted for.
+>
+> 1. **The splits read are checked against every restatement, and the history is cut short when
+>    they fail.** Two splits with only a 10-Q or two filed between them defeat the median: Tonix
+>    consolidated about one for 30 and then one for 100 inside a year, its 2023 count came out as
+>    80 shares beside 736,339 for 2024, and nothing threw. A cleverer median was not the answer.
+>    Instead, each restatement of 1.4 or more must equal, within the same 1%, the product of the
+>    splits first seen after its earlier filing and no later than its later one; and a count filed
+>    twice that did not move by that much must have no split between its filings. Where any fails,
+>    the inference is known wrong and **no share count is adjusted**: the history keeps only the
+>    years last filed since the latest split was first seen, so no year in it is on a different
+>    count from the next. This is the truncation the amendment above set aside for the general
+>    case, used as the fallback. It can drop a year that was in fact on the current count (Tonix's
+>    2023 was), which costs history, not correctness. So does the 1%: the counts are weighted
+>    averages, and a filer issuing heavily around a split restates them by more than that (Peraso's
+>    one for 40 reads 38 to 40), so an honest single split can be cut short too. The cut is sound
+>    however wrong the factors: every split-sized restatement starts before the day the latest
+>    split was first seen. The same check catches a figure filed in the wrong scale and put right
+>    later (thousands as units), which reads as a split but leaves its neighbours in the same two
+>    filings unmoved.
+> 2. **A sighting spanning two splits is carried on to the second.** What it holds beyond the
+>    first split's factor may be the earliest sighting of the next, so it dates it and counts in
+>    its median. Without this a split first seen in a 10-Q whose comparatives span both was dated
+>    by the 10-K after it, and the check above would have refused filers the inference had right.
+> 3. **A split seen in one restatement only is not taken.** The check compares each restatement
+>    with factors read from the same restatements, so a split with one sighting reconciles with it
+>    by construction: a lone figure filed in the wrong scale and put right, with nothing else
+>    refiled that day, or what noise leaves of a sighting carried on as in 2 (ratios of 10, 10 and
+>    15 read as ten for one and then three for two). Neither can be told from a real split, so the
+>    history is cut short as in 1. The cost is a real split first seen in a first-quarter 10-Q,
+>    whose one comparative is its only sighting: the history is empty until the next filing
+>    restates more. Two wrong figures put right on one day still pass, until the next filing's
+>    unmoved comparatives fail the check.
