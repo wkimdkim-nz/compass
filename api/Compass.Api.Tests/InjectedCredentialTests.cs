@@ -46,12 +46,11 @@ public class InjectedCredentialTests(InjectedCredentialTests.SplitCredentialFact
         var client = factory.CreateBrowserLikeClient();
 
         var me = await client.RegisterNewUser();
-        var created = await client.PostAsJsonAsync("/api/notes", new { text = "joined at startup" });
-        var notes = await client.GetFromJsonAsync<List<NoteResponse>>("/api/notes", ApiClient.Json);
+        var created = await client.Save("AAPL");
+        var read = await client.GetAsync("/api/projections/AAPL");
 
+        Assert.NotEqual(Guid.Empty, me.Id);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var note = Assert.Single(notes!);
-        Assert.Equal(me.Id, note.UserId);
-        Assert.Equal("joined at startup", note.Text);
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
     }
 }

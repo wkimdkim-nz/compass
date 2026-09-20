@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fakeApi } from "./test/fakeApi";
 import { renderApp } from "./test/renderApp";
@@ -9,7 +9,7 @@ import { renderApp } from "./test/renderApp";
 const sleep = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const signInHeading = () => screen.findByRole("heading", { name: /sign in/i });
-const notesHeading = () => screen.findByRole("heading", { name: /your notes/i });
+const homeHeading = () => screen.findByRole("heading", { name: /your projections/i });
 
 async function fillCredentials(email: string, password: string) {
   const user = userEvent.setup();
@@ -37,7 +37,7 @@ describe("a logged-out visitor", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(/checking your session/i);
     expect(screen.queryByRole("heading", { name: /sign in/i })).not.toBeInTheDocument();
 
-    expect(await notesHeading()).toBeInTheDocument();
+    expect(await homeHeading()).toBeInTheDocument();
   });
 
   it("sees a form error when login answers 401, and the API state is not reset", async () => {
@@ -64,7 +64,7 @@ describe("a logged-out visitor", () => {
     const user = await fillCredentials("alice@example.com", "correct horse battery");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
-    expect(await notesHeading()).toBeInTheDocument();
+    expect(await homeHeading()).toBeInTheDocument();
     expect(screen.getByText(/signed in as alice@example.com/i)).toBeInTheDocument();
   });
 
@@ -75,7 +75,7 @@ describe("a logged-out visitor", () => {
     const user = await fillCredentials("new@example.com", "a long enough passphrase");
     await user.click(screen.getByRole("button", { name: /register/i }));
 
-    expect(await notesHeading()).toBeInTheDocument();
+    expect(await homeHeading()).toBeInTheDocument();
     expect(screen.getByText(/signed in as new@example.com/i)).toBeInTheDocument();
     expect(fakeApi.requestCount("POST /api/auth/login")).toBe(0);
   });
@@ -96,50 +96,35 @@ describe("a logged-out visitor", () => {
 });
 
 describe("a signed-in user", () => {
-  it("writes a note and reads it back in the list", async () => {
-    fakeApi.seedUser();
-    renderApp("/");
-    await notesHeading();
-    expect(await screen.findByText(/no notes yet/i)).toBeInTheDocument();
-
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText(/new note/i), "hello from the seam");
-    await user.click(screen.getByRole("button", { name: /add note/i }));
-
-    const list = await screen.findByRole("list", { name: /notes/i });
-    expect(within(list).getByText("hello from the seam")).toBeInTheDocument();
-  });
-
   it("is returned to the logged-out view after logging out, with the cached session cleared", async () => {
     fakeApi.seedUser();
     renderApp("/");
-    await notesHeading();
+    await homeHeading();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /sign out/i }));
 
     expect(await signInHeading()).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /your notes/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /your projections/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
-    // No further authenticated render: nothing brings the notes view back.
+    // No further authenticated render: nothing brings the signed-in view back.
     await sleep();
-    expect(screen.queryByRole("heading", { name: /your notes/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /your projections/i })).not.toBeInTheDocument();
   });
 
   it("is returned to the logged-out view when a protected call answers 401", async () => {
     fakeApi.seedUser();
     renderApp("/");
-    await notesHeading();
-    await screen.findByText(/no notes yet/i);
+    await homeHeading();
 
-    // The session expires on the server; the SPA finds out from its next protected call.
+    // The session expires on the server; the SPA finds out from its next protected call, which
+    // until the calculator lands is signing out: a 401 where there is no session left to end.
     fakeApi.expireSession();
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText(/new note/i), "too late");
-    await user.click(screen.getByRole("button", { name: /add note/i }));
+    await user.click(screen.getByRole("button", { name: /sign out/i }));
 
     expect(await signInHeading()).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole("heading", { name: /your notes/i })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("heading", { name: /your projections/i })).not.toBeInTheDocument());
     await sleep();
     expect(fakeApi.requestCount("GET /api/auth/me")).toBeLessThanOrEqual(4);
   });

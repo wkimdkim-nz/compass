@@ -84,7 +84,7 @@ terraform -chdir=infra/app apply -var "image_tag=<tag>"
 Expect ten minutes or so, most of it RDS. It blocks until the service is *stable*, not merely
 created.
 
-**3. Ask the app whether it works.** Nine assertions, cheapest first, and the only automated seam
+**3. Ask the app whether it works.** Eleven assertions, cheapest first, and the only automated seam
 against the deployed environment:
 
 ```bash
@@ -434,12 +434,16 @@ arguments — `scripts/smoke-deployed.sh <base-url> <cluster> <service>` — so 
 from CI later without being rewritten. It registers two throwaway users on a fresh unique email
 each run and **cleans up nothing**: `terraform destroy` is the cleanup.
 
-Nine assertions, cheapest first, each named for the silent failure it catches: the SPA loads; the
+Eleven assertions, cheapest first, each named for the silent failure it catches: the SPA loads; the
 origin refuses direct access; `/api/health` returns 200; register returns 201 with `HttpOnly`,
 `Secure` and `SameSite=Lax` read off the raw header; the session check returns 200; a second user
-in a second cookie jar sees themselves on a cache miss; an authenticated write reads back; an
-unauthenticated call returns 401 with no `Location`; and the session survives a forced
-redeployment. It stops at the first failure, because it walks one session forwards and everything
+in a second cookie jar sees themselves on a cache miss; saving a projection returns 201 with the
+outputs the API recomputed; an unauthenticated call returns 401 with no `Location`; the ticker
+lookup returns AAPL's base facts from the real providers; the projection reads back as the saved
+assumptions over a live price, and as a 404 to the second user; and the session survives a forced
+redeployment. The lookup assertion is the only place SEC EDGAR and Finnhub are asked for real, and
+it fails against a local API by design: with neither setting the ports are stubs, and it checks
+for the SEC's CIK. It stops at the first failure, because it walks one session forwards and everything
 after a break would be noise.
 
 Two of those are worth knowing about before you read a red line.

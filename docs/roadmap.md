@@ -90,7 +90,7 @@ deploy, so the tokens are built from the chosen look.**
        one lookup service; Finnhub adapter; stubs; in-memory cache (quote 15 min, fundamentals
        and ticker map 24 h); 404 / 422 / 503 / partial-200 exactly as ADR 0010 states; seeded
        Bear/Base/Bull per ADR 0004's amended rules, returned with the lookup.
-9. [ ] **Projection persistence.** `projections` (unique on user + ticker; CIK, company name) →
+9. [x] **Projection persistence.** `projections` (unique on user + ticker; CIK, company name) →
        `scenarios` (≤3); no base facts stored. `POST` creates (409 if exists), `PUT /{ticker}`
        replaces (404 if none), both recompute in .NET and return outputs; `GET /{ticker}`
        returns saved assumptions plus live base facts, or empty base facts and the lookup's

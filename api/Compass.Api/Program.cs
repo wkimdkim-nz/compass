@@ -3,7 +3,7 @@ using Compass.Api.Auth;
 using Compass.Api.Data;
 using Compass.Api.Health;
 using Compass.Api.MarketData;
-using Compass.Api.Notes;
+using Compass.Api.Projections;
 using Compass.Api.Tickers;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -103,7 +103,7 @@ app.UseAuthorization();
 
 app.MapHealthEndpoints();
 app.MapAuthEndpoints();
-app.MapNoteEndpoints();
+app.MapProjectionEndpoints();
 app.MapTickerEndpoints();
 
 app.Run();

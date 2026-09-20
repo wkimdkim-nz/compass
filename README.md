@@ -169,7 +169,7 @@ Desktop resolves `host.docker.internal` on its own, but Docker Engine on Linux d
 docker run --rm -p 8080:8080 --add-host host.docker.internal:host-gateway -e ASPNETCORE_ENVIRONMENT=Development -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api
 ```
 
-The API is then on <http://localhost:8080> — register, log in, and round-trip a note exactly as
+The API is then on <http://localhost:8080> — register, log in, and save a projection exactly as
 against `dotnet run`.
 
 Compose carries the same thing as an opt-in `api` service, and it is where the two provider
@@ -251,7 +251,7 @@ rendered page can, and the SPA's own seam already owns the rest:
 scripts/smoke-deployed.sh
 ```
 
-Nine assertions, and [`infra/README.md`](infra/README.md) describes them — including the two
+Eleven assertions, and [`infra/README.md`](infra/README.md) describes them — including the two
 results that read backwards, where the direct-origin assertion passes by *failing* and a cache hit
 on any `/api/*` response fails the whole run.
 
@@ -296,12 +296,15 @@ All under `/api`, JSON bodies only, ProblemDetails on every error.
 | `POST /api/auth/logout` | 204 | Ends the session on the server. 401 when there is no session to end. |
 | `GET /api/auth/me` | 200, `{ id, email }` | The session check. 401 (no redirect) when signed out. |
 | `GET /api/tickers/{symbol}` | 200, `{ ticker, companyName, cik, baseFacts, history, scenarios, missing }` | The ticker lookup (ADR 0010). Raw values and decimal rates. `scenarios` is Bear, Base, Bull seeded from `history` (ADR 0004, amended), or empty when there is nothing sound to seed from: fewer than two years of it, no current net margin (TTM revenue not positive), or revenue or shares that start or end at nothing or below, which no growth rate can be taken over. Bear is never below −1, the lowest rate the calculators take. 404 unknown ticker; 422 a filer that cannot be normalised, with the plain reason in `detail`; 503 when the fundamentals source fails. When only the quote fails it is still a 200: `baseFacts.currentPrice` is null, `missing` is `["currentPrice"]`, and each scenario's `exitMultiple` keeps its `kind` with a null `value`. On the stub ports the tickers are `AAPL` (profitable), `LCID` (unprofitable), `MRP` (one year of history, no scenarios) and `TSM` (422), all with made-up figures at a price of 100. |
-| `GET /api/notes` | 200, `[note]` | Only the caller's rows, newest first. |
-| `POST /api/notes` | 201, `note` | `{ text }`, attributed to the caller. |
+| `POST /api/projections` | 201, `{ ticker, companyName, cik, createdAt, updatedAt, scenarios }` | Creates the caller's projection for a company (ADR 0004, amended). Body: `{ ticker, companyName, cik, baseFacts: { currentPrice, ttmRevenue, dilutedShares }, scenarios }`, with one to three scenarios, each `{ name, growthRate, futureNetMargin, exitMultiple: { kind, value }, dilutionRate, horizon }` and named `bear`, `base` or `bull` at most once. `cik` is null for a company typed in by hand. Every scenario is recomputed by the .NET calculator against the `baseFacts` sent, and answered with its `outputs: { futurePrice, x, cagr }`; the base facts and the outputs are then let go, never stored. 409 when the caller already has a projection for that ticker, whatever its case. 400 with field errors under `errors`, keyed as the body spells the field (`scenarios[1].horizon`, `baseFacts.currentPrice`), for anything the calculator rejects or the record cannot hold. |
+| `PUT /api/projections/{ticker}` | 200, as the create | Replaces the projection's company name, CIK and scenarios; same body, less the `ticker` (one that names another ticker is a 400). 404 when the caller has no projection for that ticker. |
+| `GET /api/projections/{ticker}` | 200, `{ ticker, companyName, cik, createdAt, updatedAt, scenarios, baseFacts, missing, baseFactsUnavailable }` | The saved assumptions (no `outputs`) over the ticker lookup's live `baseFacts` and `missing`. When the lookup cannot seed (unknown ticker, unsupported filer, provider down) it is still a 200: `baseFacts` is null and `baseFactsUnavailable` carries the lookup's plain reason. This route's own 404 means only that the caller has no saved projection; another user's is a 404 too. |
 
-`Note` is a **throwaway** placeholder that exists only to prove the user-scoped round-trip. It is
-deleted when Phase 1's first real entity lands. The `data_protection_keys` table is **not**
-throwaway: it holds the key ring that encrypts the session cookie and must outlive `Note`.
+A projection is the caller's own: every query is filtered by the session's user id, the row is
+unique on `(user_id, ticker)` with the ticker upper-cased, and deleting a user deletes their
+projections and scenarios in the database itself (`ON DELETE CASCADE`). The rates and the multiple
+are `numeric` columns (ADR 0008) holding each figure as it was sent, and the outputs a save answers
+with are computed from those stored figures.
 
 ## Decisions recorded at build time
 
@@ -310,8 +313,8 @@ Both are closed here:
 
 - **Identity's table names stay mixed-case** (`"AspNetUsers"` and friends). `EFCore.NamingConventions`
   snake-cases every column, index and constraint, and every table the app itself declares
-  (`notes`, `data_protection_keys`), but `IdentityDbContext` pins its own table names. We accept
-  that rather than re-map seven tables: every ADR already says `AspNetUsers`. The `notes.user_id`
+  (`projections`, `scenarios`, `data_protection_keys`), but `IdentityDbContext` pins its own table names. We accept
+  that rather than re-map seven tables: every ADR already says `AspNetUsers`. The `projections.user_id`
   foreign key targets `"AspNetUsers".id`.
 - **Guid v7 everywhere.** EF Core already generates v7 keys; hand-created ids use
   `Guid.CreateVersion7()` so nothing in the database is v4.
@@ -322,5 +325,5 @@ The PR gate ([#66](https://github.com/wkimdkim-nz/compass/issues/66)) surfaced o
   keeps microseconds; .NET's clock counts 100ns ticks. Linux clocks do produce sub-microsecond
   ticks, macOS ones happen not to, so a POST that echoed the untruncated value and a GET that
   read the stored one agreed on a developer machine and disagreed on the CI runner. Any code
-  that stamps a row and returns the stamp must truncate first (see `PostgresNow` in
-  `NoteEndpoints.cs`, which the persistence work should keep or generalise when `Note` goes).
+  that stamps a row and returns the stamp must truncate first (`PostgresNow` in
+  `Data/PostgresClock.cs`, which the projection endpoints stamp their rows with).

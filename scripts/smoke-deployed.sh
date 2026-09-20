@@ -42,6 +42,11 @@ CONNECT_TIMEOUT="${CONNECT_TIMEOUT:-10}"
 MAX_TIME="${MAX_TIME:-30}"
 ORIGIN_TIMEOUT="${ORIGIN_TIMEOUT:-15}"
 
+# The company the lookup, save and load assertions use, and the CIK the SEC files it under: the
+# one thing in a lookup's answer that tells the real fundamentals source from the stub.
+TICKER="AAPL"
+TICKER_CIK="320193"
+
 for cmd in curl jq; do
   command -v "$cmd" >/dev/null || { echo "missing required command: $cmd" >&2; exit 2; }
 done
@@ -114,7 +119,7 @@ apex="${apex%%/*}"
 ORIGIN_HOSTNAME="${ORIGIN_HOSTNAME:-api-origin.${apex}}"
 
 # The AWS session is a *precondition*, not an assertion, so it is checked here rather than being
-# discovered at assertion 9 after eight passes have already been printed. Same exit code as a
+# discovered at assertion 11 after ten passes have already been printed. Same exit code as a
 # missing command, for the same reason: it is a fact about this laptop, not about the deployment.
 command -v aws >/dev/null || { echo "missing required command: aws" >&2; exit 2; }
 aws() { command aws --region "$REGION" "$@"; }
@@ -368,29 +373,30 @@ x_cache="$(header x-cache)"
   "X-Cache: ${x_cache} — the /api/* behaviour must use CachingDisabled"
 pass "${email_b} sees themselves, X-Cache: ${x_cache}"
 
-# 7 — One round trip, three proofs. There is no cheaper way to learn any of them: a write reaching
+# 7 — One write, three proofs. There is no cheaper way to learn any of them: a write reaching
 #     Postgres means the migration task ran against the database the service is talking to, that
 #     `Trust Server Certificate=true` still holds against RDS's certificate, and that both injected
-#     secrets resolved. All three fail as a 500 that names none of them.
-step "An authenticated write and read back (catches: migrations did not run, certificate trust, or an unresolved secret)"
-note_text="smoke ${run_id}"
-if ! http POST "$base_url/api/notes" \
-  -H 'Content-Type: application/json' --data "$(jq -nc --arg text "$note_text" '{text: $text}')" \
+#     secrets resolved. All three fail as a 500 that names none of them. The figures are the vectors
+#     file's `pe-base-5y`, so the outputs that come back are known to the digit: X is (55/51)^5.
+#     Reading it back waits for assertion 10, because a read also asks the providers.
+step "POST /api/projections returns 201 with recomputed outputs (catches: migrations did not run, certificate trust, or an unresolved secret)"
+saved_growth="0.1"
+projection="$(jq -nc --arg ticker "$TICKER" --argjson growth "$saved_growth" '{
+  ticker: $ticker, companyName: "Apple Inc.", cik: 320193,
+  baseFacts: {currentPrice: 40, ttmRevenue: 1000000000, dilutedShares: 100000000},
+  scenarios: [{name: "base", growthRate: $growth, futureNetMargin: 0.2, exitMultiple: {kind: "pe", value: 20}, dilutionRate: 0.02, horizon: 5}]
+}')"
+if ! http POST "$base_url/api/projections" \
+  -H 'Content-Type: application/json' --data "$projection" \
   -b "$jar_a" -c "$jar_a"; then
-  fail "POST /api/notes answers" "$(curl_failed)"
+  fail "POST /api/projections answers" "$(curl_failed)"
 fi
-[[ "$status" == "201" ]] || fail "POST /api/notes returns 201" \
+[[ "$status" == "201" ]] || fail "POST /api/projections returns 201" \
   "returned ${status}, body: $(head -c 300 "$body_path"). A 500 here is the database: the migration never ran, RDS's certificate is not trusted, or DB_USERNAME/DB_PASSWORD did not resolve."
-
-if ! http GET "$base_url/api/notes" -b "$jar_a" -c "$jar_a"; then
-  fail "GET /api/notes answers" "$(curl_failed)"
-fi
-[[ "$status" == "200" ]] || fail "GET /api/notes returns 200" "returned ${status}"
-found="$(jq -r --arg text "$note_text" --arg user "$user_id_a" \
-  '[.[] | select(.text == $text and .userId == $user)] | length' <"$body_path" 2>/dev/null || echo 0)"
-[[ "$found" == "1" ]] || fail "the note reads back, attributed to its author" \
-  "expected exactly one row with that text and userId ${user_id_a}, found ${found} in $(head -c 300 "$body_path")"
-pass "the row round-tripped to Postgres and back, attributed to ${email_a}"
+x="$(json '.scenarios[0].outputs.x')"
+[[ "$(jq -n --arg x "$x" '($x | tonumber? // 0) as $x | ($x - 1.4586885265391779 | fabs) < 1e-9')" == "true" ]] \
+  || fail "the save answers with the outputs the API computed" "expected X 1.4586885265391779, got ${x:-nothing} in $(head -c 300 "$body_path")"
+pass "the projection for ${TICKER} was saved, X ${x}"
 
 # 8 — The signed-out answer the SPA can actually act on. Identity's default is a 302 to
 #     /Account/Login, which a `fetch` follows into an HTML page and reports as a confusing parse
@@ -405,6 +411,52 @@ location="$(header location)"
 [[ -z "$location" ]] || fail "the 401 carries no Location header" \
   "Location: ${location} — the cookie handler's OnRedirectToLogin is back to Identity's default"
 pass "401, no redirect"
+
+# 9 — The first call that leaves AWS, and the only place the two providers are asked for real:
+#     every test runs on the stub ports (ADR 0010). ⚠️ Against a local API this FAILS, and should:
+#     with no contact address and no key the ports are stubs, and the stub's AAPL is a made-up
+#     company with CIK 1. A deployed task cannot start on stubs, so there a red line is a provider.
+#     A 503 is EDGAR — the contact address, or the SEC refusing the task's address. A null price
+#     under a 200 is Finnhub — the key's secret holds no value, or the wrong one.
+step "GET /api/tickers/${TICKER} returns base facts from the real providers (catches: an unset Finnhub key, an EDGAR contact the SEC refuses, or a task running on stubs)"
+if ! http GET "$base_url/api/tickers/${TICKER}" -b "$jar_a" -c "$jar_a"; then
+  fail "the ticker lookup answers" "$(curl_failed)"
+fi
+[[ "$status" == "200" ]] || fail "GET /api/tickers/${TICKER} returns 200" \
+  "returned ${status}, body: $(head -c 300 "$body_path"). A 503 is the fundamentals source: check EDGAR_CONTACT_EMAIL on the task, and the API's log for what the SEC answered."
+[[ "$(json '.cik')" == "$TICKER_CIK" ]] || fail "the company is the SEC's, not the stub's" \
+  "expected CIK ${TICKER_CIK}, got $(json '.cik') ($(json '.companyName')) — the API is on its stub fundamentals source, which a deployed task never is"
+[[ "$(json '.missing | length')" == "0" ]] || fail "every base fact was fetched" \
+  "missing: $(json '.missing | join(", ")') — a missing currentPrice is Finnhub: the secret from the foundation stack has no value, or not the key's"
+[[ "$(json '[.baseFacts.currentPrice, .baseFacts.ttmRevenue, .baseFacts.dilutedShares] | all(. != null and . > 0)')" == "true" ]] \
+  || fail "the base facts are positive figures" "got $(json '.baseFacts | tostring')"
+figures_to="$(json '.baseFacts.figuresTo')"
+[[ "$figures_to" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail "the base facts carry their figures-to date" "got ${figures_to}"
+[[ "$(json '.scenarios | map(.name) | join(",")')" == "bear,base,bull" ]] || fail "three scenarios are seeded from the filed history" \
+  "got $(json '.scenarios | tostring' | head -c 300)"
+live_price="$(json '.baseFacts.currentPrice')"
+pass "$(json '.companyName') at ${live_price}, figures to ${figures_to}"
+
+# 10 — What assertion 7 wrote, read back the way the calculator page reads it: the saved
+#      assumptions over live base facts. The price is the lookup's, not the 40 the save was
+#      computed against, which is the proof that no base fact was stored. The second user's 404 is
+#      the owner scoping, on the one route where a leak would show another user's thesis.
+step "GET /api/projections/${TICKER} returns the saved assumptions over live base facts, to its owner only (catches: a projection that does not reload, a stored base fact, or one user's projection served to another)"
+if ! http GET "$base_url/api/projections/${TICKER}" -b "$jar_a" -c "$jar_a"; then
+  fail "reading the projection answers" "$(curl_failed)"
+fi
+[[ "$status" == "200" ]] || fail "GET /api/projections/${TICKER} returns 200" "returned ${status}, body: $(head -c 300 "$body_path")"
+[[ "$(json '.scenarios | map(.name) | join(",")')" == "base" && "$(json '.scenarios[0].growthRate')" == "$saved_growth" ]] \
+  || fail "the saved assumptions read back" "expected one base scenario growing at ${saved_growth}, got $(json '.scenarios | tostring' | head -c 300)"
+[[ "$(json '.baseFacts.currentPrice')" == "$live_price" ]] || fail "the base facts are live, not the ones the save was computed against" \
+  "expected the lookup's price ${live_price}, got $(json '.baseFacts.currentPrice'); unavailable: $(json '.baseFactsUnavailable')"
+
+if ! http GET "$base_url/api/projections/${TICKER}" -b "$jar_b" -c "$jar_b"; then
+  fail "the second user's read answers" "$(curl_failed)"
+fi
+[[ "$status" == "404" ]] || fail "the projection is a 404 to the second user" \
+  "returned ${status} to ${email_b}, who has saved nothing: $(head -c 300 "$body_path")"
+pass "${email_a}'s assumptions over a live price of ${live_price}; a 404 to ${email_b}"
 
 # The running task ARNs of the service, or a failed assertion. ⚠️ A failed `list-tasks` is reported
 # as what it is and never folded into "found none": an expired session, a missing ecs:ListTasks
@@ -423,7 +475,7 @@ running_tasks() {
   printf '%s' "$arns"
 }
 
-# 9 — The most expensive assertion, and the last, because it is the only one that changes anything.
+# 11 — The most expensive assertion, and the last, because it is the only one that changes anything.
 #
 #     A forced deployment starts a *second* task before the first is stopped — the service runs at
 #     desired count 1 with ECS's default minimum-healthy 100% — so the session issued by the old
