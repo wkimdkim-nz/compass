@@ -253,7 +253,87 @@ public class EdgarNormaliserTests
         Assert.Equal([new AnnualFigures(new DateOnly(2025, 12, 31), 600_461_000, 379_864_000, 166_026_608)], millrose.History);
     }
 
-    /// <summary>TSMC files a 20-F in IFRS tags: <c>companyfacts</c> holds no us-gaap fact for it at all.</summary>
+    /// <summary>
+    /// Nvidia split ten for one in June 2024. The 10-K filed in February 2025 restates fiscal 2023
+    /// (2,507,000,000 becomes 25,070,000,000) and the 10-Q filed on 28 August 2024 is the first
+    /// filing on the new count, but fiscal 2022 was last filed in February 2024 and no later 10-K
+    /// reaches back to it. Left as filed, the history would show the share count growing tenfold
+    /// in a year.
+    /// </summary>
+    [Fact]
+    public void A_year_no_filing_restated_after_a_split_is_put_on_the_post_split_count()
+    {
+        var nvidia = Normalised("NVDA");
+
+        // FY2026 215,938 − 6M FY2026 90,805 + 6M FY2027 177,837.
+        Assert.Equal(302_970 * Million, nvidia.TtmRevenue);
+        // FY2026 120,067 − 6M FY2026 45,197 + 6M FY2027 118,010.
+        Assert.Equal(192_880 * Million, nvidia.TtmNetIncome);
+        Assert.Equal(24_285_000_000, nvidia.DilutedShares);
+        Assert.Equal(
+            [
+                // Filed as 2,535,000,000, last on 21 February 2024; × 10.
+                Year("2022-01-30", 26_914, 9_752, 25_350_000_000),
+                Year("2023-01-29", 26_974, 4_368, 25_070_000_000),
+                Year("2024-01-28", 60_922, 29_760, 24_940_000_000),
+                Year("2025-01-26", 130_497, 72_880, 24_804_000_000),
+                Year("2026-01-25", 215_938, 120_067, 24_514_000_000),
+            ],
+            nvidia.History);
+    }
+
+    /// <summary>
+    /// Nvidia also split four for one in July 2021, first seen in the 10-Q filed on 20 August 2021.
+    /// Fiscal 2022 was filed after that on the four-for-one count already, so only the later split
+    /// applies to it: × 40 would be 101,400,000,000.
+    /// </summary>
+    [Fact]
+    public void A_split_is_applied_only_to_figures_last_filed_before_it()
+    {
+        var fiscal2022 = Normalised("NVDA").History[0];
+
+        Assert.Equal(new DateOnly(2022, 1, 30), fiscal2022.FiscalYearEnd);
+        Assert.Equal(25_350_000_000, fiscal2022.DilutedShares);
+    }
+
+    /// <summary>
+    /// Lucid consolidated one for ten in September 2025; the 10-Q filed on 5 November 2025 is the
+    /// first on the new count and the 10-K after it restates 2023 (2,081,772,622 becomes
+    /// 208,177,262) and 2024. The two years before were last filed in 2024 and 2025.
+    /// </summary>
+    [Fact]
+    public void A_reverse_split_divides_the_years_no_filing_restated()
+    {
+        Assert.Equal(
+            [
+                // Filed as 740,393,759; ÷ 10 is 74,039,375.9, to the whole share.
+                new AnnualFigures(new DateOnly(2021, 12, 31), 27_111_000, -2_579_761_000, 74_039_376),
+                // Filed as 1,693,258,608; ÷ 10 is 169,325,860.8.
+                new AnnualFigures(new DateOnly(2022, 12, 31), 608_181_000, -1_304_460_000, 169_325_861),
+                new AnnualFigures(new DateOnly(2023, 12, 31), 595_271_000, -2_828_420_000, 208_177_262),
+                new AnnualFigures(new DateOnly(2024, 12, 31), 807_832_000, -2_713_942_000, 244_517_654),
+                new AnnualFigures(new DateOnly(2025, 12, 31), 1_353_790_000, -2_698_051_000, 313_400_136),
+            ],
+            Normalised("LCID").History);
+    }
+
+    /// <summary>
+    /// A filer changing its fiscal year end reports the short year between on a 10-KT (and 10-QT),
+    /// which is a 10-K in every way the normaliser cares about. No such filer was recorded, so
+    /// this one is Nvidia with its latest 10-K, filed on 25 February 2026, relabelled.
+    /// </summary>
+    [Fact]
+    public void A_transition_report_is_read_like_the_annual_report_it_stands_in_for()
+    {
+        var relabelled = Relabelled(EdgarFixtures.CompanyFacts("NVDA"), new DateOnly(2026, 2, 25), "10-KT");
+
+        var nvidia = Assert.IsType<FundamentalsResult.Normalised>(EdgarNormaliser.Normalise(relabelled)).Fundamentals;
+
+        Assert.Equal(302_970 * Million, nvidia.TtmRevenue);
+        Assert.Equal(new DateOnly(2026, 1, 25), nvidia.History[^1].FiscalYearEnd);
+    }
+
+    /// <summary>TSMC files a 20-F in IFRS tags:<c>companyfacts</c> holds no us-gaap fact for it at all.</summary>
     [Fact]
     public void A_20_F_issuer_is_refused_as_not_a_US_domestic_filer()
     {
@@ -350,6 +430,21 @@ public class EdgarNormaliserTests
 
     [Fact]
     public void No_document_at_all_is_refused_not_thrown_on() => Unsupported(null);
+
+    /// <summary>The document as recorded, with every fact from the filing made on one day given another form.</summary>
+    private static CompanyFacts Relabelled(CompanyFacts facts, DateOnly filed, string form) =>
+        facts with
+        {
+            Facts = facts.Facts!.ToDictionary(
+                taxonomy => taxonomy.Key,
+                taxonomy => taxonomy.Value?.ToDictionary(
+                    concept => concept.Key,
+                    concept => concept.Value is null
+                        ? null
+                        : new CompanyConcept(concept.Value.Units?.ToDictionary(
+                            unit => unit.Key,
+                            unit => unit.Value?.Select(f => f?.Filed == filed ? f with { Form = form } : f).ToList())))),
+        };
 
     /// <summary>The document as recorded, less one us-gaap concept.</summary>
     private static CompanyFacts Without(CompanyFacts facts, string concept) =>

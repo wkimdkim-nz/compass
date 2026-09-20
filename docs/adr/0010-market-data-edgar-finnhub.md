@@ -58,9 +58,26 @@ draft build tickets #54–#63.
   period appears more than once in `companyfacts`, as a comparative in later filings and as a
   restatement when one is made, so for each `(start, end)` period the fact taken is the one from
   the **latest-filed 10-K or 10-Q** (including `/A` amendments), which is also the row EDGAR puts
-  the `frame` tag on. Facts from other forms are ignored. This normalisation is unit-tested against
+  the `frame` tag on. Facts from other forms are ignored, except that a transition report
+  (**10-KT, 10-QT**), filed for the short year when a filer moves its fiscal year end, counts as
+  the 10-K or 10-Q it stands in for *(amended 2026-09-20)*. This normalisation is unit-tested against
   **recorded `companyfacts` fixtures** checked into the test project, including at least one
   repeated comparative and one restated period.
+- **Share splits are inferred from the restatements** *(added 2026-09-20)*. `companyfacts` records
+  no split, and a 10-K restates only the two years before its own, so after a split the oldest
+  years of the history stay on the old count: Nvidia's fiscal 2022 read 2.5bn shares beside
+  25bn for fiscal 2023, and the dilution default, a CAGR over that history, was nonsense. Where a
+  period's diluted share count differs between two successive filings by a ratio of 1.4 or more
+  either way, that is a split. It is dated by the **first filing carrying a restated count**; its
+  factor is the median ratio of the restatements that straddle that date, read as the whole or
+  half number it rounds to (3.9968 is four for one); and every share count last filed before that
+  date is multiplied by it, to the whole share. Truncating the history at the discontinuity was
+  the alternative: simpler, but it throws away a year or two of every split filer's history
+  when the restatements state the factor outright (Walmart's read 3, Broadcom's 10 and
+  Chipotle's 50 when checked). Not
+  covered: a split since the latest filing (the share counts are all on the old basis and the
+  quote is on the new one), a split no filing restated a period for, and anything under three
+  for two, which cannot be told from a correction.
 - **Staleness is visible.** `companyfacts` was observed missing recent filings for three of
   fourteen filers checked. The lookup reports the period end its TTM figures run to, and the UI
   shows "figures to <period end>" beside the base facts.
