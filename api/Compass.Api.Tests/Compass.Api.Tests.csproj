@@ -23,6 +23,8 @@
     <!-- The shared projection vectors, linked from the repo root rather than copied into the
          project, so the calculator tests read the same file the web suite reads. -->
     <None Include="../../spec/projection-vectors.json" Link="projection-vectors.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Recorded SEC EDGAR documents (scripts/record-edgar-fixture.sh); the normaliser's tests read no network. -->
+    <None Update="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
