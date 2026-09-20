@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import type { ProjectionOutputs } from "../../projection/calculator";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Disclaimer } from "../../app/Disclaimer";
-import { detail, fieldErrors, isStatus } from "../../app/problemDetails";
 import { ConfirmReplaceDialog } from "./ConfirmReplaceDialog";
-import { formatOutputs } from "./figures";
+import { BLANK, formatOutputs } from "./figures";
+import { OutputRows } from "./OutputRows";
 import {
-  useCreateProjectionMutation,
-  useReplaceProjectionMutation,
   type BaseFactsResponse,
+  type Company,
   type ExitMultipleKind,
-  type SavedProjectionResponse,
   type SavedScenario,
   type ScenarioName,
   type SeededScenario,
@@ -18,15 +15,16 @@ import {
   buildForm,
   currentMarginText,
   preview,
-  saveDraft,
   SCENARIO_NAMES,
+  SCENARIO_TITLE,
   type BaseFactsForm,
   type ProjectionForm,
   type ScenarioField,
 } from "./projectionForm";
+import { useSaveProjection } from "./useSaveProjection";
 
 type Props = {
-  company: { ticker: string; companyName: string; cik: number | null };
+  company: Company;
   /** Fresh from the lookup; absent when it could not pre-fill. */
   baseFacts: BaseFactsResponse | undefined;
   /** The lookup's Bear / Base / Bull defaults; empty when it had none to give. */
@@ -36,8 +34,6 @@ type Props = {
   /** The statement note printed above the base facts. */
   notice: ReactNode;
 };
-
-const TITLE: Record<ScenarioName, string> = { bear: "Bear", base: "Base", bull: "Bull" };
 
 const FACT_ROWS: { field: keyof BaseFactsForm; label: ReactNode; aria: string; source: string; wide?: boolean }[] = [
   { field: "price", label: "Share price", aria: "Share price", source: "Finnhub, per share" },
@@ -82,11 +78,6 @@ const KINDS: { kind: ExitMultipleKind; label: string }[] = [
 /** How long the output rows hold their tint after an edit, so the chain from a guess to the total shows; the fade after it is the stylesheet's. */
 const TINT_MS = 700;
 
-type ServerOutputs = Partial<Record<ScenarioName, ProjectionOutputs>>;
-
-const outputsByName = (response: SavedProjectionResponse): ServerOutputs =>
-  Object.fromEntries(response.scenarios.map((s) => [s.name, s.outputs]));
-
 /**
  * The statement: base facts, the assumptions table with its output rows, and the save. Every
  * keystroke recomputes each column with the TypeScript calculator; a save shows the .NET
@@ -97,20 +88,20 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
   const [opened, setOpened] = useState(() => buildForm(baseFacts, saved?.scenarios ?? seeded));
   const [form, setForm] = useState(opened);
   const [restated, setRestated] = useState(false);
-  const [savedHere, setSavedHere] = useState(false);
-  const [serverOutputs, setServerOutputs] = useState<ServerOutputs | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [problems, setProblems] = useState<string[]>([]);
   const [tinted, setTinted] = useState(false);
 
-  const [create, creating] = useCreateProjectionMutation();
-  const [replace, replacing] = useReplaceProjectionMutation();
-  const busy = creating.isLoading || replacing.isLoading;
-  const exists = saved !== undefined || savedHere;
+  const { save, noteEdit, exists, busy, serverOutputs, problems } = useSaveProjection({
+    company,
+    alreadySaved: saved !== undefined,
+    // What was saved is now what an edit is measured against.
+    onSaved: (sent) => {
+      setOpened(sent);
+      setRestated(false);
+    },
+  });
 
   const results = useMemo(() => preview(form), [form]);
-  // Counts edits, so that a save answered after a later edit does not put its outputs over the newer form.
-  const edits = useRef(0);
 
   useEffect(() => {
     if (!tinted) return;
@@ -119,10 +110,8 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
   }, [tinted, form]);
 
   const edit = (next: ProjectionForm) => {
-    edits.current += 1;
+    noteEdit();
     setForm(next);
-    setServerOutputs(null);
-    setProblems([]);
     setTinted(true);
   };
   const editFact = (field: keyof BaseFactsForm, text: string) => edit({ ...form, facts: { ...form.facts, [field]: text } });
@@ -138,49 +127,22 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
     setRestated(true);
   };
 
-  const save = async () => {
+  const confirmReplace = () => {
     setConfirming(false);
-    const draft = saveDraft(form, company);
-    if (!draft.ready) {
-      setProblems([
-        draft.unfinished.length > 0
-          ? `Finish or clear the ${draft.unfinished.map((name) => TITLE[name]).join(" and ")} column before saving: every figure in it, the future net margin included, and the base facts must give a result.`
-          : "Fill in at least one scenario before saving.",
-      ]);
-      return;
-    }
-
-    const sentAt = edits.current;
-    const result = await (exists ? replace : create)(draft.request);
-    if ("error" in result) {
-      // A 401 has already sent the app back to sign in (see the store); there is nothing to say here.
-      if (isStatus(result.error, 401)) return;
-      const fields = [...new Set(Object.values(fieldErrors(result.error)).flat())];
-      setProblems(fields.length > 0 ? fields : [detail(result.error) ?? "The projection could not be saved just now. Try again shortly."]);
-      return;
-    }
-    // The form stays editable during a save: outputs for figures since typed over are not shown.
-    if (edits.current === sentAt) setServerOutputs(outputsByName(result.data));
-    // What was saved is now what an edit is measured against.
-    setOpened(form);
-    setSavedHere(true);
-    setRestated(false);
-    setProblems([]);
+    void save(form);
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (exists) setConfirming(true);
-    else void save();
+    else void save(form);
   };
 
   const shown = (name: ScenarioName) => {
     const outputs = serverOutputs?.[name] ?? (results[name].status === "ok" ? results[name].outputs : undefined);
     return outputs && formatOutputs(outputs);
   };
-  const columns = SCENARIO_NAMES.map((name) => ({ name, outputs: shown(name) }));
   const currentMargin = currentMarginText(baseFacts);
-  const blank = "—";
 
   return (
     <form onSubmit={submit} noValidate>
@@ -229,7 +191,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                     value={form.facts[field]}
                     onChange={(e) => editFact(field, e.target.value)}
                     inputMode="decimal"
-                    placeholder={blank}
+                    placeholder={BLANK}
                     autoComplete="off"
                     aria-label={aria}
                   />
@@ -248,7 +210,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                     {currentMargin} <span className="unit">%</span>
                   </>
                 ) : (
-                  blank
+                  BLANK
                 )}
               </td>
             </tr>
@@ -267,7 +229,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
               <th scope="col">Input</th>
               {SCENARIO_NAMES.map((name) => (
                 <th key={name} scope="col">
-                  {TITLE[name]}
+                  {SCENARIO_TITLE[name]}
                 </th>
               ))}
             </tr>
@@ -285,12 +247,12 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                       value={form.scenarios[name][field]}
                       onChange={(e) => editScenario(name, { [field]: e.target.value })}
                       inputMode="decimal"
-                      placeholder={blank}
+                      placeholder={BLANK}
                       autoComplete="off"
-                      aria-label={`${TITLE[name]} ${aria}`}
+                      aria-label={`${SCENARIO_TITLE[name]} ${aria}`}
                     />
                     {field === "exitMultiple" && (
-                      <span className="basis" role="radiogroup" aria-label={`${TITLE[name]} exit multiple basis`}>
+                      <span className="basis" role="radiogroup" aria-label={`${SCENARIO_TITLE[name]} exit multiple basis`}>
                         {KINDS.map(({ kind, label: kindLabel }) => (
                           <label key={kind}>
                             <input
@@ -298,7 +260,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                               name={`basis-${name}`}
                               checked={form.scenarios[name].kind === kind}
                               onChange={() => editScenario(name, { kind })}
-                              aria-label={`${TITLE[name]} exit multiple on ${kindLabel}`}
+                              aria-label={`${SCENARIO_TITLE[name]} exit multiple on ${kindLabel}`}
                             />
                             <span>{kindLabel}</span>
                           </label>
@@ -309,46 +271,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                 ))}
               </tr>
             ))}
-            <tr className={`subtotal-rule total${tinted ? " changed" : ""}`}>
-              <th scope="row" className="label">
-                Return multiple
-              </th>
-              {columns.map(({ name, outputs }) => (
-                <td key={name} className="num x">
-                  {outputs ? (
-                    <>
-                      {outputs.x}
-                      <sup>×</sup>
-                    </>
-                  ) : (
-                    blank
-                  )}
-                </td>
-              ))}
-            </tr>
-            <tr className="double-rule" aria-hidden="true">
-              <td colSpan={4} />
-            </tr>
-            <tr className={tinted ? "changed" : undefined}>
-              <th scope="row" className="label">
-                CAGR <small>% per year</small>
-              </th>
-              {columns.map(({ name, outputs }) => (
-                <td key={name} className="num">
-                  {outputs?.cagr ?? blank}
-                </td>
-              ))}
-            </tr>
-            <tr className={tinted ? "changed" : undefined}>
-              <th scope="row" className="label">
-                Future share price <small>USD</small>
-              </th>
-              {columns.map(({ name, outputs }) => (
-                <td key={name} className="num">
-                  {outputs?.futurePrice ?? blank}
-                </td>
-              ))}
-            </tr>
+            <OutputRows columns={[shown("bear"), shown("base"), shown("bull")]} tinted={tinted} />
           </tbody>
         </table>
         <Disclaimer as="footnote" />
@@ -381,7 +304,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
           savedOn={saved?.on}
           busy={busy}
           onKeep={() => setConfirming(false)}
-          onReplace={() => void save()}
+          onReplace={confirmReplace}
         />
       )}
     </form>

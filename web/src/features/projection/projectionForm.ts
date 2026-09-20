@@ -5,6 +5,7 @@ import { calculateProjection, type DraftAssumptionSet, type DraftBaseFacts, type
 import { parseFigure, toUi, toWire, type Unit } from "./figures";
 import type {
   BaseFactsResponse,
+  Company,
   ExitMultipleKind,
   SavedScenario,
   SaveProjectionRequest,
@@ -13,6 +14,7 @@ import type {
 } from "./projectionApi";
 
 export const SCENARIO_NAMES = ["bear", "base", "bull"] as const satisfies readonly ScenarioName[];
+export const SCENARIO_TITLE: Record<ScenarioName, string> = { bear: "Bear", base: "Base", bull: "Bull" };
 
 /**
  * The text of every field. Any of it may be empty or mistyped at any moment. The current net margin
@@ -124,10 +126,7 @@ export type SaveDraft =
  * The body of a save, once every column that has been started computes. The server is the
  * authority on what is valid; this only keeps a half-typed form from being sent to it.
  */
-export function saveDraft(
-  form: ProjectionForm,
-  company: { ticker: string; companyName: string; cik: number | null },
-): SaveDraft {
+export function saveDraft(form: ProjectionForm, company: Company): SaveDraft {
   const results = preview(form);
   const started = SCENARIO_NAMES.filter((name) => !untouched(form.scenarios[name]));
   // The preview needs no margin on the P/S path, but a save does: the API stores one for every

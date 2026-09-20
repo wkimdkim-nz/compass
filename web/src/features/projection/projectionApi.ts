@@ -7,6 +7,9 @@ import type { ProjectionOutputs } from "../../projection/calculator";
 export type ScenarioName = "bear" | "base" | "bull";
 export type ExitMultipleKind = "pe" | "ps";
 
+/** The glossary's Company. The CIK is null when no lookup has named it. */
+export type Company = { ticker: string; companyName: string; cik: number | null };
+
 export type BaseFactsResponse = {
   /** Null when the quote source failed; `missing` then names it. */
   currentPrice: number | null;
@@ -65,10 +68,7 @@ export type LoadedProjectionResponse = {
   scenarios: SavedScenario[];
 };
 
-export type SaveProjectionRequest = {
-  ticker: string;
-  companyName: string;
-  cik: number | null;
+export type SaveProjectionRequest = Company & {
   baseFacts: { currentPrice: number | null; ttmRevenue: number | null; dilutedShares: number | null };
   scenarios: SavedScenario[];
 };

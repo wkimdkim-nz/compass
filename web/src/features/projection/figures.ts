@@ -60,7 +60,13 @@ export function toWire(value: number, unit: Unit): number {
   return Number((value * SCALE[unit]).toPrecision(12));
 }
 
-export function formatOutputs(outputs: ProjectionOutputs): { x: string; cagr: string; futurePrice: string } {
+/** What a figure that is not there prints as. */
+export const BLANK = "—";
+
+/** One column's outputs as the statement prints them. */
+export type PrintedOutputs = { x: string; cagr: string; futurePrice: string };
+
+export function formatOutputs(outputs: ProjectionOutputs): PrintedOutputs {
   return {
     x: formatFigure(outputs.x, 1),
     cagr: `${formatFigure(outputs.cagr * 100, 1)} %`,
