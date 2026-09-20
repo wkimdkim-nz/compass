@@ -63,6 +63,9 @@ var marketDataProviders = MarketDataProviders.Resolve(builder.Configuration, bui
 builder.Services.AddSingleton(marketDataProviders);
 builder.Services.Configure<FinnhubOptions>(builder.Configuration.GetSection(FinnhubOptions.SectionName));
 builder.Services.Configure<EdgarOptions>(builder.Configuration.GetSection(EdgarOptions.SectionName));
+// Registered whichever way the fundamentals port resolved: nothing constructs it, and so nothing
+// reads the contact address, until the real fundamentals source asks for it.
+builder.Services.AddEdgarClient();
 
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails(options =>
