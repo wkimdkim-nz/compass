@@ -12,8 +12,10 @@ public sealed record CompanyFacts(
     string? EntityName,
     Dictionary<string, Dictionary<string, CompanyConcept?>?>? Facts)
 {
-    public static CompanyFacts? Parse(string json) =>
-        JsonSerializer.Deserialize<CompanyFacts>(json, JsonSerializerOptions.Web);
+    /// <summary>Throws <see cref="JsonException"/> for anything that is not a JSON object, the literal <c>null</c> included.</summary>
+    public static CompanyFacts Parse(string json) =>
+        JsonSerializer.Deserialize<CompanyFacts>(json, JsonSerializerOptions.Web)
+        ?? throw new JsonException("The companyfacts document is null.");
 }
 
 public sealed record CompanyConcept(Dictionary<string, List<CompanyFact?>?>? Units);

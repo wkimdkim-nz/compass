@@ -335,7 +335,6 @@ public class EdgarNormaliserTests
 
     public static TheoryData<string> DocumentsWithPiecesMissing =>
     [
-        "null",
         "{}",
         """{ "facts": null }""",
         """{ "facts": { "us-gaap": null } }""",
@@ -348,6 +347,9 @@ public class EdgarNormaliserTests
     [MemberData(nameof(DocumentsWithPiecesMissing))]
     public void A_document_with_pieces_missing_is_refused_not_thrown_on(string json) =>
         Unsupported(CompanyFacts.Parse(json));
+
+    [Fact]
+    public void No_document_at_all_is_refused_not_thrown_on() => Unsupported(null);
 
     /// <summary>The document as recorded, less one us-gaap concept.</summary>
     private static CompanyFacts Without(CompanyFacts facts, string concept) =>

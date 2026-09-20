@@ -12,7 +12,7 @@ public static class EdgarFixtures
     public static string Json(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Edgar", $"{name}.json"));
 
-    public static CompanyFacts CompanyFacts(string ticker) => MarketData.CompanyFacts.Parse(Json(ticker))!;
+    public static CompanyFacts CompanyFacts(string ticker) => MarketData.CompanyFacts.Parse(Json(ticker));
 
     public static EdgarTickerMap TickerMap() => EdgarTickerMap.Parse(Json("company_tickers"));
 }

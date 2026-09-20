@@ -59,10 +59,16 @@ public class EdgarClientTests
         await Assert.ThrowsAsync<HttpRequestException>(() => client.GetCompanyFactsAsync(320193, CancellationToken.None));
     }
 
-    [Fact]
-    public async Task A_document_that_cannot_be_read_is_an_outage_too()
+    /// <summary>
+    /// The JSON literal <c>null</c> parses, to nothing. Passed on, it would read as "EDGAR holds no
+    /// facts for this company" and as a ticker file in which every ticker is unknown.
+    /// </summary>
+    [Theory]
+    [InlineData("<html>Request Rate Threshold Exceeded</html>")]
+    [InlineData("null")]
+    public async Task A_document_that_cannot_be_read_is_an_outage_too(string body)
     {
-        var client = ClientFor(new RecordingEdgar { Body = "<html>Request Rate Threshold Exceeded</html>" }, Contact);
+        var client = ClientFor(new RecordingEdgar { Body = body }, Contact);
 
         await Assert.ThrowsAsync<HttpRequestException>(() => client.GetTickerMapAsync(CancellationToken.None));
         await Assert.ThrowsAsync<HttpRequestException>(() => client.GetCompanyFactsAsync(320193, CancellationToken.None));

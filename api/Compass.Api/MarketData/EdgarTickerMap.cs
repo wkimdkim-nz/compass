@@ -19,9 +19,14 @@ public sealed class EdgarTickerMap
     private EdgarTickerMap(Dictionary<string, EdgarCompany> byTicker) => _byTicker = byTicker;
 
     /// <summary>The file is one object keyed by row number: <c>{"0":{"cik_str":320193,"ticker":"AAPL","title":"Apple Inc."},…}</c>.</summary>
+    /// <remarks>
+    /// Throws <see cref="JsonException"/> for anything that is not a JSON object, the literal
+    /// <c>null</c> included: an empty map would answer not-found for every ticker there is.
+    /// </remarks>
     public static EdgarTickerMap Parse(string json)
     {
-        var rows = JsonSerializer.Deserialize<Dictionary<string, Row?>>(json, JsonSerializerOptions.Web) ?? [];
+        var rows = JsonSerializer.Deserialize<Dictionary<string, Row?>>(json, JsonSerializerOptions.Web)
+            ?? throw new JsonException("The ticker file is null.");
         var byTicker = new Dictionary<string, EdgarCompany>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in rows.Values)
         {
