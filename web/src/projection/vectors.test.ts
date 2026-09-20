@@ -1,46 +1,10 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { KINDS, vectors, within } from "../test/projectionVectors";
 
 // Shape guard for the shared vectors file (docs/glossary.md, "The core formula"). The
 // calculators (ticket #70) assert every case against the formula; this test only proves the
 // file is well-formed and that each case's three outputs agree with each other, so a
 // transcription slip is caught here rather than blamed on a calculator.
-const vectors = JSON.parse(
-  // The file sits at the repo root: web/src/projection -> ../../../spec.
-  readFileSync(
-    resolve(fileURLToPath(import.meta.url), "..", "..", "..", "..", "spec", "projection-vectors.json"),
-    "utf8",
-  ),
-) as VectorsFile;
-
-const KINDS = ["pe", "ps"] as const;
-type Kind = (typeof KINDS)[number];
-type Case = {
-  id: string;
-  inputs: {
-    currentPrice: number;
-    ttmRevenue: number;
-    dilutedShares: number;
-    growthRate: number;
-    futureNetMargin: number;
-    exitMultiple: { kind: Kind; value: number };
-    dilutionRate: number;
-    horizon: number;
-  };
-  expected: { futurePrice: number; x: number; cagr: number };
-  working: string[];
-};
-type VectorsFile = {
-  formula: string;
-  tolerance: { relative: number; rule: string };
-  cases: Case[];
-};
-
-const within = (actual: number, expected: number) =>
-  Math.abs(actual - expected) <= vectors.tolerance.relative * Math.max(1, Math.abs(expected));
-
 describe("spec/projection-vectors.json", () => {
   it("names the formula and states a tolerance", () => {
     expect(vectors.formula).toContain("docs/glossary.md");
