@@ -448,16 +448,23 @@ public class EdgarNormaliserTests
     }
 
     /// <summary>
-    /// Tonix consolidated twice inside a year with two 10-Qs between. The first quarter of 2024 was
-    /// filed on 13 May 2024 as 80,879,108 and on 12 May 2025 as 27,886, one for 2,900; the second,
-    /// filed on 16 August 2024, was 4,085,132 and a year on 41,011, one for 99.6. So one of about
-    /// 29 fell between those two 10-Qs and one of 100 after them. Most sightings of the first span
-    /// both, and no pair of dated factors fits them all: 2023, filed on 1 April 2024 as 17,039,309,
-    /// is 7,925 in the 10-K of 18 March 2025, one for 2,150. That 10-K is on today's count, but the
-    /// last split inferred is first seen on 12 May 2025, and adjusted by it 2023 would be 7,925 ÷
-    /// 99.5 = 80 shares beside 736,339 for 2024. The restatements do not reconcile, so nothing is
-    /// adjusted, and the history keeps only the years filed since 12 May 2025: 2024 and 2025, both
-    /// in the 10-K of 12 March 2026. There is no revenue before 2023 to go further back for.
+    /// Tonix consolidates every year, and twice between May 2024 and March 2025 with two 10-Qs
+    /// between. The first quarter of 2024 was filed on 13 May 2024 as 80,879,108 and on 12 May 2025
+    /// as 27,886, one for 2,900; the second, filed on 16 August 2024, was 4,085,132 and a year on
+    /// 41,011, one for 99.6. So one of about 29 fell between those two 10-Qs and one of 100 after
+    /// them. 2023, filed on 1 April 2024 as 17,039,309, is 7,925 in the 10-K of 18 March 2025,
+    /// which is on today's count. Before the splits were checked that sighting was taken for the
+    /// split of May 2024, the one of 100 was dated 12 May 2025, and 2023 came out as 7,925 ÷ 99.5
+    /// = 80 shares beside 736,339 for 2024.
+    /// <para>
+    /// No set of dated factors fits these restatements: they are of weighted averages, which the
+    /// other consolidations move too (the quarters of 2023 are restated by 18.3, 19.4 and 21.2
+    /// for the one split), and the first quarter of 2024's one for 2,900 sits over a split first
+    /// seen on 18 March 2025 and another, of what is left, on 12 May 2025. So nothing is adjusted,
+    /// and the history keeps only the years filed since 12 May 2025, the last day a split was
+    /// first seen: 2024 and 2025, both in the 10-K of 12 March 2026. 2023 is lost though it was
+    /// right, and there is no revenue before it to go further back for.
+    /// </para>
     /// </summary>
     [Fact]
     public void Splits_that_do_not_reconcile_with_every_restatement_end_the_history_instead()

@@ -239,9 +239,11 @@ public static class EdgarNormaliser
 
         if (!restatements.All(restatement => Reconciles(restatement, splits)))
         {
-            var lastSeen = splits.Max(split => split.FirstFiled);
+            // There is a split, or every restatement would reconcile with none. However wrong the
+            // factors, no count filed since the last was first seen has been restated by a split's worth.
+            var latestFirstSeen = splits.Max(split => split.FirstFiled);
             return factsByPeriod
-                .Where(period => period.Value[^1].Filed >= lastSeen)
+                .Where(period => period.Value[^1].Filed >= latestFirstSeen)
                 .ToDictionary(period => period.Key, period => period.Value[^1].Val);
         }
 
@@ -258,7 +260,11 @@ public static class EdgarNormaliser
     /// <summary>A split, as seen from the filings: the day the first filing on the new count was made, and new shares per old.</summary>
     private readonly record struct Split(DateOnly FirstFiled, double Factor);
 
-    /// <summary>One period's share count as it stood in two successive filings: the days they were made, and the later count over the earlier.</summary>
+    /// <summary>
+    /// One period's share count as it stood in two successive filings: the days they were made, and
+    /// the later count over the earlier. Within <see cref="Splits"/>, also what is left of one that
+    /// spans two splits once the first is taken out: from the day that split was first seen.
+    /// </summary>
     private readonly record struct Restatement(DateOnly Before, DateOnly After, double Ratio)
     {
         /// <summary>Restated by <see cref="MinSplitRatio"/> or more, either way.</summary>
@@ -290,13 +296,13 @@ public static class EdgarNormaliser
     /// </summary>
     private static List<Split> Splits(List<Restatement> restatements)
     {
-        var unread = restatements.Where(r => r.IsSplitSized).OrderBy(r => r.After).ToList();
+        var unattributed = restatements.Where(r => r.IsSplitSized).OrderBy(r => r.After).ToList();
 
         var splits = new List<Split>();
-        while (unread.Count > 0)
+        while (unattributed.Count > 0)
         {
-            var firstFiled = unread[0].After;
-            var sightings = unread.Where(r => r.Before < firstFiled).ToList();
+            var firstFiled = unattributed[0].After;
+            var sightings = unattributed.Where(r => r.Before < firstFiled).ToList();
             var ranked = sightings.Select(r => r.Ratio).OrderBy(ratio => Math.Abs(Math.Log(ratio))).ToList();
             var split = new Split(firstFiled, NearestSplitRatio(ranked[(ranked.Count - 1) / 2]));
             splits.Add(split);
@@ -305,7 +311,7 @@ public static class EdgarNormaliser
                 .Where(r => r.After > firstFiled)
                 .Select(r => new Restatement(firstFiled, r.After, r.Ratio / split.Factor))
                 .Where(r => r.IsSplitSized);
-            unread = unread.Except(sightings).Concat(spanningTheNext).OrderBy(r => r.After).ToList();
+            unattributed = unattributed.Except(sightings).Concat(spanningTheNext).OrderBy(r => r.After).ToList();
         }
         return splits;
     }
