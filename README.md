@@ -3,7 +3,8 @@
 A beginner-facing stock-projection calculator. This repository holds the **Phase 0 walking
 skeleton** and the Phase 1 API growing on it: register, sign in with an `HttpOnly` session cookie,
 look a ticker up, and save, replace and load a projection of your own through the API to Postgres.
-There is no calculator page yet — see [`docs/roadmap.md`](docs/roadmap.md).
+The SPA has the two Phase 1 pages over it: the landing page at `/` with the ticker box, and the
+calculator at `/projections/{ticker}` — see [`docs/roadmap.md`](docs/roadmap.md).
 
 Read [`docs/glossary.md`](docs/glossary.md) for the project's vocabulary and [`docs/adr/`](docs/adr/)
 for the decisions the code below implements.
@@ -270,7 +271,9 @@ cd api && dotnet test
 ```
 
 **SPA — the rendered-app seam.** Vitest renders the real routes and the real store, with MSW
-standing in for `/api/*`. Nothing in the app is mocked. The one test-only shim, in
+standing in for `/api/*` (`web/src/test/fakeApi.ts`: sessions, the ticker lookup with its 404, 422,
+503 and partial-200 answers, and the projection endpoints), so the tests drive the landing page
+and the calculator as a user would. Nothing in the app is mocked. The one test-only shim, in
 `web/src/test/setup.ts`, resolves the app's relative `/api` URLs against jsdom's location the
 way a browser would, because Node's `Request` refuses relative URLs.
 

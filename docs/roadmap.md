@@ -97,13 +97,13 @@ deploy, so the tokens are built from the chosen look.**
        reason whenever the lookup cannot seed (unknown ticker, unsupported filer, provider
        down); this route's own 404 means only "no saved projection". Owner-only.
        **Retire `Note`** end to end in this ticket, smoke assertions rewritten here.
-10. [ ] **Landing + calculator UI.** `/` landing with the ticker box; `/projections/{ticker}` the
+10. [x] **Landing + calculator UI.** `/` landing with the ticker box; `/projections/{ticker}` the
         calculator: pre-fill from the lookup, saved assumptions loaded over fresh facts when a
         projection exists (visibly marked, reset-to-defaults action), live X/CAGR on every
         keystroke, Save for new / Update with a confirmation modal for existing, figures-to
-        date beside the base facts, whole-number percents and millions in the UI (decimals and
-        raw values on the wire), P/E vs P/S per scenario, the disclaimer beside the output and
-        in the footer (ADR 0006), 404 / 422 / 503 messages that leave the form usable.
+        date beside the base facts, percents (to one decimal, ADR 0011) and millions in the UI
+        (decimals and raw values on the wire), P/E vs P/S per scenario, the disclaimer beside the
+        output and in the footer (ADR 0006), 404 / 422 / 503 messages that leave the form usable.
 11. [ ] **Deploy + smoke.** Foundation secret applied, task definition injects it, EDGAR contact
         env var set; `scripts/smoke-deployed.sh` gains lookup → save → load against the **real**
         providers on AAPL; full work session (push, apply, migrate, smoke, browser pass, destroy).

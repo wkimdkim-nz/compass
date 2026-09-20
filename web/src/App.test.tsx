@@ -9,7 +9,10 @@ import { renderApp } from "./test/renderApp";
 const sleep = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const signInHeading = () => screen.findByRole("heading", { name: /sign in/i });
-const homeHeading = () => screen.findByRole("heading", { name: /your projections/i });
+// The guarded page: the calculator, which the fake API's lookup knows AAPL for.
+const CALCULATOR = "/projections/AAPL";
+const calculatorHeading = () => screen.findByRole("heading", { name: /apple inc/i });
+const signOutButton = () => screen.findByRole("button", { name: /sign out/i });
 
 async function fillCredentials(email: string, password: string) {
   const user = userEvent.setup();
@@ -20,7 +23,7 @@ async function fillCredentials(email: string, password: string) {
 
 describe("a logged-out visitor", () => {
   it("hitting a protected route sees the logged-out view and the app settles", async () => {
-    renderApp("/");
+    renderApp(CALCULATOR);
 
     expect(await signInHeading()).toBeInTheDocument();
 
@@ -32,12 +35,12 @@ describe("a logged-out visitor", () => {
   it("sees a loading state, not the logged-out view, while the session is being determined", async () => {
     fakeApi.seedUser();
     fakeApi.holdMeResponsesFor(200);
-    renderApp("/");
+    renderApp(CALCULATOR);
 
     expect(await screen.findByRole("status")).toHaveTextContent(/checking your session/i);
     expect(screen.queryByRole("heading", { name: /sign in/i })).not.toBeInTheDocument();
 
-    expect(await homeHeading()).toBeInTheDocument();
+    expect(await calculatorHeading()).toBeInTheDocument();
   });
 
   it("sees a form error when login answers 401, and the API state is not reset", async () => {
@@ -64,8 +67,10 @@ describe("a logged-out visitor", () => {
     const user = await fillCredentials("alice@example.com", "correct horse battery");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
-    expect(await homeHeading()).toBeInTheDocument();
-    expect(screen.getByText(/signed in as alice@example.com/i)).toBeInTheDocument();
+    // On the landing page, with the account's way out in place of the way in.
+    expect(await signOutButton()).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /ticker/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /sign in/i })).not.toBeInTheDocument();
   });
 
   it("is signed in the moment registration succeeds, with no second login step", async () => {
@@ -75,8 +80,7 @@ describe("a logged-out visitor", () => {
     const user = await fillCredentials("new@example.com", "a long enough passphrase");
     await user.click(screen.getByRole("button", { name: /register/i }));
 
-    expect(await homeHeading()).toBeInTheDocument();
-    expect(screen.getByText(/signed in as new@example.com/i)).toBeInTheDocument();
+    expect(await signOutButton()).toBeInTheDocument();
     expect(fakeApi.requestCount("POST /api/auth/login")).toBe(0);
   });
 
@@ -98,33 +102,32 @@ describe("a logged-out visitor", () => {
 describe("a signed-in user", () => {
   it("is returned to the logged-out view after logging out, with the cached session cleared", async () => {
     fakeApi.seedUser();
-    renderApp("/");
-    await homeHeading();
+    renderApp(CALCULATOR);
+    await calculatorHeading();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /sign out/i }));
 
     expect(await signInHeading()).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /your projections/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /apple inc/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
     // No further authenticated render: nothing brings the signed-in view back.
     await sleep();
-    expect(screen.queryByRole("heading", { name: /your projections/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /apple inc/i })).not.toBeInTheDocument();
   });
 
   it("is returned to the logged-out view when a protected call answers 401", async () => {
     fakeApi.seedUser();
-    renderApp("/");
-    await homeHeading();
+    renderApp(CALCULATOR);
+    await calculatorHeading();
 
-    // The session expires on the server; the SPA finds out from its next protected call, which
-    // until the calculator lands is signing out: a 401 where there is no session left to end.
+    // The session expires on the server; the SPA finds out from its next protected call, the save.
     fakeApi.expireSession();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /sign out/i }));
+    await user.click(screen.getByRole("button", { name: /save projection/i }));
 
     expect(await signInHeading()).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole("heading", { name: /your projections/i })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("heading", { name: /apple inc/i })).not.toBeInTheDocument());
     await sleep();
     expect(fakeApi.requestCount("GET /api/auth/me")).toBeLessThanOrEqual(4);
   });

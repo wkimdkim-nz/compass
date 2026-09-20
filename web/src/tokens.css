@@ -51,6 +51,9 @@
   --row: 2.5rem;             /* 40px table row rhythm */
   --measure: 40rem;          /* statement column */
 
+  /* The dimmed page behind the confirmation: the ink itself, thinned, so it follows the theme */
+  --scrim: color-mix(in srgb, var(--ink) 55%, transparent);
+
   /* Rules */
   --rule-w: 1px;
   --rule-total: 2px;         /* the double rule is two 1px lines 2px apart */
@@ -131,6 +134,7 @@
   --color-pencil-ink: var(--pencil-ink);
   --color-pencil-tint: var(--pencil-tint);
   --color-pencil-line: var(--pencil-line);
+  --color-scrim: var(--scrim);
 
   --font-*: initial;
   --font-sans: var(--font);

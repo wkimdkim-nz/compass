@@ -33,7 +33,24 @@ design's file too, so the parity test keeps the two in step.
 
 [`src/styles.css`](src/styles.css) is the app stylesheet: it imports Tailwind and the tokens,
 sets the page defaults (paper, ink, Archivo, tabular figures) in the base layer, and holds the
-small statement vocabulary the existing pages use (`.sheet`, `.masthead`, `.field`, `.entry`,
-`.btn`, `.note`, `.statement-note`), plus the `condensed` utility that narrows the output
+statement vocabulary the pages use (`.sheet`, `.masthead`, `.field`, `.entry`, `.btn`, `.note`,
+`.statement-note`, and for the landing page and the calculator `.caption`, `.statement-table`,
+`.fig`, `.basis`, the output rows' `.total` / `.double-rule` / `.changed`, `.footnote`, `.modal`),
+ported from [`docs/design/mockups/statement.css`](../docs/design/mockups/statement.css), plus the `condensed` utility that narrows the output
 totals to the design's width (`text-total font-semibold condensed`). Archivo is self-hosted from
 `@fontsource-variable/archivo`, imported in `main.tsx`.
+
+## The pages and the units line
+
+`/` is the landing page (`features/landing`), public; `/projections/{ticker}` is the calculator
+(`features/projection`), behind `ProtectedRoute`, which hands the address to sign in so that a
+signed-out visitor lands on their projection afterwards. The calculator asks the ticker lookup and
+the saved projection side by side: the lookup gives fresh base facts and the seeded defaults, the
+projection (when there is one) the assumptions that go over them.
+
+The form holds **text** in the UI's units, percents (8, not 0.08, to one decimal: ADR 0011) and
+millions, negatives in parentheses. The current net margin is printed, not typed: no formula takes it. It crosses to the wire's decimals and raw values in exactly one module,
+`features/projection/figures.ts`, used by `projectionForm.ts` both for the live preview (the
+TypeScript calculator in `src/projection`) and for the body of a save. After a save the output rows
+show the .NET calculator's figures from the response until the next keystroke. The disclaimer is
+one component, `app/Disclaimer.tsx`, used beside the outputs and in every page's footer.

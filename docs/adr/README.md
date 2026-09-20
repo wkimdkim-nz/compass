@@ -15,6 +15,7 @@ Newest supersede older; check a record's **Status** before relying on it.
 | [0008](0008-single-database-identity-fk.md) | One database: identity + domain co-located, real user FK | Accepted |
 | [0009](0009-compute-ecs-fargate.md) | The API runs on Amazon ECS (Fargate) behind an ALB, not App Runner | Accepted |
 | [0010](0010-market-data-edgar-finnhub.md) | SEC EDGAR for fundamentals, Finnhub for the quote; US domestic filers only | Accepted |
+| [0011](0011-ui-figure-precision.md) | Percent fields keep one decimal; the current net margin is printed, not typed | Accepted |
 
 See also: [`../glossary.md`](../glossary.md) (shared domain language) and
 [`../roadmap.md`](../roadmap.md) (ordered build plan).

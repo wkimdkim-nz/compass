@@ -1,15 +1,17 @@
 import { Link, useNavigate } from "react-router";
 import { useRegisterMutation, type Credentials } from "./authApi";
 import { CredentialsForm } from "./CredentialsForm";
+import { useReturnTo } from "./useReturnTo";
 import { fieldErrors } from "./problemDetails";
 
 export function RegisterPage() {
   const [register, { isLoading, error }] = useRegisterMutation();
   const navigate = useNavigate();
+  const returnTo = useReturnTo();
 
   const submit = async (credentials: Credentials) => {
     const result = await register(credentials);
-    if (!("error" in result)) navigate("/", { replace: true });
+    if (!("error" in result)) navigate(returnTo.path, { replace: true });
   };
 
   return (
@@ -22,7 +24,7 @@ export function RegisterPage() {
         onSubmit={submit}
       />
       <p className="mt-4 text-sm">
-        Already have an account? <Link to="/login">Sign in</Link>
+        Already have an account? <Link to="/login" state={returnTo.state}>Sign in</Link>
       </p>
     </main>
   );

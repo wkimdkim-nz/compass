@@ -4,6 +4,8 @@ import type { SerializedError } from "@reduxjs/toolkit";
 /** The shape the API answers every error with (RFC 9457), with field errors under `errors`. */
 export type ProblemDetails = {
   status?: number;
+  /** The plain reason, where the API gives one. */
+  detail?: string;
   errors?: Record<string, string[]>;
 };
 
@@ -13,6 +15,14 @@ export function fieldErrors(error: FetchBaseQueryError | SerializedError | undef
     return (error.data as ProblemDetails).errors ?? {};
   }
   return {};
+}
+
+/** The API's plain reason for a failed request, when it gave one. */
+export function detail(error: FetchBaseQueryError | SerializedError | undefined): string | undefined {
+  if (error && "status" in error && typeof error.data === "object" && error.data !== null) {
+    return (error.data as ProblemDetails).detail;
+  }
+  return undefined;
 }
 
 export function isStatus(error: FetchBaseQueryError | SerializedError | undefined, status: number): boolean {
