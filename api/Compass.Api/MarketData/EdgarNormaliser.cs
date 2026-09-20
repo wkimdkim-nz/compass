@@ -65,10 +65,12 @@ public abstract record FundamentalsResult
 /// <remarks>
 /// Not handled: a split since the latest filing, which nothing filed shows yet, so every share
 /// count is on the old basis while the quote is on the new one; a split no filing restated a
-/// period for, as when a company's first filings come after it; a split smaller than three
-/// for two, or a stock dividend, which cannot be told from a corrected figure; and two splits
-/// with only a 10-Q or two filed between them, where most sightings of the first span both and
-/// the median is their product, so the years before the first are adjusted by the second twice.
+/// period for, as when a company's first filings come after it; and a split smaller than three
+/// for two, or a stock dividend, which cannot be told from a corrected figure. Two splits with
+/// only a 10-Q or two filed between them are not parted, since most sightings of the first span
+/// both and the median is their product, and a figure filed in the wrong scale and put right
+/// reads as a split; neither is adjusted for. Both leave a restatement the splits do not
+/// <see cref="Reconciles">reconcile</see> with, and the history is ended short instead.
 /// </remarks>
 public static class EdgarNormaliser
 {
@@ -223,12 +225,26 @@ public static class EdgarNormaliser
     /// <summary>
     /// A share-count <see cref="Series"/> with every figure on the count of the latest filing: one
     /// last filed before a split was first seen is multiplied by it, to the whole share, as the
-    /// filer would have restated it had a later filing reached back that far.
+    /// filer would have restated it had a later filing reached back that far. Where the splits
+    /// read do not <see cref="Reconciles">reconcile</see> with every restatement they are known
+    /// wrong, and nothing is adjusted: a figure last filed before the latest of them was first
+    /// seen is left out instead, so the history ends there and no year in it is on a different
+    /// count from the next.
     /// </summary>
     private static Dictionary<Period, double> SplitAdjustedSeries(Dictionary<string, CompanyConcept?>? taxonomy, string tag, string unit)
     {
         var factsByPeriod = FactsByPeriod(taxonomy, tag, unit);
-        var splits = Splits(factsByPeriod.Values);
+        var restatements = Restatements(factsByPeriod.Values);
+        var splits = Splits(restatements);
+
+        if (!restatements.All(restatement => Reconciles(restatement, splits)))
+        {
+            var lastSeen = splits.Max(split => split.FirstFiled);
+            return factsByPeriod
+                .Where(period => period.Value[^1].Filed >= lastSeen)
+                .ToDictionary(period => period.Key, period => period.Value[^1].Val);
+        }
+
         return factsByPeriod.ToDictionary(period => period.Key, period =>
         {
             var latest = period.Value[^1];
@@ -242,6 +258,23 @@ public static class EdgarNormaliser
     /// <summary>A split, as seen from the filings: the day the first filing on the new count was made, and new shares per old.</summary>
     private readonly record struct Split(DateOnly FirstFiled, double Factor);
 
+    /// <summary>One period's share count as it stood in two successive filings: the days they were made, and the later count over the earlier.</summary>
+    private readonly record struct Restatement(DateOnly Before, DateOnly After, double Ratio)
+    {
+        /// <summary>Restated by <see cref="MinSplitRatio"/> or more, either way.</summary>
+        public bool IsSplitSized => Ratio >= MinSplitRatio || Ratio <= 1 / MinSplitRatio;
+    }
+
+    /// <summary>Every period filed more than once, as each pair of successive filings: most repeat the count or correct it, and only a <see cref="Restatement.IsSplitSized"/> one shows a split.</summary>
+    private static List<Restatement> Restatements(IEnumerable<List<CompanyFact>> factsByPeriod) =>
+        factsByPeriod
+            // One figure per filing day, the one Series takes: the last EDGAR lists.
+            .Select(facts => facts.GroupBy(f => f.Filed).Select(sameDay => sameDay.Last()).ToList())
+            .SelectMany(facts => facts.Zip(facts.Skip(1), (before, after) => (Before: before, After: after)))
+            .Where(pair => pair.Before.Val > 0 && pair.After.Val > 0)
+            .Select(pair => new Restatement(pair.Before.Filed, pair.After.Filed, pair.After.Val / pair.Before.Val))
+            .ToList();
+
     /// <summary>
     /// Reads the splits out of one share-count concept. A period whose count differs between two
     /// successive filings by <see cref="MinSplitRatio"/> or more was restated for a split that took
@@ -251,33 +284,48 @@ public static class EdgarNormaliser
     /// filing predates that day is a sighting of the same split, and the median of their ratios is
     /// taken, so that a sighting which spans two splits does not set the factor. A sighting that
     /// spans two is further from one for one than the split itself, so the ratios are ranked by
-    /// that distance, and of an even number the nearer of the middle two is the median.
+    /// that distance, and of an even number the nearer of the middle two is the median. What such
+    /// a sighting holds beyond the factor taken is a sighting of the next split, and may be the
+    /// earliest, so it is carried on less that factor to date the next and be counted in its median.
     /// </summary>
-    private static List<Split> Splits(IEnumerable<List<CompanyFact>> factsByPeriod)
+    private static List<Split> Splits(List<Restatement> restatements)
     {
-        var restatements = factsByPeriod
-            // One figure per filing day, the one Series takes: the last EDGAR lists.
-            .Select(facts => facts.GroupBy(f => f.Filed).Select(sameDay => sameDay.Last()).ToList())
-            .SelectMany(facts => facts.Zip(facts.Skip(1), (before, after) => (Before: before, After: after)))
-            .Where(pair => pair.Before.Val > 0 && pair.After.Val > 0)
-            .Select(pair => (Before: pair.Before.Filed, After: pair.After.Filed, Ratio: pair.After.Val / pair.Before.Val))
-            .Where(restatement => restatement.Ratio >= MinSplitRatio || restatement.Ratio <= 1 / MinSplitRatio)
-            .OrderBy(restatement => restatement.After)
-            .ToList();
+        var unread = restatements.Where(r => r.IsSplitSized).OrderBy(r => r.After).ToList();
 
         var splits = new List<Split>();
-        while (restatements.Count > 0)
+        while (unread.Count > 0)
         {
-            var firstFiled = restatements[0].After;
-            var sightings = restatements
-                .Where(r => r.Before < firstFiled)
-                .Select(r => r.Ratio)
-                .OrderBy(ratio => Math.Abs(Math.Log(ratio)))
-                .ToList();
-            splits.Add(new Split(firstFiled, NearestSplitRatio(sightings[(sightings.Count - 1) / 2])));
-            restatements.RemoveAll(r => r.Before < firstFiled);
+            var firstFiled = unread[0].After;
+            var sightings = unread.Where(r => r.Before < firstFiled).ToList();
+            var ranked = sightings.Select(r => r.Ratio).OrderBy(ratio => Math.Abs(Math.Log(ratio))).ToList();
+            var split = new Split(firstFiled, NearestSplitRatio(ranked[(ranked.Count - 1) / 2]));
+            splits.Add(split);
+
+            var spanningTheNext = sightings
+                .Where(r => r.After > firstFiled)
+                .Select(r => new Restatement(firstFiled, r.After, r.Ratio / split.Factor))
+                .Where(r => r.IsSplitSized);
+            unread = unread.Except(sightings).Concat(spanningTheNext).OrderBy(r => r.After).ToList();
         }
         return splits;
+    }
+
+    /// <summary>
+    /// Whether one restatement is what the splits read would have made it: its ratio is, within
+    /// <see cref="SplitRoundingTolerance"/>, the product of those first seen after its earlier
+    /// filing and no later than its later one. A count that did not move by a split's worth says
+    /// there was none between its two filings. One that fails shows the splits are wrong, whether
+    /// two came too close together for the median to part them or a figure filed in the wrong
+    /// scale and put right was taken for one.
+    /// </summary>
+    private static bool Reconciles(Restatement restatement, List<Split> splits)
+    {
+        var between = splits
+            .Where(split => split.FirstFiled > restatement.Before && split.FirstFiled <= restatement.After)
+            .Aggregate(1.0, (product, split) => product * split.Factor);
+        return restatement.IsSplitSized
+            ? Math.Abs(restatement.Ratio / between - 1) <= SplitRoundingTolerance
+            : between == 1.0;
     }
 
     /// <summary>

@@ -403,7 +403,9 @@ public class EdgarNormaliserTests
     /// × 40. The first split has four sightings: 2018 and 2019 restated by the next 10-K, × 10,
     /// and the quarter and half year to June 2019, not filed again until both splits had happened,
     /// × 40. The median of an even number is the nearer to one for one of the middle two, so the
-    /// pair spanning both splits does not make the first split forty for one and 2017 × 160.
+    /// pair spanning both splits does not make the first split forty for one and 2017 × 160. Less
+    /// the ten, that pair is a sighting of the second split, and the earliest: it is first seen in
+    /// the 10-Q of August 2021, and dated by the 10-K after it the pair would not reconcile.
     /// </summary>
     [Fact]
     public void Sightings_spanning_two_splits_do_not_set_the_factor_of_the_first()
@@ -443,6 +445,74 @@ public class EdgarNormaliserTests
             ]));
 
         Assert.Equal(2_480_000_000, History(filer)[0].DilutedShares);
+    }
+
+    /// <summary>
+    /// Tonix consolidated twice inside a year with two 10-Qs between. The first quarter of 2024 was
+    /// filed on 13 May 2024 as 80,879,108 and on 12 May 2025 as 27,886, one for 2,900; the second,
+    /// filed on 16 August 2024, was 4,085,132 and a year on 41,011, one for 99.6. So one of about
+    /// 29 fell between those two 10-Qs and one of 100 after them. Most sightings of the first span
+    /// both, and no pair of dated factors fits them all: 2023, filed on 1 April 2024 as 17,039,309,
+    /// is 7,925 in the 10-K of 18 March 2025, one for 2,150. That 10-K is on today's count, but the
+    /// last split inferred is first seen on 12 May 2025, and adjusted by it 2023 would be 7,925 ÷
+    /// 99.5 = 80 shares beside 736,339 for 2024. The restatements do not reconcile, so nothing is
+    /// adjusted, and the history keeps only the years filed since 12 May 2025: 2024 and 2025, both
+    /// in the 10-K of 12 March 2026. There is no revenue before 2023 to go further back for.
+    /// </summary>
+    [Fact]
+    public void Splits_that_do_not_reconcile_with_every_restatement_end_the_history_instead()
+    {
+        var tonix = Normalised("TNXP");
+
+        Assert.Equal(16_635_254, tonix.DilutedShares);
+        Assert.Equal(
+            [
+                new AnnualFigures(new DateOnly(2024, 12, 31), 10_094_000, -130_036_000, 736_339),
+                new AnnualFigures(new DateOnly(2025, 12, 31), 13_107_000, -124_021_000, 8_511_318),
+            ],
+            tonix.History);
+    }
+
+    /// <summary>
+    /// Tonix is too ragged to show the sums, so this is the same made up: one for ten in March
+    /// 2021 and one for five in June. The one clean sighting of the first is the comparative in
+    /// the 10-Q of May 2021, 6,150 million to 615 million; the August 10-Q and the next 10-K
+    /// restate by fifty, and the median of 10, 50, 50, 50, 50 is fifty. The second is then read as
+    /// five from the first quarter of 2021, 630 million to 126 million a year on, and 2019, last
+    /// filed before both, would be 6,100 million ÷ 50 ÷ 5 = 24,400,000. The May 2021 sighting of
+    /// ten is not the fifty inferred, so the history is the years filed since the second was first
+    /// seen on 10 May 2022: the three in the 10-K of February 2023.
+    /// </summary>
+    [Fact]
+    public void Two_splits_a_quarter_apart_end_the_history_rather_than_adjust_it_twice()
+    {
+        var filer = Filer(
+            ("10-Q", "2020-05-10", [("2020-01-01", "2020-03-31", 6_150_000_000)]),
+            ("10-Q", "2020-08-10", [("2020-04-01", "2020-06-30", 6_160_000_000), ("2020-01-01", "2020-06-30", 6_155_000_000)]),
+            ("10-K", "2021-02-20", [Calendar(2018, 6_000_000_000), Calendar(2019, 6_100_000_000), Calendar(2020, 6_200_000_000)]),
+            ("10-Q", "2021-05-10", [("2020-01-01", "2020-03-31", 615_000_000), ("2021-01-01", "2021-03-31", 630_000_000)]),
+            ("10-Q", "2021-08-10", [("2020-04-01", "2020-06-30", 123_200_000), ("2020-01-01", "2020-06-30", 123_100_000)]),
+            ("10-K", "2022-02-20", [Calendar(2019, 122_000_000), Calendar(2020, 124_000_000), Calendar(2021, 128_000_000)]),
+            ("10-Q", "2022-05-10", [("2021-01-01", "2021-03-31", 126_000_000)]),
+            ("10-K", "2023-02-20", [Calendar(2020, 124_000_000), Calendar(2021, 128_000_000), Calendar(2022, 130_000_000)]));
+
+        Assert.Equal([124_000_000, 128_000_000, 130_000_000], History(filer).Select(year => year.DilutedShares));
+    }
+
+    /// <summary>
+    /// No recorded filer shows it: 2019 filed in thousands as though in units, 626,000, and put
+    /// right a year on, which reads as a thousand for one. But 2020 is in both 10-Ks and did not
+    /// move, so no split came between them. Adjusted, 2018 would be 620 billion; it was last filed
+    /// before the split that was not, and the history ends short of it.
+    /// </summary>
+    [Fact]
+    public void A_scaling_error_put_right_is_not_a_split_when_its_neighbours_did_not_move()
+    {
+        var filer = Filer(
+            ("10-K", "2021-02-20", [Calendar(2018, 620_000_000), Calendar(2019, 626_000), Calendar(2020, 630_000_000)]),
+            ("10-K", "2022-02-20", [Calendar(2019, 626_000_000), Calendar(2020, 630_000_000), Calendar(2021, 640_000_000)]));
+
+        Assert.Equal([626_000_000, 630_000_000, 640_000_000], History(filer).Select(year => year.DilutedShares));
     }
 
     /// <summary>TSMC files a 20-F in IFRS tags: <c>companyfacts</c> holds no us-gaap fact for it at all.</summary>
