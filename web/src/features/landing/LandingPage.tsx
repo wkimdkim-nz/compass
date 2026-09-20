@@ -1,5 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
+import { OutputRows } from "../projection/OutputRows";
+
+/** The specimen's outputs, Bear / Base / Bull, printed as the calculator prints its own. */
+const SPECIMEN = {
+  bear: { x: "0.7", cagr: "(6) %" },
+  base: { x: "1.2", cagr: "4 %" },
+  bull: { x: "1.9", cagr: "14 %" },
+} as const;
 
 /**
  * The statement's cover block: what Compass does, and the ticker box. It works signed out: the
@@ -83,28 +91,7 @@ export function LandingPage() {
               <td className="num">28</td>
               <td className="num">34</td>
             </tr>
-            <tr className="subtotal-rule total">
-              <th scope="row" className="label">
-                Return multiple
-              </th>
-              {["0.7", "1.2", "1.9"].map((x) => (
-                <td key={x} className="num x">
-                  {x}
-                  <sup>×</sup>
-                </td>
-              ))}
-            </tr>
-            <tr className="double-rule" aria-hidden="true">
-              <td colSpan={4} />
-            </tr>
-            <tr>
-              <th scope="row" className="label">
-                CAGR <small>% per year</small>
-              </th>
-              <td className="num">(6) %</td>
-              <td className="num">4 %</td>
-              <td className="num">14 %</td>
-            </tr>
+            <OutputRows columns={SPECIMEN} showFuturePrice={false} />
           </tbody>
         </table>
         <p className="footnote">
