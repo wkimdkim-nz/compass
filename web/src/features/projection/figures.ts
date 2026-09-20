@@ -33,7 +33,11 @@ export function formatFigure(value: number, decimals: number): string {
 /** Small figures keep their cents; large ones are printed whole. */
 const decimalsFor = (value: number) => (Math.abs(value) >= 100 ? 0 : 2);
 
-/** A wire value as the text its field shows. Empty for a figure that is not there. */
+/**
+ * A wire value as the text its field shows. Empty for a figure that is not there. A percent is a
+ * whole-number percent in the roadmap's sense, 8 rather than 0.08, and keeps one decimal (decided
+ * on PR #92): a seeded 1.3% of buybacks shown as 1 would save as a different assumption.
+ */
 export function toUi(wire: number | null | undefined, unit: Unit): string {
   if (wire == null || !Number.isFinite(wire)) return "";
   const value = wire / SCALE[unit];
