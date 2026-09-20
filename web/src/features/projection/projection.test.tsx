@@ -183,9 +183,11 @@ describe("saving", () => {
 
     await user.click(screen.getByRole("button", { name: /update projection/i }));
     const dialog = await screen.findByRole("dialog", { name: /replace your saved projection for AAPL/i });
-    await user.click(within(dialog).getByRole("button", { name: /keep saved/i }));
+    expect(within(dialog).getByRole("button", { name: /keep saved/i })).toHaveFocus();
+    await user.keyboard("{Escape}");
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /update projection/i })).toHaveFocus();
     expect(fakeApi.requestCount("PUT /api/projections/AAPL")).toBe(0);
 
     await user.click(screen.getByRole("button", { name: /update projection/i }));
@@ -205,6 +207,18 @@ describe("saving", () => {
     await user.click(screen.getByRole("button", { name: /save projection/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/bull/i);
+    expect(fakeApi.requestCount("POST /api/projections")).toBe(0);
+  });
+
+  it("asks for the margin a P/S column can be previewed without, rather than saving a zero in its place", async () => {
+    fakeApi.seedUser();
+    const user = await calculatorFor("AAPL");
+    await user.click(screen.getByRole("radio", { name: /base.*p\/s/i }));
+    await retype(user, field(/base future net margin/i), "");
+
+    await user.click(screen.getByRole("button", { name: /save projection/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/base column.*future net margin/i);
     expect(fakeApi.requestCount("POST /api/projections")).toBe(0);
   });
 
@@ -310,6 +324,8 @@ describe("a lookup that cannot pre-fill", () => {
     expect(field("Share price")).toHaveValue("");
     expect(field(/base revenue growth/i)).toHaveValue("30");
     expect(screen.getByRole("button", { name: /update projection/i })).toBeEnabled();
+    // No defaults came with the failed lookup, so there is nothing to restate to.
+    expect(screen.queryByRole("button", { name: /restate to defaults/i })).not.toBeInTheDocument();
 
     fakeApi.failFundamentals(false);
     await user.click(screen.getByRole("button", { name: /try again/i }));

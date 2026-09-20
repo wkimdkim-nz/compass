@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useParams } from "react-router";
-import { isStatus } from "../auth/problemDetails";
+import { detail, isStatus } from "../auth/problemDetails";
 import { CalculatorForm } from "./CalculatorForm";
 import { useGetProjectionQuery, useLookUpTickerQuery } from "./projectionApi";
 
@@ -25,7 +25,9 @@ export function CalculatorPage() {
   const lookup = useLookUpTickerQuery(typed);
   const projection = useGetProjectionQuery(typed);
 
-  if (lookup.isLoading || projection.isLoading) {
+  // `currentData`, not `data`: another ticker's figures must never stand in while this one's are fetched.
+  const pending = (query: { isFetching: boolean; currentData?: unknown }) => query.isFetching && query.currentData === undefined;
+  if (pending(lookup) || pending(projection)) {
     return (
       <p role="status" className="note mt-8">
         Fetching the figures for {typed}…
@@ -33,8 +35,25 @@ export function CalculatorPage() {
     );
   }
 
-  const found = lookup.isSuccess ? lookup.data : undefined;
-  const saved = projection.data ?? undefined;
+  // Not "nothing saved", which is a null answer: offering Save here would only meet a 409.
+  if (projection.isError) {
+    return (
+      <main>
+        <h1>{typed}</h1>
+        <div className="statement-note" role="alert">
+          <p>
+            <b>Your saved projection could not be checked just now.</b>{" "}
+            <button type="button" className="link" onClick={() => projection.refetch()}>
+              Try again
+            </button>
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const found = lookup.currentData;
+  const saved = projection.currentData ?? undefined;
   const ticker = found?.ticker ?? saved?.ticker ?? typed;
   const companyName = found?.companyName ?? saved?.companyName;
 
@@ -71,8 +90,8 @@ export function CalculatorPage() {
     if (found) {
       return found.missing.includes("currentPrice") ? (
         <p>
-          <b>The share price could not be fetched just now.</b> Everything else is filled in; enter the price to see
-          the outputs.
+          <b>The share price could not be fetched just now.</b> The exit multiples are worked out from it, so they
+          are empty too; enter the price and a multiple to see the outputs.
         </p>
       ) : null;
     }
@@ -89,7 +108,7 @@ export function CalculatorPage() {
     }
     if (isStatus(lookup.error, 422)) {
       // The lookup's own plain reason, which already says the figures can be typed in.
-      const reason = (lookup.error as { data?: { detail?: string } }).data?.detail;
+      const reason = detail(lookup.error);
       return reason ? (
         <p>
           <b>{reason}</b>

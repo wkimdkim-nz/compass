@@ -11,8 +11,8 @@ export function LandingPage() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const symbol = ticker.trim().toUpperCase();
-    if (symbol) navigate(`/projections/${encodeURIComponent(symbol)}`);
+    const typed = ticker.trim().toUpperCase();
+    if (typed) navigate(`/projections/${encodeURIComponent(typed)}`);
   };
 
   return (

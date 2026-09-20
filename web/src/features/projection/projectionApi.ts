@@ -18,7 +18,7 @@ export type BaseFactsResponse = {
 };
 
 export type SeededScenario = {
-  name: string;
+  name: ScenarioName;
   growthRate: number;
   futureNetMargin: number;
   /** The value is null when there was no price to work it out from. */
@@ -39,7 +39,7 @@ export type TickerResponse = {
 };
 
 export type SavedScenario = {
-  name: string;
+  name: ScenarioName;
   growthRate: number;
   futureNetMargin: number;
   exitMultiple: { kind: ExitMultipleKind; value: number };

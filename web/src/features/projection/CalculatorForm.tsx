@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { ProjectionOutputs } from "../../projection/calculator";
 import { Disclaimer } from "../../app/Disclaimer";
-import { fieldErrors } from "../auth/problemDetails";
+import { detail, fieldErrors, isStatus } from "../auth/problemDetails";
 import { ConfirmReplaceDialog } from "./ConfirmReplaceDialog";
 import { formatOutputs } from "./figures";
 import {
@@ -141,7 +141,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
     if (!draft.ready) {
       setProblems([
         draft.unfinished.length > 0
-          ? `Finish or clear the ${draft.unfinished.map((name) => TITLE[name]).join(" and ")} column before saving: every figure in it, and the base facts, must give a result.`
+          ? `Finish or clear the ${draft.unfinished.map((name) => TITLE[name]).join(" and ")} column before saving: every figure in it, the future net margin included, and the base facts must give a result.`
           : "Fill in at least one scenario before saving.",
       ]);
       return;
@@ -149,11 +149,10 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
 
     const result = await (exists ? replace : create)(draft.request);
     if ("error" in result) {
-      const error = result.error as { status?: unknown; data?: { detail?: string } };
       // A 401 has already sent the app back to sign in (see the store); there is nothing to say here.
-      if (error.status === 401) return;
-      const fields = Object.values(fieldErrors(result.error)).flat();
-      setProblems(fields.length > 0 ? fields : [error.data?.detail ?? "The projection could not be saved just now. Try again shortly."]);
+      if (isStatus(result.error, 401)) return;
+      const fields = [...new Set(Object.values(fieldErrors(result.error)).flat())];
+      setProblems(fields.length > 0 ? fields : [detail(result.error) ?? "The projection could not be saved just now. Try again shortly."]);
       return;
     }
     setServerOutputs(outputsByName(result.data));
@@ -184,9 +183,12 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
           <span>
             Your assumptions, saved <b>{saved.on}</b>, over today's figures
           </span>
-          <button type="button" className="link" onClick={restate}>
-            Restate to defaults
-          </button>
+          {/* Offered only when there are defaults to restate to: a lookup that failed seeds none. */}
+          {seeded.length > 0 && (
+            <button type="button" className="link" onClick={restate}>
+              Restate to defaults
+            </button>
+          )}
         </p>
       )}
       {notice && <div className="statement-note">{notice}</div>}

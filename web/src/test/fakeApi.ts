@@ -1,7 +1,7 @@
 import { HttpResponse, http, delay } from "msw";
 import { setupServer } from "msw/node";
 import { calculateProjection, type ProjectionOutputs } from "../projection/calculator";
-import type { SaveProjectionRequest, SavedScenario, TickerResponse } from "../features/projection/projectionApi";
+import type { SaveProjectionRequest, SavedScenario, ScenarioName, TickerResponse } from "../features/projection/projectionApi";
 
 /**
  * A fake of the Compass API for the rendered-app seam. It stands in for the network only: the
@@ -68,7 +68,7 @@ const normalise = (ticker: string) => ticker.trim().toUpperCase().replace(/\./g,
  * every other ticker is unknown, as in the API's own stub.
  */
 const aapl = (): TickerResponse => {
-  const scenario = (name: string, growthRate: number) => ({
+  const scenario = (name: ScenarioName, growthRate: number) => ({
     name,
     growthRate,
     futureNetMargin: 0.25,

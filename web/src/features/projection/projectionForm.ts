@@ -119,7 +119,11 @@ export function saveDraft(
 ): SaveDraft {
   const results = preview(form);
   const started = SCENARIO_NAMES.filter((name) => !untouched(form.scenarios[name]));
-  const unfinished = started.filter((name) => results[name].status !== "ok");
+  // The preview needs no margin on the P/S path, but a save does: the API stores one for every
+  // scenario and reads a figure left out as missing, never as zero.
+  const unfinished = started.filter(
+    (name) => results[name].status !== "ok" || !Number.isFinite(scenarioDraft(form.scenarios[name]).futureNetMargin),
+  );
   if (started.length === 0 || unfinished.length > 0) return { ready: false, unfinished };
 
   const facts = factsDraft(form.facts);
@@ -137,8 +141,7 @@ export function saveDraft(
         return {
           name,
           growthRate: draft.growthRate!,
-          // Unused on the P/S path, where it may be empty or mistyped; the API wants a figure all the same.
-          futureNetMargin: Number.isFinite(draft.futureNetMargin) ? draft.futureNetMargin! : 0,
+          futureNetMargin: draft.futureNetMargin!,
           exitMultiple: { kind: form.scenarios[name].kind, value: draft.exitMultiple!.value! },
           dilutionRate: draft.dilutionRate!,
           horizon: draft.horizon!,
