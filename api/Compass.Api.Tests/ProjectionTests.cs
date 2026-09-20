@@ -114,6 +114,33 @@ public class ProjectionTests(CompassApiFactory factory) : IClassFixture<CompassA
         Assert.True(errors.TryGetProperty(field, out _), $"No error under {field} in {errors}");
     }
 
+    [Theory]
+    [InlineData("baseFacts.currentPrice")]
+    [InlineData("baseFacts.ttmRevenue")]
+    [InlineData("baseFacts.dilutedShares")]
+    [InlineData("scenarios[0].growthRate")]
+    [InlineData("scenarios[0].futureNetMargin")]
+    [InlineData("scenarios[0].exitMultiple.value")]
+    [InlineData("scenarios[0].dilutionRate")]
+    [InlineData("scenarios[0].horizon")]
+    public async Task A_figure_left_out_answers_400_under_its_field_rather_than_being_saved_as_zero(string field)
+    {
+        var client = factory.CreateBrowserLikeClient();
+        await client.RegisterNewUser();
+        var body = JsonSerializer.SerializeToNode(
+            Projections.Request("AMD", Projections.PeFacts, Projections.PeBase5y("base")), JsonSerializerOptions.Web)!;
+        var path = field.Replace("[0]", ".0").Split('.');
+        var parent = path[..^1].Aggregate(body, (node, step) => int.TryParse(step, out var index) ? node[index]! : node[step]!);
+        Assert.True(parent.AsObject().Remove(path[^1]), $"The request has no {field} to leave out.");
+
+        var response = await client.PostAsync("/api/projections", JsonContent.Create(body));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var errors = (await response.Body()).GetProperty("errors");
+        Assert.True(errors.TryGetProperty(field, out _), $"No error under {field} in {errors}");
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/projections/AMD")).StatusCode);
+    }
+
     public static TheoryData<string, object> InvalidRequests() => new()
     {
         { "ticker", Projections.Request("  ", Projections.PeFacts, Projections.PeBase5y("base")) },

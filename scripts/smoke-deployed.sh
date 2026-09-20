@@ -381,8 +381,8 @@ pass "${email_b} sees themselves, X-Cache: ${x_cache}"
 #     Reading it back waits for assertion 10, because a read also asks the providers.
 step "POST /api/projections returns 201 with recomputed outputs (catches: migrations did not run, certificate trust, or an unresolved secret)"
 saved_growth="0.1"
-projection="$(jq -nc --arg ticker "$TICKER" --argjson growth "$saved_growth" '{
-  ticker: $ticker, companyName: "Apple Inc.", cik: 320193,
+projection="$(jq -nc --arg ticker "$TICKER" --argjson cik "$TICKER_CIK" --argjson growth "$saved_growth" '{
+  ticker: $ticker, companyName: "Apple Inc.", cik: $cik,
   baseFacts: {currentPrice: 40, ttmRevenue: 1000000000, dilutedShares: 100000000},
   scenarios: [{name: "base", growthRate: $growth, futureNetMargin: 0.2, exitMultiple: {kind: "pe", value: 20}, dilutionRate: 0.02, horizon: 5}]
 }')"

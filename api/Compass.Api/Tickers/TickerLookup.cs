@@ -1,3 +1,4 @@
+using Compass.Api.Data;
 using Compass.Api.MarketData;
 
 namespace Compass.Api.Tickers;
@@ -67,7 +68,7 @@ public sealed class TickerLookup(
         {
             lookup = await cache.GetOrFetchAsync(
                 // Keyed the way the SEC writes a ticker, so that BRK.B and brk-b are held once.
-                $"fundamentals:{symbol.Trim().ToUpperInvariant().Replace('.', '-')}",
+                $"fundamentals:{Projection.NormaliseTicker(symbol)}",
                 MarketDataCache.FundamentalsTtl,
                 () => fundamentalsSource.LookUpAsync(symbol, cancellationToken),
                 // Not an unknown ticker: what a user can mistype has no bound, and the ticker map it

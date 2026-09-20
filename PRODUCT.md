@@ -75,8 +75,8 @@ Supporting mechanisms (true today or specified for Phase 1):
 
 ## Capabilities and Constraints
 
-**Shipped (Phase 0):** register, sign in, sign out, session check, and a throwaway `Note`
-round-trip that the projection endpoints have since replaced (#74). The current UI is an unstyled walking skeleton and carries no visual authority.
+**Shipped:** register, sign in, sign out, session check (Phase 0), and the API to look a ticker
+up (#73) and to save, replace and load a projection (#74). The current UI is an unstyled walking skeleton and carries no visual authority.
 
 **Specified for Phase 1 (roadmap, #65–#77):**
 

@@ -1,8 +1,9 @@
 # Compass
 
 A beginner-facing stock-projection calculator. This repository holds the **Phase 0 walking
-skeleton**: register, sign in with an `HttpOnly` session cookie, and round-trip one row of your
-own through the API to Postgres. There is no calculator yet — see [`docs/roadmap.md`](docs/roadmap.md).
+skeleton** and the Phase 1 API growing on it: register, sign in with an `HttpOnly` session cookie,
+look a ticker up, and save, replace and load a projection of your own through the API to Postgres.
+There is no calculator page yet — see [`docs/roadmap.md`](docs/roadmap.md).
 
 Read [`docs/glossary.md`](docs/glossary.md) for the project's vocabulary and [`docs/adr/`](docs/adr/)
 for the decisions the code below implements.
@@ -24,8 +25,8 @@ So between sessions the page loads, and then registering or signing in fails —
 state working as designed, not an outage**, and nothing is wrong with the deployment. Bringing it
 back is a handful of commands in [`infra/README.md`](infra/README.md#a-work-session-start-to-finish).
 
-There is no public sign-up worth having yet: Phase 0 is a walking skeleton, so the only thing to do
-once signed in is write one line of text and read it back.
+There is no public sign-up worth having yet: the projection endpoints are there, but no page uses
+them, so all there is to see once signed in is a heading and your email address.
 
 ## Layout
 
@@ -296,8 +297,8 @@ All under `/api`, JSON bodies only, ProblemDetails on every error.
 | `POST /api/auth/logout` | 204 | Ends the session on the server. 401 when there is no session to end. |
 | `GET /api/auth/me` | 200, `{ id, email }` | The session check. 401 (no redirect) when signed out. |
 | `GET /api/tickers/{symbol}` | 200, `{ ticker, companyName, cik, baseFacts, history, scenarios, missing }` | The ticker lookup (ADR 0010). Raw values and decimal rates. `scenarios` is Bear, Base, Bull seeded from `history` (ADR 0004, amended), or empty when there is nothing sound to seed from: fewer than two years of it, no current net margin (TTM revenue not positive), or revenue or shares that start or end at nothing or below, which no growth rate can be taken over. Bear is never below −1, the lowest rate the calculators take. 404 unknown ticker; 422 a filer that cannot be normalised, with the plain reason in `detail`; 503 when the fundamentals source fails. When only the quote fails it is still a 200: `baseFacts.currentPrice` is null, `missing` is `["currentPrice"]`, and each scenario's `exitMultiple` keeps its `kind` with a null `value`. On the stub ports the tickers are `AAPL` (profitable), `LCID` (unprofitable), `MRP` (one year of history, no scenarios) and `TSM` (422), all with made-up figures at a price of 100. |
-| `POST /api/projections` | 201, `{ ticker, companyName, cik, createdAt, updatedAt, scenarios }` | Creates the caller's projection for a company (ADR 0004, amended). Body: `{ ticker, companyName, cik, baseFacts: { currentPrice, ttmRevenue, dilutedShares }, scenarios }`, with one to three scenarios, each `{ name, growthRate, futureNetMargin, exitMultiple: { kind, value }, dilutionRate, horizon }` and named `bear`, `base` or `bull` at most once. `cik` is null for a company typed in by hand. Every scenario is recomputed by the .NET calculator against the `baseFacts` sent, and answered with its `outputs: { futurePrice, x, cagr }`; the base facts and the outputs are then let go, never stored. 409 when the caller already has a projection for that ticker, whatever its case. 400 with field errors under `errors`, keyed as the body spells the field (`scenarios[1].horizon`, `baseFacts.currentPrice`), for anything the calculator rejects or the record cannot hold. |
-| `PUT /api/projections/{ticker}` | 200, as the create | Replaces the projection's company name, CIK and scenarios; same body, less the `ticker` (one that names another ticker is a 400). 404 when the caller has no projection for that ticker. |
+| `POST /api/projections` | 201, `{ ticker, companyName, cik, createdAt, updatedAt, scenarios }` | Creates the caller's projection for a company (ADR 0004, amended). Body: `{ ticker, companyName, cik, baseFacts: { currentPrice, ttmRevenue, dilutedShares }, scenarios }`, with one to three scenarios, each `{ name, growthRate, futureNetMargin, exitMultiple: { kind, value }, dilutionRate, horizon }` and named `bear`, `base` or `bull` at most once. `cik` is null for a company typed in by hand. Every scenario is recomputed by the .NET calculator against the `baseFacts` sent, and answered with its `outputs: { futurePrice, x, cagr }`; the base facts and the outputs are then let go, never stored. 409 when the caller already has a projection for that ticker, whatever its case. 400 with field errors under `errors`, keyed as the body spells the field (`scenarios[1].horizon`, `baseFacts.currentPrice`), for a figure left out of the body (never read as zero) and for anything the calculator rejects or the record cannot hold. |
+| `PUT /api/projections/{ticker}` | 200, as the create | Replaces the projection's company name, CIK and scenarios; same body, less the `ticker` (one that names another ticker is a 400). 404 when the caller has no projection for that ticker. 409 when another replace of the same projection landed at the same moment: load it again before replacing it. |
 | `GET /api/projections/{ticker}` | 200, `{ ticker, companyName, cik, createdAt, updatedAt, scenarios, baseFacts, missing, baseFactsUnavailable }` | The saved assumptions (no `outputs`) over the ticker lookup's live `baseFacts` and `missing`. When the lookup cannot seed (unknown ticker, unsupported filer, provider down) it is still a 200: `baseFacts` is null and `baseFactsUnavailable` carries the lookup's plain reason. This route's own 404 means only that the caller has no saved projection; another user's is a 404 too. |
 
 A projection is the caller's own: every query is filtered by the session's user id, the row is

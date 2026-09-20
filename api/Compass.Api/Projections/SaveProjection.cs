@@ -3,15 +3,19 @@ using Compass.Api.Data;
 
 namespace Compass.Api.Projections;
 
-public sealed record ExitMultipleRequest(string? Kind, double Value);
+// Every figure is nullable so that one left out of the body is seen to be missing: a bare double
+// would arrive as zero, which most of them can validly be, and be saved as if it had been sent.
+public sealed record ExitMultipleRequest(string? Kind, double? Value);
 
 public sealed record ScenarioRequest(
     string? Name,
-    double GrowthRate,
-    double FutureNetMargin,
+    double? GrowthRate,
+    double? FutureNetMargin,
     ExitMultipleRequest? ExitMultiple,
-    double DilutionRate,
-    int Horizon);
+    double? DilutionRate,
+    int? Horizon);
+
+public sealed record BaseFactsRequest(double? CurrentPrice, double? TtmRevenue, double? DilutedShares);
 
 /// <summary>
 /// What a create or a replace is sent. The base facts are the ones on the user's form, fetched or
@@ -25,7 +29,7 @@ public sealed record SaveProjectionRequest(
     string? Ticker,
     string? CompanyName,
     long? Cik,
-    BaseFacts? BaseFacts,
+    BaseFactsRequest? BaseFacts,
     IReadOnlyList<ScenarioRequest?>? Scenarios);
 
 public abstract record SaveProjectionResult
@@ -87,7 +91,19 @@ public static class SaveProjection
             Error("companyName", $"A company name is at most {Projection.MaxCompanyNameLength} characters.");
         }
 
-        if (request.BaseFacts is null) Error("baseFacts", "The base facts are required: the scenarios are computed against them.");
+        BaseFacts? baseFacts = null;
+        if (request.BaseFacts is not { } facts)
+        {
+            Error("baseFacts", "The base facts are required: the scenarios are computed against them.");
+        }
+        else
+        {
+            var sent = new BaseFacts(
+                Required(facts.CurrentPrice, "baseFacts.currentPrice", "The current price"),
+                Required(facts.TtmRevenue, "baseFacts.ttmRevenue", "The TTM revenue"),
+                Required(facts.DilutedShares, "baseFacts.dilutedShares", "The diluted shares"));
+            if (!errors.Keys.Any(key => key.StartsWith("baseFacts", StringComparison.Ordinal))) baseFacts = sent;
+        }
 
         var scenarios = new List<Scenario>();
         var outputs = new Dictionary<string, ProjectionOutputs>();
@@ -129,19 +145,23 @@ public static class SaveProjection
                 var scenario = new Scenario
                 {
                     Name = name ?? "",
-                    GrowthRate = Numeric(sent.GrowthRate, $"{field}.growthRate"),
-                    FutureNetMargin = Numeric(sent.FutureNetMargin, $"{field}.futureNetMargin"),
+                    GrowthRate = Numeric(Required(sent.GrowthRate, $"{field}.growthRate", "The growth rate"), $"{field}.growthRate"),
+                    FutureNetMargin = Numeric(Required(sent.FutureNetMargin, $"{field}.futureNetMargin", "The future net margin"), $"{field}.futureNetMargin"),
                     ExitMultipleKind = kind ?? "",
-                    ExitMultipleValue = Numeric(sent.ExitMultiple?.Value ?? 0, $"{field}.exitMultiple.value"),
-                    DilutionRate = Numeric(sent.DilutionRate, $"{field}.dilutionRate"),
-                    Horizon = sent.Horizon,
+                    // A multiple that is missing whole is reported once, above, and not again for its value.
+                    ExitMultipleValue = sent.ExitMultiple is null
+                        ? 0
+                        : Numeric(Required(sent.ExitMultiple.Value, $"{field}.exitMultiple.value", "The exit multiple's value"), $"{field}.exitMultiple.value"),
+                    DilutionRate = Numeric(Required(sent.DilutionRate, $"{field}.dilutionRate", "The dilution rate"), $"{field}.dilutionRate"),
+                    Horizon = sent.Horizon ?? 0,
                 };
+                if (sent.Horizon is null) Error($"{field}.horizon", "The horizon is required.");
                 scenarios.Add(scenario);
 
                 // Computed only for a scenario sound so far, so that a missing multiple is not also reported as a bad one.
-                if (request.BaseFacts is null || errors.Keys.Any(key => key.StartsWith(field, StringComparison.Ordinal))) continue;
+                if (baseFacts is null || errors.Keys.Any(key => key.StartsWith(field, StringComparison.Ordinal))) continue;
 
-                switch (ProjectionCalculator.Calculate(request.BaseFacts, scenario.ToAssumptionSet()))
+                switch (ProjectionCalculator.Calculate(baseFacts, scenario.ToAssumptionSet()))
                 {
                     case ProjectionResult.Computed computed:
                         outputs[scenario.Name] = computed.Outputs;
@@ -158,6 +178,12 @@ public static class SaveProjection
 
         return new SaveProjectionResult.Valid(
             ticker, companyName, request.Cik, [.. Scenario.Names.SelectMany(name => scenarios.Where(s => s.Name == name))], outputs);
+
+        double Required(double? value, string at, string what)
+        {
+            if (value is null) Error(at, $"{what} is required.");
+            return value ?? 0;
+        }
 
         decimal Numeric(double value, string at)
         {
