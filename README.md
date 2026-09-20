@@ -83,6 +83,31 @@ antiforgery header and no `credentials: "include"`. Vite is configured with `str
 The local connection string is committed in `api/Compass.Api/appsettings.Development.json`.
 Production supplies its own through the normal configuration chain.
 
+### The market-data providers (optional locally)
+
+The ticker lookup reaches two providers, and each takes one setting (ADR 0010; the key names are
+recorded in [`infra/README.md`](infra/README.md#the-two-market-data-settings)). **Neither is in
+source, and locally neither is required**: in Development an absent setting puts a stub behind that
+port, and the API logs a warning at startup saying which stubs are in use. Anywhere else it refuses
+to start and names the missing setting.
+
+The **Finnhub API key** comes from `dotnet user-secrets`, which keeps it outside the repository and
+is read in Development only. From `api/Compass.Api`, with a free key from <https://finnhub.io>:
+
+```bash
+dotnet user-secrets set "Finnhub:ApiKey" "<your key>"
+```
+
+The **EDGAR contact address** — SEC EDGAR refuses requests whose User-Agent carries none — is an
+environment variable in every environment. Export it in the shell that runs `dotnet run`:
+
+```bash
+export Edgar__ContactEmail=<you@example.com>
+```
+
+`dotnet user-secrets remove "Finnhub:ApiKey"` and `unset Edgar__ContactEmail` go back to the stubs.
+The test suite pins both absent and never calls a provider, whatever the machine holds.
+
 To throw the database away: `docker compose down -v`.
 
 ## The container image
@@ -124,6 +149,10 @@ two onto the connection string when they are present and ignores them when they 
 | `DB_USERNAME` | Injected from the RDS-managed secret's `username` key | Absent |
 | `DB_PASSWORD` | Injected from its `password` key | Absent |
 
+The two market-data settings arrive the same way — `Finnhub__ApiKey` as a third injected secret and
+`Edgar__ContactEmail` as a plain variable — but are **not** tested for presence alone: outside
+Development their absence stops startup (see *The market-data providers* above).
+
 Production is not a branch: the overlay tests for *presence*, never for environment, so the code
 that runs in production is the code the tests exercise. Why those two connection-string settings
 are non-negotiable is recorded in that file.
@@ -131,7 +160,8 @@ are non-negotiable is recorded in that file.
 ### Running the image against the local Postgres
 
 Point it at the Compose Postgres from step 1 and hand it the credentials the way ECS does. Run it
-as `Development` so the session cookie is not `Secure`-only, since this is plain HTTP. Docker
+as `Development` so the session cookie is not `Secure`-only, since this is plain HTTP — and so that
+it starts on the stub market-data ports, since user secrets do not reach into a container. Docker
 Desktop resolves `host.docker.internal` on its own, but Docker Engine on Linux does not, so
 `--add-host` maps it explicitly and the same command then works on both:
 
@@ -142,6 +172,14 @@ docker run --rm -p 8080:8080 --add-host host.docker.internal:host-gateway -e ASP
 The API is then on <http://localhost:8080> — register, log in, and round-trip a note exactly as
 against `dotnet run`.
 
+Compose carries the same thing as an opt-in `api` service, and it is where the two provider
+settings are passed through from the calling shell — `FINNHUB_API_KEY` and `EDGAR_CONTACT_EMAIL`,
+either or both, a stub standing in for whatever is unset:
+
+```bash
+EDGAR_CONTACT_EMAIL=<you@example.com> FINNHUB_API_KEY=<your key> docker compose --profile api up --build
+```
+
 ### Running migrations from the image
 
 `dotnet ef database update` needs the SDK and the sources, and the runtime image has neither. The
@@ -150,7 +188,9 @@ executable, which production runs as a one-off ECS task with a `command` overrid
 service is allowed to serve traffic, because the Data Protection key ring lives in a
 migration-created table and a service that wins that race breaks *login*
 ([`infra/README.md`](infra/README.md) has the mechanism). It reads the same configuration the app
-does, so it takes its credentials the same split way:
+does, so it takes its credentials the same split way. It boots the same host, too: with no
+environment named, as here, EF's tooling runs it as Development and the market-data stubs satisfy
+it, but as `Production` — which the ECS task sets — it wants both market-data settings first:
 
 ```bash
 docker run --rm --add-host host.docker.internal:host-gateway -e "ConnectionStrings__Default=Host=host.docker.internal;Port=5432;Database=compass" -e DB_USERNAME=compass -e DB_PASSWORD=compass compass-api ./efbundle
@@ -196,9 +236,11 @@ behind it can come and go without CloudFront's configuration ever changing.
 The app stack is one `terraform apply` and it holds the database. That apply creates RDS, runs the
 migration task against it and waits for it to finish, and only then brings the service up — an
 ordering the dependency graph enforces rather than a sequence anyone is asked to remember. The
-master password is RDS's own and never enters Terraform state; the container receives exactly two
-injected secrets, `DB_USERNAME` and `DB_PASSWORD`, fetched by the ECS agent because the application
-makes no AWS calls at all.
+master password is RDS's own and never enters Terraform state; the container receives exactly three
+injected secrets — `DB_USERNAME`, `DB_PASSWORD` and the Finnhub API key as `Finnhub__ApiKey` —
+fetched by the ECS agent because the application makes no AWS calls at all. The Finnhub key is set
+by hand in the foundation stack, once, and the EDGAR contact address is given to the apply;
+[`infra/README.md`](infra/README.md) says where.
 
 Then ask the deployed app whether it works. It is an HTTP client rather than a browser because
 nothing newly at risk out there is client-side — it is cookie attributes, the origin lock, cache

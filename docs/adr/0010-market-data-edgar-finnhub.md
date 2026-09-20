@@ -79,7 +79,9 @@ draft build tickets #54–#63.
   Development and test; in every other environment the API refuses to start** and names the missing
   setting, the way a missing database credential already does. A deployed task therefore either
   talks to the real providers or is not healthy, and the smoke test cannot be satisfied by a stub.
-  Tests run against the stubs only.
+  Tests run against the stubs only. The two configuration key names — `Finnhub:ApiKey` and
+  `Edgar:ContactEmail` — and where each environment gets them from are recorded in one place,
+  [`infra/README.md`](../../infra/README.md#the-two-market-data-settings) (#68).
 
 ## Consequences
 

@@ -93,3 +93,8 @@ output "origin_secret_name" {
   description = "The Secrets Manager name holding the CloudFront-to-origin header, as {header_name, header_value}. Read it by name; never by remote state."
   value       = aws_secretsmanager_secret.origin_header.name
 }
+
+output "finnhub_secret_name" {
+  description = "The Secrets Manager name holding the Finnhub API key as a plain string, set by hand after apply. The app stack looks it up by name and injects it into the task; its value is in no state file."
+  value       = aws_secretsmanager_secret.finnhub_api_key.name
+}

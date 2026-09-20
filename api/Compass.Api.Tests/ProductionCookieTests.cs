@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Hosting;
+
 namespace Compass.Api.Tests;
 
 /// <summary>
@@ -9,6 +11,14 @@ public class ProductionCookieTests : IClassFixture<ProductionCookieTests.Product
     public sealed class ProductionFactory : CompassApiFactory
     {
         public ProductionFactory() => Environment = "Production";
+
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+
+            // Production refuses to start on the stub ports (ADR 0010), so it is handed both settings.
+            builder.WithMarketDataSettings();
+        }
     }
 
     private readonly ProductionFactory _factory;

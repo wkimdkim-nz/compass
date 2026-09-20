@@ -29,6 +29,7 @@ public class CompassApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseEnvironment(Environment);
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
+        builder.WithoutMarketDataSettings();
     }
 
     public async Task InitializeAsync()

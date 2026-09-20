@@ -2,6 +2,7 @@ using Compass.Api;
 using Compass.Api.Auth;
 using Compass.Api.Data;
 using Compass.Api.Health;
+using Compass.Api.MarketData;
 using Compass.Api.Notes;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -55,6 +56,14 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Events.OnRedirectToAccessDenied = ctx => ctx.HttpContext.WriteProblemAsync(StatusCodes.Status403Forbidden);
 });
 
+// One setting per market-data port, under the key names ADR 0010 records. Resolved here, before
+// the host is built, so an environment that may not run on stubs never gets as far as listening —
+// the same place and the same way a missing connection string stops it.
+var marketDataProviders = MarketDataProviders.Resolve(builder.Configuration, builder.Environment);
+builder.Services.AddSingleton(marketDataProviders);
+builder.Services.Configure<FinnhubOptions>(builder.Configuration.GetSection(FinnhubOptions.SectionName));
+builder.Services.Configure<EdgarOptions>(builder.Configuration.GetSection(EdgarOptions.SectionName));
+
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = ctx =>
@@ -71,6 +80,8 @@ builder.Services.AddProblemDetails(options =>
 // and registering CORS with credentials would break a precondition of the CSRF design (ADR 0007).
 
 var app = builder.Build();
+
+marketDataProviders.LogStubs(app.Logger);
 
 // Deliberately absent: UseHttpsRedirection(). CloudFront reaches the origin over HTTPS and the
 // load balancer terminates it there (ADR 0009); the last hop, load balancer to task, is plain

@@ -15,3 +15,15 @@ variable "image_tag" {
     error_message = "image_tag must be given. `scripts/push-image.sh` prints the tag it pushed."
   }
 }
+
+variable "edgar_contact_email" {
+  description = "The contact address the API puts in its User-Agent when calling SEC EDGAR, which refuses requests without one. Deliberately has no default: ADR 0010 keeps the address out of source, so it arrives with the apply — `-var` or `TF_VAR_edgar_contact_email`."
+  type        = string
+
+  # Only that it looks like an address. A task handed a blank one refuses to start (ADR 0010), and
+  # the plan is a cheaper place to find that out than a service that never goes steady.
+  validation {
+    condition     = can(regex("^[^@\\s]+@[^@\\s]+$", var.edgar_contact_email))
+    error_message = "edgar_contact_email must be an email address. Pass it with -var or export TF_VAR_edgar_contact_email."
+  }
+}
