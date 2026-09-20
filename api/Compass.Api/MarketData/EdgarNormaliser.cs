@@ -114,7 +114,8 @@ public static class EdgarNormaliser
         var revenuePeriods = revenueByTag.SelectMany(series => series.Keys).ToHashSet();
         if (revenuePeriods.Count == 0) return Unsupported(UnsupportedFiler.NoUsableRevenue);
 
-        var fiscalYears = revenuePeriods.Where(p => p.IsFiscalYear).ToList();
+        // Ordered, so that which of two year-long periods ending on one day is taken does not vary by run.
+        var fiscalYears = revenuePeriods.Where(p => p.IsFiscalYear).OrderBy(p => p.End).ThenBy(p => p.Start).ToList();
         if (fiscalYears.Count == 0) return Unsupported(UnsupportedFiler.TooFewPeriods);
 
         var latestYear = fiscalYears.MaxBy(p => p.End);
@@ -204,7 +205,8 @@ public static class EdgarNormaliser
         return facts
             .Where(f => f is { Start: not null, Form: not null } && Forms.Contains(f.Form))
             .GroupBy(f => new Period(f!.Start!.Value, f.End))
-            .ToDictionary(period => period.Key, period => period.MaxBy(f => f!.Filed)!.Val);
+            // A stable sort: of two facts filed the same day, the one EDGAR lists later is taken.
+            .ToDictionary(period => period.Key, period => period.OrderBy(f => f!.Filed).Last()!.Val);
     }
 
     private static double? Lookup(Dictionary<Period, double> series, Period period) =>
@@ -219,7 +221,7 @@ public static class EdgarNormaliser
             "This company's SEC filings report no revenue that can be read, so its figures cannot be looked up. " +
             "You can enter them yourself.",
         UnsupportedFiler.TooFewPeriods =>
-            "This company has not filed enough annual and quarterly reports to add up its last twelve months. " +
+            "The SEC holds too few of this company's annual and quarterly reports to add up its last twelve months. " +
             "You can enter its figures yourself.",
         UnsupportedFiler.NoNetIncome =>
             "This company's SEC filings report no net income for its last twelve months, so its margin cannot be worked out. " +

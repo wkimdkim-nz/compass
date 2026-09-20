@@ -32,10 +32,10 @@ fetch() { curl --silent --show-error --fail --compressed -H "User-Agent: $user_a
 fetch https://www.sec.gov/files/company_tickers.json \
   | jq -c . | perl -pe 's/("\d+":\{)/\n$1/g; s/\}$/\n}/' > "$fixtures/company_tickers.json"
 
-for ticker in "$@"; do
-  symbol="$(tr '[:lower:]' '[:upper:]' <<<"$ticker")"
-  cik="$(jq -r --arg t "$symbol" '[.[] | select(.ticker == $t)][0].cik_str // empty' "$fixtures/company_tickers.json")"
-  [ -n "$cik" ] || { echo "$symbol is not in the SEC ticker file" >&2; exit 1; }
+for typed in "$@"; do
+  ticker="$(tr '[:lower:]' '[:upper:]' <<<"$typed")"
+  cik="$(jq -r --arg t "$ticker" '[.[] | select(.ticker == $t)][0].cik_str // empty' "$fixtures/company_tickers.json")"
+  [ -n "$cik" ] || { echo "$ticker is not in the SEC ticker file" >&2; exit 1; }
   sleep 0.2 # EDGAR asks for fewer than ten requests a second
 
   fetch "https://data.sec.gov/api/xbrl/companyfacts/CIK$(printf '%010d' "$cik").json" | jq --indent 1 '
@@ -57,7 +57,7 @@ for ticker in "$@"; do
                 | with_entries(select(.value | length > 0)))}
             | select(.value.units | length > 0)))' \
     | perl -0pe 's/\{\s+("(?:start|end)":[^{}]*?)\s+\}/"{ " . ($1 =~ s{\s*\n\s*}{ }gr) . " }"/ge' \
-    > "$fixtures/$symbol.json"
+    > "$fixtures/$ticker.json"
 
-  echo "recorded $symbol (CIK $cik): $(wc -c < "$fixtures/$symbol.json" | tr -d ' ') bytes"
+  echo "recorded $ticker (CIK $cik): $(wc -c < "$fixtures/$ticker.json" | tr -d ' ') bytes"
 done

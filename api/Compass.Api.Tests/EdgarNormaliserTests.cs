@@ -4,7 +4,7 @@ namespace Compass.Api.Tests;
 
 /// <summary>
 /// The EDGAR normaliser against recorded <c>companyfacts</c> documents (ticket #72, ADR 0010). No
-/// network and no fixture class: the normaliser is pure, so each test reads a recorded document
+/// network and no class fixture: the normaliser is pure, so each test reads a recorded document
 /// and asserts on the figures.
 /// </summary>
 /// <remarks>
@@ -95,6 +95,7 @@ public class EdgarNormaliserTests
 
         Assert.Equal(331_839 * Million, microsoft.TtmRevenue);
         Assert.Equal(133_749 * Million, microsoft.TtmNetIncome);
+        Assert.Equal(133_749.0 / 331_839, microsoft.CurrentNetMargin!.Value, precision: 12);
         // A 10-K carries no fourth-quarter share count either, so the year's average is the latest there is.
         Assert.Equal(7_453_000_000, microsoft.DilutedShares);
         Assert.Equal(new DateOnly(2026, 6, 30), microsoft.FiguresTo);
@@ -170,6 +171,8 @@ public class EdgarNormaliserTests
 
         // FY2025 182,447 (Revenues) − 6M 2025 90,222 + 6M 2026 107,183 (both RevenuesNetOfInterestExpense).
         Assert.Equal(199_408 * Million, jpmorgan.TtmRevenue);
+        // Net income 65,067: see the next test.
+        Assert.Equal(65_067.0 / 199_408, jpmorgan.CurrentNetMargin!.Value, precision: 12);
         Assert.Equal(2_694_200_000, jpmorgan.DilutedShares);
         Assert.Equal(new DateOnly(2026, 6, 30), jpmorgan.FiguresTo);
     }

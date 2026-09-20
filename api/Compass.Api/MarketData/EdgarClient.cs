@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 
 namespace Compass.Api.MarketData;
@@ -6,8 +7,9 @@ namespace Compass.Api.MarketData;
 /// <summary>
 /// The two SEC EDGAR documents the fundamentals source reads (ADR 0010), fetched and parsed and
 /// nothing more: no cache and no normalisation, which belong to the lookup and to
-/// <see cref="EdgarNormaliser"/>. A failure is thrown as <see cref="HttpRequestException"/> for
-/// the caller to report as an outage; EDGAR's body is never passed upward.
+/// <see cref="EdgarNormaliser"/>. A failure, a document that cannot be read included, is thrown as
+/// <see cref="HttpRequestException"/> for the caller to report as an outage; EDGAR's body is never
+/// passed upward.
 /// </summary>
 public sealed class EdgarClient(HttpClient http)
 {
@@ -17,7 +19,7 @@ public sealed class EdgarClient(HttpClient http)
     private static string CompanyFactsUrl(long cik) => $"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:D10}.json";
 
     public async Task<EdgarTickerMap> GetTickerMapAsync(CancellationToken cancellationToken) =>
-        EdgarTickerMap.Parse(await http.GetStringAsync(TickerFileUrl, cancellationToken));
+        Read(await http.GetStringAsync(TickerFileUrl, cancellationToken), EdgarTickerMap.Parse);
 
     /// <summary>Null when EDGAR holds no XBRL facts for the company, which it answers with a 404.</summary>
     public async Task<CompanyFacts?> GetCompanyFactsAsync(long cik, CancellationToken cancellationToken)
@@ -26,7 +28,19 @@ public sealed class EdgarClient(HttpClient http)
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
 
         response.EnsureSuccessStatusCode();
-        return CompanyFacts.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        return Read(await response.Content.ReadAsStringAsync(cancellationToken), CompanyFacts.Parse);
+    }
+
+    private static T Read<T>(string json, Func<string, T> parse)
+    {
+        try
+        {
+            return parse(json);
+        }
+        catch (JsonException unreadable)
+        {
+            throw new HttpRequestException("SEC EDGAR answered with a document that could not be read.", unreadable);
+        }
     }
 }
 

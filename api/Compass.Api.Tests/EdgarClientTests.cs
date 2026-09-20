@@ -59,6 +59,15 @@ public class EdgarClientTests
         await Assert.ThrowsAsync<HttpRequestException>(() => client.GetCompanyFactsAsync(320193, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task A_document_that_cannot_be_read_is_an_outage_too()
+    {
+        var client = ClientFor(new RecordingEdgar { Body = "<html>Request Rate Threshold Exceeded</html>" }, Contact);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetTickerMapAsync(CancellationToken.None));
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetCompanyFactsAsync(320193, CancellationToken.None));
+    }
+
     /// <summary>Registers the client the way Program does, from the one configuration key, then swaps the network out.</summary>
     private static EdgarClient ClientFor(RecordingEdgar edgar, string contact)
     {
@@ -78,6 +87,9 @@ public class EdgarClientTests
 
         public HttpStatusCode CompanyFactsStatus { get; init; } = HttpStatusCode.OK;
 
+        /// <summary>What every request is answered with, in place of the recorded documents.</summary>
+        public string? Body { get; init; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var url = request.RequestUri!.ToString();
@@ -88,7 +100,7 @@ public class EdgarClientTests
             var isTickerFile = url.EndsWith("company_tickers.json");
             var response = new HttpResponseMessage(isTickerFile ? HttpStatusCode.OK : CompanyFactsStatus)
             {
-                Content = new StringContent(EdgarFixtures.Json(isTickerFile ? "company_tickers" : "AAPL")),
+                Content = new StringContent(Body ?? EdgarFixtures.Json(isTickerFile ? "company_tickers" : "AAPL")),
             };
             return Task.FromResult(response);
         }
