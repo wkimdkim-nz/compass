@@ -65,8 +65,10 @@ public abstract record FundamentalsResult
 /// <remarks>
 /// Not handled: a split since the latest filing, which nothing filed shows yet, so every share
 /// count is on the old basis while the quote is on the new one; a split no filing restated a
-/// period for, as when a company's first filings come after it; and a split smaller than three
-/// for two, or a stock dividend, which cannot be told from a corrected figure.
+/// period for, as when a company's first filings come after it; a split smaller than three
+/// for two, or a stock dividend, which cannot be told from a corrected figure; and two splits
+/// with only a 10-Q or two filed between them, where most sightings of the first span both and
+/// the median is their product, so the years before the first are adjusted by the second twice.
 /// </remarks>
 public static class EdgarNormaliser
 {

@@ -122,8 +122,10 @@ draft build tickets #54–#63.
 >    a year or two of every split filer's history when the restatements state the factor outright
 >    (Walmart's read 3, Broadcom's 10 and Chipotle's 50 when checked). Not covered: a split since
 >    the latest filing (the share counts are all on the old basis and the quote is on the new
->    one), a split no filing restated a period for, and a split under three for two or a stock
->    dividend, which cannot be told from a correction.
+>    one), a split no filing restated a period for, a split under three for two or a stock
+>    dividend, which cannot be told from a correction, and two splits with only a 10-Q or two
+>    filed between them (a serial reverse-splitter), where most sightings of the first span both
+>    and the median is their product.
 > 2. **Transition reports count as the report they stand in for.** "Facts from other forms are
 >    ignored" excepts the 10-KT and 10-QT (and their `/A` amendments), filed for the short year
 >    when a filer moves its fiscal year end. The short year is read like any other period, but it
