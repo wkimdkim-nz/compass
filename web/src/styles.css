@@ -105,6 +105,304 @@
     @apply my-2 list-none border-t border-b border-t-rule border-b-hairline py-3 text-sm;
     padding-left: 0;
   }
+
+  /* The page: a column as tall as the window, so the footer sits at its foot however little is above it. */
+  .page {
+    @apply flex min-h-dvh flex-col;
+  }
+  .masthead nav {
+    @apply flex items-baseline gap-4;
+  }
+  .masthead nav a {
+    @apply text-ink;
+  }
+
+  /* An action that reads as a link: sign out, restate to defaults, try again. */
+  .link {
+    @apply cursor-pointer text-pencil underline decoration-1 underline-offset-[0.2em];
+  }
+  .masthead .link {
+    @apply text-ink;
+  }
+
+  /* The footer of every page: the disclaimer and the sources, under a statement rule. */
+  .footer {
+    @apply mt-auto border-t border-rule pt-4 pb-8 text-xs text-ink-2;
+  }
+  .footer .sheet {
+    @apply flex flex-wrap justify-between gap-4;
+  }
+  .footer p {
+    @apply max-w-[60ch];
+  }
+
+  /* The landing page's cover block. */
+  .cover {
+    @apply pt-12 pb-8;
+  }
+  .cover-rule {
+    @apply my-4 border-t border-rule;
+  }
+  .cover .one-line {
+    @apply mb-2 max-w-[44ch] text-lg text-pretty;
+  }
+  .ticker-entry {
+    @apply mt-8 mb-6;
+  }
+  .ticker-entry label {
+    @apply mb-1 block text-sm text-ink-2;
+  }
+  .ticker-entry .line {
+    @apply flex flex-wrap items-end gap-4;
+  }
+  .ticker-entry .btn {
+    margin-top: 0;
+  }
+  .ticker {
+    @apply min-h-row w-full max-w-[12rem] rounded-none border-0 border-b border-rule bg-transparent pb-1 text-title font-semibold tracking-wider text-ink uppercase caret-pencil;
+  }
+  .ticker:focus {
+    @apply border-b-2 border-pencil-line outline-none;
+    padding-bottom: calc(var(--s-1) - 1px);
+  }
+  .ticker::placeholder {
+    @apply text-base font-normal tracking-normal text-ink-2 normal-case;
+  }
+
+  /* The calculator's heading lines. */
+  .tag {
+    @apply font-normal text-ink-2;
+  }
+  .provenance {
+    @apply mb-6 text-sm text-ink-2;
+  }
+  .provenance b {
+    @apply font-medium text-ink;
+  }
+  /* The saved line, in pencil, tucked under the provenance line. */
+  .saved {
+    @apply -mt-4 mb-6 flex flex-wrap gap-4 text-sm text-pencil;
+  }
+
+  /* A statement caption: the table's name at one end, its units at the other, over a rule. */
+  .caption {
+    @apply mt-8 flex items-baseline justify-between gap-4 border-b border-rule pb-2 text-lg font-semibold;
+  }
+  .caption .units {
+    @apply text-right text-sm font-normal text-ink-2;
+  }
+
+  /* Statement tables: every numeral hangs on one right-aligned rule per column. */
+  .statement-table {
+    @apply w-full border-collapse;
+  }
+  .statement-table th,
+  .statement-table td {
+    @apply h-row px-2 align-middle;
+  }
+  .statement-table thead th {
+    @apply text-right text-sm font-medium whitespace-nowrap text-ink-2;
+  }
+  .statement-table tr > :first-child {
+    @apply text-left;
+    padding-left: 0;
+  }
+  .statement-table tr > :last-child {
+    padding-right: 0;
+  }
+  .statement-table tr {
+    @apply border-b border-hairline;
+  }
+  .statement-table tbody tr:last-child {
+    @apply border-b-0;
+  }
+  .statement-table .label {
+    @apply font-normal leading-tight;
+  }
+  .statement-table .label small {
+    @apply block text-xs text-ink-2;
+  }
+  .statement-table .num {
+    @apply text-right whitespace-nowrap;
+  }
+
+  /* A figure that is also an input: printed until touched, blue pencil once edited. */
+  .fig {
+    padding: 0;
+    @apply ml-auto block w-full max-w-[7.5rem] rounded-none border-0 border-b border-transparent bg-transparent text-right text-ink caret-pencil transition-colors duration-100 ease-out;
+  }
+  .fig:hover {
+    @apply border-hairline;
+  }
+  .fig:focus {
+    @apply border-pencil-line outline-none;
+  }
+  .fig.edited {
+    @apply text-pencil;
+  }
+  .fig::placeholder {
+    @apply text-ink-2;
+  }
+  .fig.wide {
+    @apply max-w-[9rem];
+  }
+  .unit {
+    @apply text-sm text-ink-2;
+  }
+  .with-unit {
+    @apply inline-flex w-full items-baseline justify-end gap-1;
+  }
+  .with-unit .fig {
+    @apply w-auto min-w-12;
+    margin-left: 0;
+  }
+
+  /* P/E or P/S, per scenario. */
+  .basis {
+    @apply inline-flex w-full justify-end gap-2 text-xs text-ink-2;
+  }
+  .basis label {
+    @apply cursor-pointer;
+  }
+  .basis input {
+    @apply sr-only;
+  }
+  .basis span {
+    @apply border-b border-transparent;
+    padding-bottom: 1px;
+  }
+  .basis input:checked + span {
+    @apply border-pencil-line font-medium text-pencil;
+  }
+  .basis input:focus-visible + span {
+    @apply outline-2 outline-offset-2 outline-pencil;
+  }
+
+  /* The output rows: a single rule above, and the X over a double rule. */
+  .statement-table tr.subtotal-rule {
+    @apply border-t border-b-0 border-t-rule;
+  }
+  .statement-table tr.total > * {
+    @apply h-auto py-3;
+  }
+  .statement-table tr.total .label {
+    @apply font-semibold;
+  }
+  .statement-table tr.total .x {
+    @apply text-total font-semibold tracking-tight condensed;
+  }
+  .statement-table tr.total .x sup {
+    @apply font-medium text-ink-2;
+    margin-left: 0.05em;
+    font-size: 0.45em;
+    vertical-align: 0.7em;
+  }
+  .statement-table tr.double-rule {
+    @apply border-b-0;
+  }
+  .statement-table tr.double-rule td {
+    @apply h-auto;
+    padding: 0;
+  }
+  .statement-table tr.double-rule td::after {
+    @apply block h-1 border-t border-b border-rule content-[''];
+  }
+  /* An edit tints the output rows for a beat; they snap to the new figures rather than count up. */
+  .statement-table tr > * {
+    transition: background-color 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .statement-table tr.changed > * {
+    @apply bg-pencil-tint;
+    transition-duration: 0ms;
+  }
+
+  /* The disclaimer beside the outputs, and the landing specimen's note. */
+  .footnote {
+    @apply mt-4 max-w-[60ch] text-sm text-ink-2;
+  }
+  .footnote b {
+    @apply font-medium text-ink;
+  }
+
+  .actions {
+    @apply mt-8 mb-12 flex flex-wrap items-center gap-4;
+  }
+  .actions .btn {
+    margin-top: 0;
+  }
+
+  .statement-note b {
+    @apply font-semibold;
+  }
+  .statement-note p + p {
+    @apply mt-1;
+  }
+
+  /* The confirmation, set as a statement note over the dimmed page. */
+  .modal-backdrop {
+    inset: 0;
+    @apply fixed flex items-center justify-center bg-scrim p-4;
+  }
+  .modal {
+    @apply w-full max-w-[28rem] border-t-2 border-b-2 border-rule bg-paper px-6 pt-6 pb-4 text-ink;
+  }
+  .modal h2 {
+    @apply mb-2 text-lg font-semibold;
+  }
+  .modal p {
+    @apply mb-4 text-sm;
+  }
+  .modal .actions {
+    @apply mt-4 justify-end;
+    margin-bottom: 0;
+  }
+
+  /* Phone: the table stays whole, and labels abbreviate the way a statement's do. */
+  @media (max-width: 30rem) {
+    .statement-table th,
+    .statement-table td {
+      @apply px-1;
+    }
+    .label .long {
+      @apply hidden;
+    }
+    .fig {
+      @apply max-w-[4.75rem];
+    }
+    .fig.wide {
+      @apply max-w-[6rem];
+    }
+    .caption .units {
+      @apply max-w-[12rem];
+    }
+    .basis {
+      @apply gap-1;
+    }
+  }
+  @media (min-width: 30.01rem) {
+    .label .short {
+      @apply hidden;
+    }
+  }
+
+  /* Tablet and up: the base facts' sources get a column of their own. */
+  @media (min-width: 48rem) {
+    .label small.src {
+      @apply hidden;
+    }
+  }
+  @media (max-width: 47.99rem) {
+    .src-col {
+      @apply hidden;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fig,
+    .statement-table tr > * {
+      transition: none;
+    }
+  }
 }
 
 /*

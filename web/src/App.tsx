@@ -3,25 +3,42 @@ import { useGetMeQuery, useLogoutMutation } from "./features/auth/authApi";
 import { LoginPage } from "./features/auth/LoginPage";
 import { ProtectedRoute } from "./features/auth/ProtectedRoute";
 import { RegisterPage } from "./features/auth/RegisterPage";
-import { HomePage } from "./features/home/HomePage";
+import { LandingPage } from "./features/landing/LandingPage";
+import { CalculatorPage } from "./features/projection/CalculatorPage";
+import { Disclaimer } from "./app/Disclaimer";
 
 function Layout() {
   const { data: me } = useGetMeQuery();
   const [logout] = useLogoutMutation();
 
   return (
-    <div className="sheet">
-      <header className="masthead">
-        <Link to="/" className="brand">
-          Compass
-        </Link>
-        {me && (
-          <button type="button" className="btn btn-quiet" onClick={() => logout()}>
-            Sign out
-          </button>
-        )}
-      </header>
-      <Outlet />
+    <div className="page">
+      <div className="sheet">
+        <header className="masthead">
+          <Link to="/" className="brand">
+            Compass
+          </Link>
+          <nav aria-label="Account">
+            {me ? (
+              <button type="button" className="link" onClick={() => logout()}>
+                Sign out
+              </button>
+            ) : (
+              <>
+                <Link to="/login">Sign in</Link>
+                <Link to="/register">Register</Link>
+              </>
+            )}
+          </nav>
+        </header>
+        <Outlet />
+      </div>
+      <footer className="footer">
+        <div className="sheet">
+          <Disclaimer as="footer" />
+          <p>Fundamentals: SEC EDGAR. Quotes: Finnhub.</p>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -33,8 +50,9 @@ export function App() {
       <Route element={<Layout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/" element={<LandingPage />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/projections/:ticker" element={<CalculatorPage />} />
         </Route>
       </Route>
     </Routes>

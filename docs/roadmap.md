@@ -97,7 +97,7 @@ deploy, so the tokens are built from the chosen look.**
        reason whenever the lookup cannot seed (unknown ticker, unsupported filer, provider
        down); this route's own 404 means only "no saved projection". Owner-only.
        **Retire `Note`** end to end in this ticket, smoke assertions rewritten here.
-10. [ ] **Landing + calculator UI.** `/` landing with the ticker box; `/projections/{ticker}` the
+10. [x] **Landing + calculator UI.** `/` landing with the ticker box; `/projections/{ticker}` the
         calculator: pre-fill from the lookup, saved assumptions loaded over fresh facts when a
         projection exists (visibly marked, reset-to-defaults action), live X/CAGR on every
         keystroke, Save for new / Update with a confirmation modal for existing, figures-to

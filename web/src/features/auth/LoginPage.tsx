@@ -1,15 +1,17 @@
 import { Link, useNavigate } from "react-router";
 import { useLoginMutation, type Credentials } from "./authApi";
 import { CredentialsForm } from "./CredentialsForm";
+import { useReturnTo } from "./useReturnTo";
 import { fieldErrors, isStatus } from "./problemDetails";
 
 export function LoginPage() {
   const [login, { isLoading, error }] = useLoginMutation();
   const navigate = useNavigate();
+  const returnTo = useReturnTo();
 
   const submit = async (credentials: Credentials) => {
     const result = await login(credentials);
-    if (!("error" in result)) navigate("/", { replace: true });
+    if (!("error" in result)) navigate(returnTo.path, { replace: true });
   };
 
   return (
@@ -23,7 +25,7 @@ export function LoginPage() {
         onSubmit={submit}
       />
       <p className="mt-4 text-sm">
-        New here? <Link to="/register">Create an account</Link>
+        New here? <Link to="/register" state={returnTo.state}>Create an account</Link>
       </p>
     </main>
   );

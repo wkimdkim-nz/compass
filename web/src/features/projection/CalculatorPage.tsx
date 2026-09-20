@@ -1,0 +1,122 @@
+import type { ReactNode } from "react";
+import { useParams } from "react-router";
+import { isStatus } from "../auth/problemDetails";
+import { CalculatorForm } from "./CalculatorForm";
+import { useGetProjectionQuery, useLookUpTickerQuery } from "./projectionApi";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** A date as a statement prints it, 28 Jun 2025. A period end is a calendar date, read in UTC; a moment is read in the user's own zone. */
+const date = (value: string, zone: "utc" | "local") => {
+  const d = new Date(value);
+  return zone === "utc"
+    ? `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+    : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+/**
+ * `/projections/{ticker}`: the ticker lookup and the saved projection, asked for side by side. The
+ * lookup gives the fresh base facts and the seeded defaults; the projection, when there is one,
+ * gives the assumptions that go over them. Whatever the lookup answers, the form is usable.
+ */
+export function CalculatorPage() {
+  const { ticker: param = "" } = useParams();
+  const typed = param.trim().toUpperCase();
+  const lookup = useLookUpTickerQuery(typed);
+  const projection = useGetProjectionQuery(typed);
+
+  if (lookup.isLoading || projection.isLoading) {
+    return (
+      <p role="status" className="note mt-8">
+        Fetching the figures for {typed}…
+      </p>
+    );
+  }
+
+  const found = lookup.isSuccess ? lookup.data : undefined;
+  const saved = projection.data ?? undefined;
+  const ticker = found?.ticker ?? saved?.ticker ?? typed;
+  const companyName = found?.companyName ?? saved?.companyName;
+
+  return (
+    <main>
+      <h1>
+        {companyName ?? ticker} {companyName && <span className="tag">{ticker}</span>}
+      </h1>
+      <p className="provenance">
+        {found ? (
+          <>
+            Figures to <b>{date(found.baseFacts.figuresTo, "utc")}</b> · Fundamentals <b>SEC EDGAR</b> · Quote{" "}
+            <b>Finnhub</b>
+          </>
+        ) : (
+          "No filed figures loaded"
+        )}
+      </p>
+      <CalculatorForm
+        // Mounted afresh when a lookup that failed comes good, so that the figures it brings fill the form.
+        key={`${ticker}:${found ? "found" : "manual"}`}
+        company={{ ticker, companyName: companyName ?? ticker, cik: found?.cik ?? saved?.cik ?? null }}
+        baseFacts={found?.baseFacts}
+        seeded={found?.scenarios ?? []}
+        saved={saved && { scenarios: saved.scenarios, on: date(saved.updatedAt, "local") }}
+        notice={notice()}
+      />
+    </main>
+  );
+
+  /** The statement note above the base facts: why the lookup could not pre-fill, in plain words. */
+  function notice(): ReactNode {
+    const enterThem = <p>Enter the figures yourself; the projection works the same way.</p>;
+    if (found) {
+      return found.missing.includes("currentPrice") ? (
+        <p>
+          <b>The share price could not be fetched just now.</b> Everything else is filled in; enter the price to see
+          the outputs.
+        </p>
+      ) : null;
+    }
+    if (isStatus(lookup.error, 404)) {
+      return (
+        <>
+          <p>
+            <b>No SEC filings found for {ticker}.</b> Compass covers US companies that file 10-K and 10-Q reports with
+            the SEC.
+          </p>
+          {enterThem}
+        </>
+      );
+    }
+    if (isStatus(lookup.error, 422)) {
+      // The lookup's own plain reason, which already says the figures can be typed in.
+      const reason = (lookup.error as { data?: { detail?: string } }).data?.detail;
+      return reason ? (
+        <p>
+          <b>{reason}</b>
+        </p>
+      ) : (
+        <>
+          <p>
+            <b>Compass cannot read {ticker}'s filings.</b> Only 10-K and 10-Q filers are pre-filled.
+          </p>
+          {enterThem}
+        </>
+      );
+    }
+    return (
+      <>
+        <p>
+          <b>The company's figures could not be reached just now.</b>{" "}
+          {saved ? "Your saved assumptions are loaded; the filed figures are not." : "Nothing is pre-filled."}
+        </p>
+        <p>
+          Enter the figures yourself, or{" "}
+          <button type="button" className="link" onClick={() => lookup.refetch()}>
+            try again
+          </button>
+          .
+        </p>
+      </>
+    );
+  }
+}
