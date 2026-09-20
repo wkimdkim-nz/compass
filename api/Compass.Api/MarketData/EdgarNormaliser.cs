@@ -70,7 +70,9 @@ public abstract record FundamentalsResult
 /// only a 10-Q or two filed between them are not parted, since most sightings of the first span
 /// both and the median is their product, and a figure filed in the wrong scale and put right
 /// reads as a split; neither is adjusted for. Both leave a restatement the splits do not
-/// <see cref="Reconciles">reconcile</see> with, and the history is ended short instead.
+/// <see cref="Reconciles">reconcile</see> with, and the history is ended short instead. So it is
+/// for a split seen in one restatement only, which nothing checks: a real one first seen in a
+/// first-quarter 10-Q, whose one comparative is its only sighting, until the next filing.
 /// </remarks>
 public static class EdgarNormaliser
 {
@@ -231,9 +233,10 @@ public static class EdgarNormaliser
     /// last filed before a split was first seen is multiplied by it, to the whole share, as the
     /// filer would have restated it had a later filing reached back that far. Where the splits
     /// read do not <see cref="Reconciles">reconcile</see> with every restatement they are known
-    /// wrong, and nothing is adjusted: a figure last filed before the latest of them was first
-    /// seen is left out instead, so the history ends there and no year in it is on a different
-    /// count from the next.
+    /// wrong, and where one <see cref="Split.IsCorroborated">is not corroborated</see> nothing
+    /// could have shown it wrong; either way nothing is adjusted: a figure last filed before the
+    /// latest of them was first seen is left out instead, so the history ends there and no year
+    /// in it is on a different count from the next.
     /// </summary>
     private static Dictionary<Period, double> SplitAdjustedSeries(Dictionary<string, CompanyConcept?>? taxonomy, string tag, string unit)
     {
@@ -241,7 +244,7 @@ public static class EdgarNormaliser
         var restatements = Restatements(factsByPeriod.Values);
         var splits = Splits(restatements);
 
-        if (!restatements.All(restatement => Reconciles(restatement, splits)))
+        if (!splits.All(split => split.IsCorroborated) || !restatements.All(restatement => Reconciles(restatement, splits)))
         {
             // There is a split, or every restatement would reconcile with none. However wrong the
             // factors, no count filed since the last was first seen has been restated by a split's worth.
@@ -259,8 +262,19 @@ public static class EdgarNormaliser
         });
     }
 
-    /// <summary>A split, as seen from the filings: the day the first filing on the new count was made, and new shares per old.</summary>
-    private readonly record struct Split(DateOnly FirstFiled, double Factor);
+    /// <summary>
+    /// A split, as seen from the filings: the day the first filing on the new count was made, new
+    /// shares per old, and how many restatements it was read from.
+    /// </summary>
+    private readonly record struct Split(DateOnly FirstFiled, double Factor, int Sightings)
+    {
+        /// <summary>
+        /// Seen more than once. A split read from one restatement <see cref="Reconciles">reconciles</see>
+        /// with it by construction, whether it is a split, a figure filed in the wrong scale and
+        /// put right, or what noise left of a sighting carried on from the split before.
+        /// </summary>
+        public bool IsCorroborated => Sightings >= 2;
+    }
 
     /// <summary>
     /// One period's share count as it stood in two successive filings: the days they were made, and
@@ -306,7 +320,7 @@ public static class EdgarNormaliser
             var firstFiled = unattributed[0].After;
             var sightings = unattributed.Where(r => r.Before < firstFiled).ToList();
             var ranked = sightings.Select(r => r.Ratio).OrderBy(ratio => Math.Abs(Math.Log(ratio))).ToList();
-            var split = new Split(firstFiled, NearestSplitRatio(ranked[(ranked.Count - 1) / 2]));
+            var split = new Split(firstFiled, NearestSplitRatio(ranked[(ranked.Count - 1) / 2]), sightings.Count);
             splits.Add(split);
 
             var spanningTheNext = sightings

@@ -527,6 +527,46 @@ public class EdgarNormaliserTests
         Assert.Equal([626_000_000, 630_000_000, 640_000_000], History(filer).Select(year => year.DilutedShares));
     }
 
+    /// <summary>
+    /// The same error with no neighbour to give it away: 2020 filed in thousands, alone in its
+    /// 10-K, and put right in the next. One restatement reads as a thousand for one and reconciles
+    /// with itself, and 2018 would be 100 billion. A split seen once is not taken, so the history
+    /// is the years filed since.
+    /// </summary>
+    [Fact]
+    public void A_split_seen_in_one_restatement_only_ends_the_history_instead()
+    {
+        var filer = Filer(
+            ("10-K", "2019-02-20", [Calendar(2018, 100_000_000)]),
+            ("10-K", "2020-02-20", [Calendar(2019, 101_000_000)]),
+            ("10-K", "2021-02-20", [Calendar(2020, 102_000)]),
+            ("10-K", "2022-02-20", [Calendar(2020, 102_000_000), Calendar(2021, 103_000_000)]),
+            ("10-K", "2023-02-20", [Calendar(2022, 104_000_000)]));
+
+        Assert.Equal([102_000_000, 103_000_000, 104_000_000], History(filer).Select(year => year.DilutedShares));
+    }
+
+    /// <summary>
+    /// Ten for one, seen in 2018 and 2019 as each is filed again, and 2020 restated by fifteen.
+    /// Less the ten, that is carried on as the one sighting of a three for two first seen in
+    /// February 2024, which all three then reconcile with, and 2021 and 2022, filed on the new
+    /// count already, would be × 1.5. It may be a second split or a wrong figure; nothing else
+    /// filed that day says, so the history is what was.
+    /// </summary>
+    [Fact]
+    public void What_is_left_of_a_carried_sighting_is_not_a_split_on_its_own()
+    {
+        var filer = Filer(
+            ("10-K", "2019-02-20", [Calendar(2018, 100_000_000)]),
+            ("10-K", "2020-02-20", [Calendar(2019, 101_000_000)]),
+            ("10-K", "2021-02-20", [Calendar(2020, 102_000_000)]),
+            ("10-K", "2022-02-20", [Calendar(2018, 1_000_000_000), Calendar(2021, 1_030_000_000)]),
+            ("10-K", "2023-02-20", [Calendar(2019, 1_010_000_000), Calendar(2022, 1_040_000_000)]),
+            ("10-K", "2024-02-20", [Calendar(2020, 1_530_000_000), Calendar(2023, 1_050_000_000)]));
+
+        Assert.Equal([1_050_000_000], History(filer).Select(year => year.DilutedShares));
+    }
+
     /// <summary>TSMC files a 20-F in IFRS tags: <c>companyfacts</c> holds no us-gaap fact for it at all.</summary>
     [Fact]
     public void A_20_F_issuer_is_refused_as_not_a_US_domestic_filer()

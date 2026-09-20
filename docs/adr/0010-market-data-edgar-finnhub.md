@@ -156,3 +156,12 @@ draft build tickets #54–#63.
 >    first split's factor may be the earliest sighting of the next, so it dates it and counts in
 >    its median. Without this a split first seen in a 10-Q whose comparatives span both was dated
 >    by the 10-K after it, and the check above would have refused filers the inference had right.
+> 3. **A split seen in one restatement only is not taken.** The check compares each restatement
+>    with factors read from the same restatements, so a split with one sighting reconciles with it
+>    by construction: a lone figure filed in the wrong scale and put right, with nothing else
+>    refiled that day, or what noise leaves of a sighting carried on as in 2 (ratios of 10, 10 and
+>    15 read as ten for one and then three for two). Neither can be told from a real split, so the
+>    history is cut short as in 1. The cost is a real split first seen in a first-quarter 10-Q,
+>    whose one comparative is its only sighting: the history is empty until the next filing
+>    restates more. Two wrong figures put right on one day still pass, until the next filing's
+>    unmoved comparatives fail the check.
