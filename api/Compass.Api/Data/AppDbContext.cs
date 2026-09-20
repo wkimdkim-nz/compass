@@ -15,19 +15,20 @@ namespace Compass.Api.Data;
 /// its seven tables with explicit <c>ToTable</c> calls ("AspNetUsers", "AspNetRoles", …), which the
 /// naming convention does not touch. We accept that rather than re-mapping them: every ADR and
 /// glossary entry already refers to <c>AspNetUsers</c>, and re-mapping would buy nothing but a
-/// second name for the same table. The <see cref="Note"/> foreign key therefore targets
+/// second name for the same table. The <see cref="Projection"/> foreign key therefore targets
 /// <c>"AspNetUsers".id</c>.
 /// </para>
 /// <para>
 /// The <c>data_protection_keys</c> table (from <see cref="IDataProtectionKeyContext"/>) is
-/// <b>permanent</b>. It is not part of the throwaway skeleton and must survive the deletion of
-/// <see cref="Note"/>.
+/// <b>permanent</b>: it holds the key ring that encrypts the session cookie (ADR 0007).
 /// </para>
 /// </remarks>
 public class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IDataProtectionKeyContext
 {
-    public DbSet<Note> Notes => Set<Note>();
+    public DbSet<Projection> Projections => Set<Projection>();
+
+    public DbSet<Scenario> Scenarios => Set<Scenario>();
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
@@ -35,17 +36,36 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     {
         base.OnModelCreating(builder);
 
-        builder.Entity<Note>(note =>
+        builder.Entity<Projection>(projection =>
         {
-            note.HasKey(n => n.Id);
-            note.Property(n => n.Text).IsRequired().HasMaxLength(Note.MaxTextLength);
+            projection.HasKey(p => p.Id);
+            projection.Property(p => p.Ticker).IsRequired().HasMaxLength(Projection.MaxTickerLength);
+            projection.Property(p => p.CompanyName).IsRequired().HasMaxLength(Projection.MaxCompanyNameLength);
 
-            // Wired explicitly because Note deliberately has no navigation property.
-            // ON DELETE CASCADE: deleting a user deletes their notes in the database itself.
-            note.HasOne<ApplicationUser>()
+            // One projection per user per company (ADR 0004, amended). The ticker is stored
+            // upper-cased, so this is the index on user plus upper-cased ticker.
+            projection.HasIndex(p => new { p.UserId, p.Ticker }).IsUnique();
+
+            // Wired explicitly because Projection deliberately has no navigation property to the user.
+            // ON DELETE CASCADE: deleting a user deletes their projections in the database itself.
+            projection.HasOne<ApplicationUser>()
                 .WithMany()
-                .HasForeignKey(n => n.UserId)
+                .HasForeignKey(p => p.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            projection.HasMany(p => p.Scenarios)
+                .WithOne()
+                .HasForeignKey(s => s.ProjectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Scenario>(scenario =>
+        {
+            scenario.HasKey(s => s.Id);
+            scenario.Property(s => s.Name).IsRequired().HasMaxLength(Scenario.MaxNameLength);
+            scenario.Property(s => s.ExitMultipleKind).IsRequired().HasMaxLength(Scenario.Pe.Length);
+            // Bear, Base and Bull once each is what holds a projection to three.
+            scenario.HasIndex(s => new { s.ProjectionId, s.Name }).IsUnique();
         });
     }
 }

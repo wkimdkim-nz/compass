@@ -19,13 +19,13 @@ export const authApi = api.injectEndpoints({
     register: build.mutation<Me, Credentials>({
       query: (body) => ({ url: "/auth/register", method: "POST", body }),
       onQueryStarted: seedSessionFromAnswer,
-      invalidatesTags: ["Note"],
+      invalidatesTags: ["Projection"],
     }),
 
     login: build.mutation<Me, Credentials>({
       query: (body) => ({ url: "/auth/login", method: "POST", body }),
       onQueryStarted: seedSessionFromAnswer,
-      invalidatesTags: ["Note"],
+      invalidatesTags: ["Projection"],
     }),
 
     /**

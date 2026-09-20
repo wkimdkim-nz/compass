@@ -11,6 +11,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
-  tagTypes: ["Note"],
+  // Everything a user saves is tagged with this, so that signing in as someone else refetches it.
+  tagTypes: ["Projection"],
   endpoints: () => ({}),
 });

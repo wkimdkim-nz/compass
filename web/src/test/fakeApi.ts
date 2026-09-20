@@ -8,18 +8,16 @@ import { setupServer } from "msw/node";
  * HttpOnly cookie.
  */
 type User = { id: string; email: string; password: string };
-type Note = { id: string; userId: string; text: string; createdAt: string };
 
 type State = {
   users: User[];
   session: User | null;
-  notes: Note[];
   requests: Record<string, number>;
   /** Milliseconds to hold every `/api/auth/me` response. */
   meDelay: number;
 };
 
-const freshState = (): State => ({ users: [], session: null, notes: [], requests: {}, meDelay: 0 });
+const freshState = (): State => ({ users: [], session: null, requests: {}, meDelay: 0 });
 let state = freshState();
 
 const problem = (status: number, title: string, extra: object = {}) =>
@@ -67,29 +65,6 @@ const handlers = [
     if (!state.session) return unauthorized();
     state.session = null;
     return new HttpResponse(null, { status: 204 });
-  }),
-
-  http.get("/api/notes", ({ request }) => {
-    count(request);
-    if (!state.session) return unauthorized();
-    const userId = state.session.id;
-    return HttpResponse.json(
-      state.notes.filter((n) => n.userId === userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    );
-  }),
-
-  http.post("/api/notes", async ({ request }) => {
-    count(request);
-    if (!state.session) return unauthorized();
-    const { text } = (await request.json()) as { text: string };
-    const note = {
-      id: crypto.randomUUID(),
-      userId: state.session.id,
-      text,
-      createdAt: new Date(Date.now() + state.notes.length).toISOString(),
-    };
-    state.notes.push(note);
-    return HttpResponse.json(note, { status: 201 });
   }),
 ];
 

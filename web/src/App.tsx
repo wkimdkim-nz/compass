@@ -3,7 +3,7 @@ import { useGetMeQuery, useLogoutMutation } from "./features/auth/authApi";
 import { LoginPage } from "./features/auth/LoginPage";
 import { ProtectedRoute } from "./features/auth/ProtectedRoute";
 import { RegisterPage } from "./features/auth/RegisterPage";
-import { NotesPage } from "./features/notes/NotesPage";
+import { HomePage } from "./features/home/HomePage";
 
 function Layout() {
   const { data: me } = useGetMeQuery();
@@ -34,7 +34,7 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<NotesPage />} />
+          <Route path="/" element={<HomePage />} />
         </Route>
       </Route>
     </Routes>

@@ -103,34 +103,102 @@ namespace Compass.Api.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Compass.Api.Data.Note", b =>
+            modelBuilder.Entity("Compass.Api.Data.Projection", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<long?>("Cik")
+                        .HasColumnType("bigint")
+                        .HasColumnName("cik");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("company_name");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("Text")
+                    b.Property<string>("Ticker")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("text");
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("ticker");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_notes");
+                        .HasName("pk_projections");
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_notes_user_id");
+                    b.HasIndex("UserId", "Ticker")
+                        .IsUnique()
+                        .HasDatabaseName("ix_projections_user_id_ticker");
 
-                    b.ToTable("notes", (string)null);
+                    b.ToTable("projections", (string)null);
+                });
+
+            modelBuilder.Entity("Compass.Api.Data.Scenario", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("DilutionRate")
+                        .HasColumnType("numeric")
+                        .HasColumnName("dilution_rate");
+
+                    b.Property<string>("ExitMultipleKind")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("exit_multiple_kind");
+
+                    b.Property<decimal>("ExitMultipleValue")
+                        .HasColumnType("numeric")
+                        .HasColumnName("exit_multiple_value");
+
+                    b.Property<decimal>("FutureNetMargin")
+                        .HasColumnType("numeric")
+                        .HasColumnName("future_net_margin");
+
+                    b.Property<decimal>("GrowthRate")
+                        .HasColumnType("numeric")
+                        .HasColumnName("growth_rate");
+
+                    b.Property<int>("Horizon")
+                        .HasColumnType("integer")
+                        .HasColumnName("horizon");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("ProjectionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("projection_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_scenarios");
+
+                    b.HasIndex("ProjectionId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_scenarios_projection_id_name");
+
+                    b.ToTable("scenarios", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
@@ -318,14 +386,24 @@ namespace Compass.Api.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Compass.Api.Data.Note", b =>
+            modelBuilder.Entity("Compass.Api.Data.Projection", b =>
                 {
                     b.HasOne("Compass.Api.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_notes_asp_net_users_user_id");
+                        .HasConstraintName("fk_projections_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("Compass.Api.Data.Scenario", b =>
+                {
+                    b.HasOne("Compass.Api.Data.Projection", null)
+                        .WithMany("Scenarios")
+                        .HasForeignKey("ProjectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_scenarios_projections_projection_id");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -383,6 +461,11 @@ namespace Compass.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_asp_net_user_tokens_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("Compass.Api.Data.Projection", b =>
+                {
+                    b.Navigation("Scenarios");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,3 +1,4 @@
+using Compass.Api.Data;
 using Compass.Api.MarketData;
 
 namespace Compass.Api.Tickers;
@@ -30,11 +31,21 @@ public abstract record TickerLookupResult
 
     public sealed record Found(TickerResponse Response) : TickerLookupResult;
 
-    public sealed record UnknownTicker : TickerLookupResult;
+    /// <summary>
+    /// A lookup with nothing to seed a form from. <see cref="Reason"/> is what the user is told, by
+    /// the lookup's own Problem body and by a saved projection read without base facts alike: plain
+    /// words, and never anything a provider said.
+    /// </summary>
+    public abstract record Failed(string Reason) : TickerLookupResult;
 
-    public sealed record Unsupported(string Reason) : TickerLookupResult;
+    public sealed record UnknownTicker()
+        : Failed("No company with that ticker files with the SEC. Check the symbol, or enter the figures yourself.");
 
-    public sealed record FundamentalsUnavailable : TickerLookupResult;
+    /// <param name="Reason">The normaliser's.</param>
+    public sealed record Unsupported(string Reason) : Failed(Reason);
+
+    public sealed record FundamentalsUnavailable()
+        : Failed("The company's figures could not be fetched just now. Try again shortly, or enter them yourself.");
 }
 
 /// <summary>
@@ -57,7 +68,7 @@ public sealed class TickerLookup(
         {
             lookup = await cache.GetOrFetchAsync(
                 // Keyed the way the SEC writes a ticker, so that BRK.B and brk-b are held once.
-                $"fundamentals:{symbol.Trim().ToUpperInvariant().Replace('.', '-')}",
+                $"fundamentals:{Projection.NormaliseTicker(symbol)}",
                 MarketDataCache.FundamentalsTtl,
                 () => fundamentalsSource.LookUpAsync(symbol, cancellationToken),
                 // Not an unknown ticker: what a user can mistype has no bound, and the ticker map it

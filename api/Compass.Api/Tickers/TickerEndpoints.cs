@@ -15,15 +15,15 @@ public static class TickerEndpoints
             await lookup.LookUpAsync(symbol, cancellationToken) switch
             {
                 TickerLookupResult.Found found => Results.Ok(found.Response),
-                TickerLookupResult.UnknownTicker => Results.Problem(
-                    statusCode: StatusCodes.Status404NotFound,
-                    detail: "No company with that ticker files with the SEC. Check the symbol, or enter the figures yourself."),
-                TickerLookupResult.Unsupported unsupported => Results.Problem(
-                    statusCode: StatusCodes.Status422UnprocessableEntity,
-                    detail: unsupported.Reason),
-                TickerLookupResult.FundamentalsUnavailable => Results.Problem(
-                    statusCode: StatusCodes.Status503ServiceUnavailable,
-                    detail: "The company's figures could not be fetched just now. Try again shortly, or enter them yourself."),
+                TickerLookupResult.Failed failed => Results.Problem(
+                    statusCode: failed switch
+                    {
+                        TickerLookupResult.UnknownTicker => StatusCodes.Status404NotFound,
+                        TickerLookupResult.Unsupported => StatusCodes.Status422UnprocessableEntity,
+                        TickerLookupResult.FundamentalsUnavailable => StatusCodes.Status503ServiceUnavailable,
+                        var other => throw new InvalidOperationException($"Unhandled lookup failure {other.GetType().Name}."),
+                    },
+                    detail: failed.Reason),
                 var other => throw new InvalidOperationException($"Unhandled lookup result {other.GetType().Name}."),
             });
 
