@@ -4,6 +4,7 @@ using Compass.Api.Data;
 using Compass.Api.Health;
 using Compass.Api.MarketData;
 using Compass.Api.Notes;
+using Compass.Api.Tickers;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,8 @@ builder.Services.Configure<EdgarOptions>(builder.Configuration.GetSection(EdgarO
 // Registered whichever way the fundamentals port resolved: nothing constructs it, and so nothing
 // reads the contact address, until the real fundamentals source asks for it.
 builder.Services.AddEdgarClient();
+builder.Services.AddMarketDataPorts(marketDataProviders);
+builder.Services.AddScoped<TickerLookup>();
 
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails(options =>
@@ -101,6 +104,7 @@ app.UseAuthorization();
 app.MapHealthEndpoints();
 app.MapAuthEndpoints();
 app.MapNoteEndpoints();
+app.MapTickerEndpoints();
 
 app.Run();
 
