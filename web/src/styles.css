@@ -249,13 +249,6 @@
   .unit {
     @apply text-sm text-ink-2;
   }
-  .with-unit {
-    @apply inline-flex w-full items-baseline justify-end gap-1;
-  }
-  .with-unit .fig {
-    @apply w-auto min-w-12;
-    margin-left: 0;
-  }
 
   /* P/E or P/S, per scenario. */
   .basis {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { ProjectionOutputs } from "../../projection/calculator";
 import { Disclaimer } from "../../app/Disclaimer";
 import { detail, fieldErrors, isStatus } from "../auth/problemDetails";
@@ -16,6 +16,7 @@ import {
 } from "./projectionApi";
 import {
   buildForm,
+  currentMarginText,
   preview,
   saveDraft,
   SCENARIO_NAMES,
@@ -38,7 +39,7 @@ type Props = {
 
 const TITLE: Record<ScenarioName, string> = { bear: "Bear", base: "Base", bull: "Bull" };
 
-const FACT_ROWS: { field: keyof BaseFactsForm; label: ReactNode; aria: string; source: string; wide?: boolean; unit?: string }[] = [
+const FACT_ROWS: { field: keyof BaseFactsForm; label: ReactNode; aria: string; source: string; wide?: boolean }[] = [
   { field: "price", label: "Share price", aria: "Share price", source: "Finnhub, per share" },
   {
     field: "revenue",
@@ -63,7 +64,6 @@ const FACT_ROWS: { field: keyof BaseFactsForm; label: ReactNode; aria: string; s
     source: "SEC EDGAR, weighted average",
     wide: true,
   },
-  { field: "currentMargin", label: "Net margin", aria: "Current net margin, percent", source: "Net income ÷ revenue", unit: "%" },
 ];
 
 const ASSUMPTION_ROWS: { field: ScenarioField; label: string; small: string; aria: string }[] = [
@@ -109,6 +109,8 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
   const exists = saved !== undefined || savedHere;
 
   const results = useMemo(() => preview(form), [form]);
+  // Counts edits, so that a save answered after a later edit does not put its outputs over the newer form.
+  const edits = useRef(0);
 
   useEffect(() => {
     if (!tinted) return;
@@ -117,6 +119,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
   }, [tinted, form]);
 
   const edit = (next: ProjectionForm) => {
+    edits.current += 1;
     setForm(next);
     setServerOutputs(null);
     setProblems([]);
@@ -147,6 +150,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
       return;
     }
 
+    const sentAt = edits.current;
     const result = await (exists ? replace : create)(draft.request);
     if ("error" in result) {
       // A 401 has already sent the app back to sign in (see the store); there is nothing to say here.
@@ -155,7 +159,8 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
       setProblems(fields.length > 0 ? fields : [detail(result.error) ?? "The projection could not be saved just now. Try again shortly."]);
       return;
     }
-    setServerOutputs(outputsByName(result.data));
+    // The form stays editable during a save: outputs for figures since typed over are not shown.
+    if (edits.current === sentAt) setServerOutputs(outputsByName(result.data));
     // What was saved is now what an edit is measured against.
     setOpened(form);
     setSavedHere(true);
@@ -174,6 +179,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
     return outputs && formatOutputs(outputs);
   };
   const columns = SCENARIO_NAMES.map((name) => ({ name, outputs: shown(name) }));
+  const currentMargin = currentMarginText(baseFacts);
   const blank = "—";
 
   return (
@@ -181,7 +187,9 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
       {saved && !restated && (
         <p className="saved">
           <span>
-            Your assumptions, saved <b>{saved.on}</b>, over today's figures
+            Your assumptions, saved <b>{saved.on}</b>
+            {/* Only when the lookup brought figures: a failed one leaves nothing for them to sit over. */}
+            {baseFacts && ", over today's figures"}
           </span>
           {/* Offered only when there are defaults to restate to: a lookup that failed seeds none. */}
           {seeded.length > 0 && (
@@ -209,37 +217,41 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
             </tr>
           </thead>
           <tbody>
-            {FACT_ROWS.map(({ field, label, aria, source, wide, unit }) => {
-              const input = (
-                <input
-                  className={`fig${wide ? " wide" : ""}${form.facts[field] !== opened.facts[field] ? " edited" : ""}`}
-                  value={form.facts[field]}
-                  onChange={(e) => editFact(field, e.target.value)}
-                  inputMode="decimal"
-                  placeholder={blank}
-                  autoComplete="off"
-                  aria-label={aria}
-                />
-              );
-              return (
-                <tr key={field}>
-                  <th scope="row" className="label">
-                    {label} <small className="src">{source}</small>
-                  </th>
-                  <td className="src-col note">{source}</td>
-                  <td className="num">
-                    {unit ? (
-                      <span className="with-unit">
-                        {input}
-                        <span className="unit">{unit}</span>
-                      </span>
-                    ) : (
-                      input
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+            {FACT_ROWS.map(({ field, label, aria, source, wide }) => (
+              <tr key={field}>
+                <th scope="row" className="label">
+                  {label} <small className="src">{source}</small>
+                </th>
+                <td className="src-col note">{source}</td>
+                <td className="num">
+                  <input
+                    className={`fig${wide ? " wide" : ""}${form.facts[field] !== opened.facts[field] ? " edited" : ""}`}
+                    value={form.facts[field]}
+                    onChange={(e) => editFact(field, e.target.value)}
+                    inputMode="decimal"
+                    placeholder={blank}
+                    autoComplete="off"
+                    aria-label={aria}
+                  />
+                </td>
+              </tr>
+            ))}
+            {/* Printed, not typed: no formula takes it. It is there to set the future net margin against. */}
+            <tr>
+              <th scope="row" className="label">
+                Net margin <small className="src">Net income ÷ revenue</small>
+              </th>
+              <td className="src-col note">Net income ÷ revenue</td>
+              <td className="num">
+                {currentMargin ? (
+                  <>
+                    {currentMargin} <span className="unit">%</span>
+                  </>
+                ) : (
+                  blank
+                )}
+              </td>
+            </tr>
           </tbody>
         </table>
       </section>

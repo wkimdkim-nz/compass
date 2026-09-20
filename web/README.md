@@ -48,8 +48,8 @@ signed-out visitor lands on their projection afterwards. The calculator asks the
 the saved projection side by side: the lookup gives fresh base facts and the seeded defaults, the
 projection (when there is one) the assumptions that go over them.
 
-The form holds **text** in the UI's units, whole-number percents and millions, negatives in
-parentheses. It crosses to the wire's decimals and raw values in exactly one module,
+The form holds **text** in the UI's units, percents (8, not 0.08, to one decimal: ADR 0011) and
+millions, negatives in parentheses. The current net margin is printed, not typed: no formula takes it. It crosses to the wire's decimals and raw values in exactly one module,
 `features/projection/figures.ts`, used by `projectionForm.ts` both for the live preview (the
 TypeScript calculator in `src/projection`) and for the body of a save. After a save the output rows
 show the .NET calculator's figures from the response until the next keystroke. The disclaimer is

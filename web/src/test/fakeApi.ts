@@ -27,6 +27,8 @@ type State = {
   requests: Record<string, number>;
   /** Milliseconds to hold every `/api/auth/me` response. */
   meDelay: number;
+  /** Milliseconds to hold every save's answer. */
+  saveDelay: number;
   projections: SavedProjection[];
   /** Every create and replace body, oldest first. */
   saves: SaveProjectionRequest[];
@@ -41,6 +43,7 @@ const freshState = (): State => ({
   session: null,
   requests: {},
   meDelay: 0,
+  saveDelay: 0,
   projections: [],
   saves: [],
   fundamentalsDown: false,
@@ -156,6 +159,7 @@ const handlers = [
     if (!state.session) return unauthorized();
     const body = (await request.json()) as SaveProjectionRequest;
     state.saves.push(body);
+    if (state.saveDelay) await delay(state.saveDelay);
     const errors = validate(body);
     if (Object.keys(errors).length > 0) return problem(400, "One or more validation errors occurred.", { errors });
     if (findOwn(body.ticker)) {
@@ -180,6 +184,7 @@ const handlers = [
     if (!state.session) return unauthorized();
     const body = (await request.json()) as SaveProjectionRequest;
     state.saves.push(body);
+    if (state.saveDelay) await delay(state.saveDelay);
     const projection = findOwn(String(params.ticker));
     if (!projection) return problem(404, "Not Found", { detail: "You have no saved projection for that ticker." });
     const errors = validate(body);
@@ -252,6 +257,10 @@ export const fakeApi = {
 
   holdMeResponsesFor(ms: number) {
     state.meDelay = ms;
+  },
+
+  holdSaveResponsesFor(ms: number) {
+    state.saveDelay = ms;
   },
 
   /** The fundamentals source is down: every known ticker's lookup is a 503. */

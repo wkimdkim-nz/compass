@@ -17,11 +17,26 @@ describe("reading a typed figure", () => {
     expect(parseFigure("12abc")).toBeNaN();
     expect(parseFigure("(")).toBeNaN();
   });
+
+  it("reads a comma that is not a thousands separator, or two signs at once, as mistyped", () => {
+    expect(parseFigure("1,2")).toBeNaN();
+    expect(parseFigure("12,34")).toBeNaN();
+    expect(parseFigure("1,,000")).toBeNaN();
+    expect(parseFigure("1000,000")).toBeNaN();
+    expect(parseFigure("(-2)")).toBeNaN();
+    expect(parseFigure("--2")).toBeNaN();
+    expect(parseFigure("1,234,567.5")).toBe(1234567.5);
+    expect(parseFigure("(1,000)")).toBe(-1000);
+  });
 });
 
 describe("the UI's units", () => {
-  it("shows a decimal rate as a whole-number percent and sends it back as the decimal", () => {
+  it("shows a decimal rate as a percent, to one decimal, and sends it back as the decimal", () => {
     expect(toUi(0.08, "percent")).toBe("8");
+    // A seeded 1.3% of buybacks shown as 1 would save as a different assumption (ADR 0011).
+    expect(toUi(-0.013, "percent")).toBe("(1.3)");
+    expect(toUi(0.0834, "percent")).toBe("8.3");
+    expect(toWire(parseFigure(toUi(-0.013, "percent"))!, "percent")).toBe(-0.013);
     expect(toUi(-0.02, "percent")).toBe("(2)");
     expect(toWire(8, "percent")).toBe(0.08);
     expect(toWire(-2, "percent")).toBe(-0.02);

@@ -14,8 +14,11 @@ import type {
 
 export const SCENARIO_NAMES = ["bear", "base", "bull"] as const satisfies readonly ScenarioName[];
 
-/** The text of every field. Any of it may be empty or mistyped at any moment. */
-export type BaseFactsForm = { price: string; revenue: string; shares: string; currentMargin: string };
+/**
+ * The text of every field. Any of it may be empty or mistyped at any moment. The current net margin
+ * is not among them: no formula takes it, so it is printed, not typed (see `currentMarginText`).
+ */
+export type BaseFactsForm = { price: string; revenue: string; shares: string };
 export type ScenarioForm = {
   horizon: string;
   growth: string;
@@ -32,8 +35,10 @@ export const FACT_UNITS: Record<keyof BaseFactsForm, Unit> = {
   price: "plain",
   revenue: "millions",
   shares: "millions",
-  currentMargin: "percent",
 };
+
+/** The current net margin as the statement prints it; empty when the lookup gave none. */
+export const currentMarginText = (baseFacts: BaseFactsResponse | undefined) => toUi(baseFacts?.currentNetMargin, "percent");
 
 export const SCENARIO_UNITS: Record<ScenarioField, Unit> = {
   horizon: "plain",
@@ -68,7 +73,6 @@ export function buildForm(
       price: toUi(baseFacts?.currentPrice, FACT_UNITS.price),
       revenue: toUi(baseFacts?.ttmRevenue, FACT_UNITS.revenue),
       shares: toUi(baseFacts?.dilutedShares, FACT_UNITS.shares),
-      currentMargin: toUi(baseFacts?.currentNetMargin, FACT_UNITS.currentMargin),
     },
     scenarios: { bear: named("bear"), base: named("base"), bull: named("bull") },
   };

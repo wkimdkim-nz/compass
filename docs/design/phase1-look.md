@@ -72,7 +72,7 @@ negative CAGR, print in parentheses.
 
 ### How the three columns behave on a phone
 
-**The table stays whole.** Per-scenario values are short (a year count, whole-number percents, a
+**The table stays whole.** Per-scenario values are short (a year count, percents to one decimal, a
 multiple), so a label column plus three narrow numeric columns fits at 390px, as the phone capture
 shows. Labels abbreviate below 480px the way a statement does ("Revenue TTM", "Shares diluted"),
 and the source line moves under the label. Base facts are single-column and never compete with the
@@ -140,8 +140,8 @@ a width axis), so copy and totals share a voice. Body at normal width, 16px / 1.
 14px; footnotes 12px. **Tabular lining figures everywhere** (`font-variant-numeric: tabular-nums
 lining-nums`) so columns align. The X totals are set condensed (width 75), weight 600, at 36px on
 phones, 48px on tablets and 56px on desktop, with a small "×" suffix in the secondary ink.
-Negatives in parentheses, never a minus sign. Whole-number percents and millions in the UI, as the
-roadmap requires. Self-hosting the face is the token ticket's job; the mock-ups load it from Google
+Negatives in parentheses, never a minus sign. Percents (8, not 0.08, to one decimal: ADR 0011) and millions in the
+UI, as the roadmap requires. Self-hosting the face is the token ticket's job; the mock-ups load it from Google
 Fonts.
 
 ## Open items

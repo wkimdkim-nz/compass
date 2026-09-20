@@ -42,7 +42,9 @@ describe("the landing page", () => {
     expect(field("Share price")).toHaveValue("100");
     expect(field(/^revenue/i)).toHaveValue("100,000");
     expect(field(/^shares/i)).toHaveValue("5,000");
-    expect(field(/current net margin/i)).toHaveValue("25");
+    // Printed, not a field: no formula takes the current net margin.
+    expect(screen.getByRole("row", { name: /^net margin/i })).toHaveTextContent("25 %");
+    expect(screen.queryByRole("textbox", { name: /current net margin/i })).not.toBeInTheDocument();
     expect(field(/bear revenue growth/i)).toHaveValue("4");
     expect(field(/base revenue growth/i)).toHaveValue("8");
     expect(field(/bull revenue growth/i)).toHaveValue("12");
@@ -173,6 +175,20 @@ describe("saving", () => {
     // On $120,500M of revenue: Bear at 2.5% is $143.36, Base $186.18, Bull $223.31.
     await retype(user, field(/base revenue growth/i), "8");
     expect(outputs(/return multiple/i)).toEqual(["1.4×", "1.9×", "2.2×"]);
+  });
+
+  it("keeps the preview of an edit made while the save was on its way", async () => {
+    fakeApi.seedUser();
+    fakeApi.holdSaveResponsesFor(150);
+    const user = await calculatorFor("AAPL");
+
+    await user.click(screen.getByRole("button", { name: /save projection/i }));
+    await retype(user, field(/base revenue growth/i), "12");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /update projection/i })).toBeEnabled());
+    // Base now matches Bull; the save's answer, worked from 8%, is not put over it.
+    expect(outputs(/return multiple/i)).toEqual(["1.3×", "1.9×", "1.9×"]);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("replaces an existing projection only after the confirmation", async () => {
@@ -321,6 +337,8 @@ describe("a lookup that cannot pre-fill", () => {
     const user = await calculatorFor("AAPL");
 
     expect(screen.getByText(/could not be reached just now/i)).toBeInTheDocument();
+    // There are no figures of today's for the saved assumptions to sit over.
+    expect(screen.getByText(/your assumptions, saved/i)).not.toHaveTextContent(/today's figures/i);
     expect(field("Share price")).toHaveValue("");
     expect(field(/base revenue growth/i)).toHaveValue("30");
     expect(screen.getByRole("button", { name: /update projection/i })).toBeEnabled();
