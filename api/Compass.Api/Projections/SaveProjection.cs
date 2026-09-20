@@ -121,7 +121,7 @@ public static class SaveProjection
                 {
                     Error($"{field}.exitMultiple", "An exit multiple is required.");
                 }
-                else if (kind is not ("pe" or "ps"))
+                else if (kind is not (Scenario.Pe or Scenario.Ps))
                 {
                     Error($"{field}.exitMultiple.kind", "An exit multiple is a pe or a ps.");
                 }
@@ -175,7 +175,7 @@ public static class SaveProjection
     public static AssumptionSet ToAssumptionSet(this Scenario scenario) => new(
         (double)scenario.GrowthRate,
         (double)scenario.FutureNetMargin,
-        scenario.ExitMultipleKind == "pe"
+        scenario.ExitMultipleKind == Scenario.Pe
             ? new ExitMultiple.Pe((double)scenario.ExitMultipleValue)
             : new ExitMultiple.Ps((double)scenario.ExitMultipleValue),
         (double)scenario.DilutionRate,

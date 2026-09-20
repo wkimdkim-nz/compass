@@ -164,6 +164,38 @@ public class ProjectionTests(CompassApiFactory factory) : IClassFixture<CompassA
     }
 
     [Fact]
+    public async Task Replacing_a_scenario_with_one_of_the_same_name_keeps_the_new_assumptions()
+    {
+        var client = factory.CreateBrowserLikeClient();
+        await client.RegisterNewUser();
+        await client.Save("META", Projections.PeBase5y("base"), Projections.PeBase5y("bull"));
+
+        var response = await client.PutAsJsonAsync("/api/projections/META", Projections.Request(
+            null, Projections.PeFacts, Projections.PeBase5y("bull") with { GrowthRate = 0.3 }, Projections.PeBase5y("base") with { GrowthRate = 0.2 }));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var read = await (await client.GetAsync("/api/projections/META")).Body();
+        Assert.Equal(
+            [("base", 0.2), ("bull", 0.3)],
+            read.GetProperty("scenarios").EnumerateArray().Select(s => (s.GetProperty("name").GetString()!, s.GetProperty("growthRate").GetDouble())));
+    }
+
+    [Fact]
+    public async Task A_share_class_is_one_company_however_its_ticker_is_punctuated()
+    {
+        var client = factory.CreateBrowserLikeClient();
+        await client.RegisterNewUser();
+
+        var created = await client.Save("brk.b");
+        var second = await client.Save("BRK-B");
+        var read = await client.GetAsync("/api/projections/BRK.B");
+
+        Assert.Equal("BRK-B", (await created.Body()).GetProperty("ticker").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+    }
+
+    [Fact]
     public async Task Replacing_where_none_exists_answers_404_and_creates_nothing()
     {
         var client = factory.CreateBrowserLikeClient();

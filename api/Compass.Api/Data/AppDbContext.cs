@@ -62,8 +62,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         builder.Entity<Scenario>(scenario =>
         {
             scenario.HasKey(s => s.Id);
-            scenario.Property(s => s.Name).IsRequired().HasMaxLength(8);
-            scenario.Property(s => s.ExitMultipleKind).IsRequired().HasMaxLength(2);
+            scenario.Property(s => s.Name).IsRequired().HasMaxLength(Scenario.MaxNameLength);
+            scenario.Property(s => s.ExitMultipleKind).IsRequired().HasMaxLength(Scenario.Pe.Length);
             // Bear, Base and Bull once each is what holds a projection to three.
             scenario.HasIndex(s => new { s.ProjectionId, s.Name }).IsUnique();
         });

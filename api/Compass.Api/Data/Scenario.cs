@@ -12,6 +12,11 @@ public class Scenario
     /// <summary>The names a scenario can have, in the order they are answered in.</summary>
     public static readonly ImmutableArray<string> Names = ["bear", "base", "bull"];
 
+    public const int MaxNameLength = 8;
+
+    /// <summary>The two kinds of exit multiple, as the vectors file spells them.</summary>
+    public const string Pe = "pe", Ps = "ps";
+
     public Guid Id { get; set; }
 
     public Guid ProjectionId { get; set; }
@@ -22,7 +27,7 @@ public class Scenario
 
     public decimal FutureNetMargin { get; set; }
 
-    /// <summary><c>pe</c> or <c>ps</c>, as the vectors file spells them.</summary>
+    /// <summary><see cref="Pe"/> or <see cref="Ps"/>.</summary>
     public string ExitMultipleKind { get; set; } = "";
 
     public decimal ExitMultipleValue { get; set; }

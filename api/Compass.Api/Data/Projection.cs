@@ -15,7 +15,7 @@ public class Projection
     /// <summary>Scalar foreign key to <c>"AspNetUsers".id</c>. No navigation property, on purpose.</summary>
     public Guid UserId { get; set; }
 
-    /// <summary>Upper-cased, which is what makes the unique index on it and the user case-blind. See <see cref="NormaliseTicker"/>.</summary>
+    /// <summary>Normalised, which is what makes the unique index on it and the user case-blind. See <see cref="NormaliseTicker"/>.</summary>
     public string Ticker { get; set; } = "";
 
     public string CompanyName { get; set; } = "";
@@ -30,8 +30,9 @@ public class Projection
     public List<Scenario> Scenarios { get; set; } = [];
 
     /// <summary>
-    /// The ticker as the row keys on it. Upper-cased and no more: a share class keeps the
-    /// punctuation it was typed with, since a ticker the lookup does not cover has no SEC spelling.
+    /// The ticker as the row keys on it: upper-cased, and a share class written the way the SEC
+    /// writes it, BRK-B, as the ticker lookup reads one. Typed BRK.B it is the same company, and so
+    /// the same projection.
     /// </summary>
-    public static string NormaliseTicker(string ticker) => ticker.Trim().ToUpperInvariant();
+    public static string NormaliseTicker(string ticker) => ticker.Trim().ToUpperInvariant().Replace('.', '-');
 }

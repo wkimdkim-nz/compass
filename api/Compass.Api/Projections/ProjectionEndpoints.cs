@@ -93,7 +93,7 @@ public static class ProjectionEndpoints
 
         projections.MapPut("/{ticker}", async (string ticker, SaveProjectionRequest body, ClaimsPrincipal caller, AppDbContext db, TimeProvider clock, CancellationToken cancellationToken) =>
         {
-            if (await db.FindAsync(caller, ticker, cancellationToken) is not { } projection) return NoProjection(ticker);
+            if (await db.FindOwnAsync(caller, ticker, cancellationToken) is not { } projection) return NoProjection(ticker);
 
             var result = SaveProjection.Validate(body, routeTicker: ticker);
             if (result is not SaveProjectionResult.Valid valid) return Invalid(result);
@@ -103,14 +103,24 @@ public static class ProjectionEndpoints
             projection.UpdatedAt = clock.PostgresNow();
             db.Scenarios.RemoveRange(projection.Scenarios);
             projection.Scenarios = [.. valid.Scenarios];
-            await db.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            // Two replaces at once: the other's scenarios went in, or its deletes came first. Its answer stands.
+            catch (DbUpdateException failure) when (failure is DbUpdateConcurrencyException || failure.InnerException is PostgresException { SqlState: UniqueViolation })
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    detail: $"Your projection for {projection.Ticker} was replaced at the same moment. Load it again before replacing it.");
+            }
 
             return Results.Ok(projection.ToSavedResponse(valid));
         });
 
         projections.MapGet("/{ticker}", async (string ticker, ClaimsPrincipal caller, AppDbContext db, TickerLookup lookup, CancellationToken cancellationToken) =>
         {
-            if (await db.FindAsync(caller, ticker, cancellationToken) is not { } projection) return NoProjection(ticker);
+            if (await db.FindOwnAsync(caller, ticker, cancellationToken) is not { } projection) return NoProjection(ticker);
 
             // Whatever the lookup says, the saved assumptions are answered: this route's 404 is the one above.
             var (baseFacts, missing, unavailable) = await lookup.LookUpAsync(projection.Ticker, cancellationToken) switch
@@ -135,7 +145,7 @@ public static class ProjectionEndpoints
         return routes;
     }
 
-    private static Task<Projection?> FindAsync(this AppDbContext db, ClaimsPrincipal caller, string ticker, CancellationToken cancellationToken)
+    private static Task<Projection?> FindOwnAsync(this AppDbContext db, ClaimsPrincipal caller, string ticker, CancellationToken cancellationToken)
     {
         var userId = caller.UserId();
         var normalised = Projection.NormaliseTicker(ticker);

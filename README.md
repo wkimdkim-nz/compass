@@ -301,7 +301,7 @@ All under `/api`, JSON bodies only, ProblemDetails on every error.
 | `GET /api/projections/{ticker}` | 200, `{ ticker, companyName, cik, createdAt, updatedAt, scenarios, baseFacts, missing, baseFactsUnavailable }` | The saved assumptions (no `outputs`) over the ticker lookup's live `baseFacts` and `missing`. When the lookup cannot seed (unknown ticker, unsupported filer, provider down) it is still a 200: `baseFacts` is null and `baseFactsUnavailable` carries the lookup's plain reason. This route's own 404 means only that the caller has no saved projection; another user's is a 404 too. |
 
 A projection is the caller's own: every query is filtered by the session's user id, the row is
-unique on `(user_id, ticker)` with the ticker upper-cased, and deleting a user deletes their
+unique on `(user_id, ticker)` with the ticker upper-cased and a share class spelt the SEC's way (`BRK.B` is `BRK-B`), and deleting a user deletes their
 projections and scenarios in the database itself (`ON DELETE CASCADE`). The rates and the multiple
 are `numeric` columns (ADR 0008) holding each figure as it was sent, and the outputs a save answers
 with are computed from those stored figures.
