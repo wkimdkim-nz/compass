@@ -126,6 +126,25 @@ public class TickerLookupPortsTests(CompassApiFactory factory) : IClassFixture<C
         Assert.Equal([-0.75, -0.5, -0.25], scenarios.Select(s => s.GetProperty("growthRate").GetDouble()));
     }
 
+    /// <summary>
+    /// Over one year any ratio has a root, so revenue 100 → −20 would read as growth of −120% a
+    /// year. There is no rate to speak of, and so nothing to seed.
+    /// </summary>
+    [Fact]
+    public async Task A_history_that_ends_below_nothing_seeds_no_scenarios()
+    {
+        var nonsense = new Fundamentals(100, 10, 0.1, 50, new DateOnly(2025, 12, 31),
+        [
+            new AnnualFigures(new DateOnly(2024, 12, 31), 100, 10, 50),
+            new AnnualFigures(new DateOnly(2025, 12, 31), -20, 10, 50),
+        ]);
+        var client = await SignedInClient(services => services.UseFundamentals(new FixedFundamentals(nonsense)));
+
+        var body = await (await client.GetAsync("/api/tickers/ODD")).Body();
+
+        Assert.Empty(Scenarios(body));
+    }
+
     [Fact]
     public async Task A_ticker_the_SEC_does_not_list_is_a_404()
     {
@@ -263,7 +282,7 @@ public class TickerLookupPortsTests(CompassApiFactory factory) : IClassFixture<C
         var client = await SignedInClient(services => services.UseFundamentals(fundamentals).UseQuote(quote).UseClock(clock));
 
         await client.GetAsync("/api/tickers/AAPL");
-        // The same ticker however it is typed.
+        // The same ticker however it is cased.
         var second = await client.GetAsync("/api/tickers/aapl");
 
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
@@ -285,6 +304,20 @@ public class TickerLookupPortsTests(CompassApiFactory factory) : IClassFixture<C
         clock.Advance(TimeSpan.FromMinutes(2));
         await client.GetAsync("/api/tickers/AAPL");
         Assert.Equal(2, fundamentals.Calls);
+    }
+
+    /// <summary>The SEC's BRK-B is as often typed BRK.B, and is one company held once.</summary>
+    [Fact]
+    public async Task A_share_class_typed_either_way_is_the_same_held_lookup()
+    {
+        var fundamentals = new CountingFundamentals(new FixedFundamentals(AnyCompany, ticker: "BRK-B"));
+        var quote = new CountingQuote();
+        var client = await SignedInClient(services => services.UseFundamentals(fundamentals).UseQuote(quote));
+
+        await client.GetAsync("/api/tickers/BRK.B");
+        await client.GetAsync("/api/tickers/brk-b");
+
+        Assert.Equal((1, 1), (fundamentals.Calls, quote.Calls));
     }
 
     [Fact]

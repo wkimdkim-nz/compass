@@ -165,3 +165,10 @@ draft build tickets #54–#63.
 >    whose one comparative is its only sighting: the history is empty until the next filing
 >    restates more. Two wrong figures put right on one day still pass, until the next filing's
 >    unmoved comparatives fail the check.
+
+> **Amended 2026-09-20 (what a partial 200 seeds, #73).** One detail the decision above left open.
+> The exit multiple is the price over earnings or sales per share, so with no price there is no
+> multiple. The scenarios are seeded all the same, since growth, margin and dilution need no
+> quote: each `exitMultiple` keeps its `kind` and carries a null `value`, and the missing-field
+> list names `currentPrice` alone, the one thing not fetched. Dropping the scenarios was the
+> alternative, and would have had the user retype four fields for want of one.

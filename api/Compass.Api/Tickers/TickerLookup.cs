@@ -56,7 +56,8 @@ public sealed class TickerLookup(
         try
         {
             lookup = await cache.GetOrFetchAsync(
-                $"fundamentals:{symbol.Trim().ToUpperInvariant()}",
+                // Keyed the way the SEC writes a ticker, so that BRK.B and brk-b are held once.
+                $"fundamentals:{symbol.Trim().ToUpperInvariant().Replace('.', '-')}",
                 MarketDataCache.FundamentalsTtl,
                 () => fundamentalsSource.LookUpAsync(symbol, cancellationToken),
                 // Not an unknown ticker: what a user can mistype has no bound, and the ticker map it

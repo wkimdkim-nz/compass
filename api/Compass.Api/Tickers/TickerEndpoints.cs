@@ -21,9 +21,10 @@ public static class TickerEndpoints
                 TickerLookupResult.Unsupported unsupported => Results.Problem(
                     statusCode: StatusCodes.Status422UnprocessableEntity,
                     detail: unsupported.Reason),
-                _ => Results.Problem(
+                TickerLookupResult.FundamentalsUnavailable => Results.Problem(
                     statusCode: StatusCodes.Status503ServiceUnavailable,
                     detail: "The company's figures could not be fetched just now. Try again shortly, or enter them yourself."),
+                var other => throw new InvalidOperationException($"Unhandled lookup result {other.GetType().Name}."),
             });
 
         return routes;

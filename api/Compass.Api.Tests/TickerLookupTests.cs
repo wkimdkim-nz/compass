@@ -47,4 +47,24 @@ public class TickerLookupTests(CompassApiFactory factory) : IClassFixture<Compas
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    /// <summary>The stub has a company for each answer the lookup has, so the UI can be built against all of them.</summary>
+    [Fact]
+    public async Task The_stub_ports_also_hold_an_unprofitable_filer_a_newly_listed_one_and_a_foreign_one()
+    {
+        var client = factory.CreateBrowserLikeClient();
+        await client.RegisterNewUser();
+
+        var unprofitable = await (await client.GetAsync("/api/tickers/LCID")).Body();
+        var newlyListed = await (await client.GetAsync("/api/tickers/MRP")).Body();
+        var foreign = await client.GetAsync("/api/tickers/TSM");
+
+        Assert.All(
+            unprofitable.GetProperty("scenarios").EnumerateArray(),
+            scenario => Assert.Equal("ps", scenario.GetProperty("exitMultiple").GetProperty("kind").GetString()));
+        Assert.Equal(3, unprofitable.GetProperty("scenarios").GetArrayLength());
+        Assert.Equal(0, newlyListed.GetProperty("scenarios").GetArrayLength());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, foreign.StatusCode);
+        Assert.Contains("not a US domestic filer", (await foreign.Body()).GetProperty("detail").GetString());
+    }
 }

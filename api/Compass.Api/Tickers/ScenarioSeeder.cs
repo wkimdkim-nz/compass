@@ -25,8 +25,8 @@ public static class ScenarioSeeder
 
     /// <summary>
     /// Empty when there is nothing sound to seed from: fewer than two years of history, no current
-    /// margin, or a history a growth rate cannot be taken over (revenue or shares that start at
-    /// nothing or below). Never a scenario holding NaN or infinity.
+    /// margin, or a history a growth rate cannot be taken over (revenue or shares that start or end
+    /// at nothing or below). Never a scenario holding NaN or infinity.
     /// </summary>
     /// <param name="currentPrice">Null when the quote source failed: the scenarios are seeded all the same, less the exit multiple's value.</param>
     public static IReadOnlyList<SeededScenario> Seed(Fundamentals fundamentals, double? currentPrice)
@@ -51,7 +51,10 @@ public static class ScenarioSeeder
         return [Scenario("bear", growth - spread), Scenario("base", growth), Scenario("bull", growth + spread)];
     }
 
-    /// <summary>NaN where there is no rate to speak of: a first figure that is not positive, or a last that is negative.</summary>
+    /// <summary>
+    /// NaN where there is no rate to speak of: a figure at either end that is not positive. Asked
+    /// of the last as well as the first, since over one year a negative ratio has a root all the same.
+    /// </summary>
     private static double Cagr(double first, double last, int years) =>
-        first > 0 ? Math.Pow(last / first, 1.0 / years) - 1 : double.NaN;
+        first > 0 && last > 0 ? Math.Pow(last / first, 1.0 / years) - 1 : double.NaN;
 }
