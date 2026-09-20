@@ -1,30 +1,33 @@
 import { BLANK, type PrintedOutputs } from "./figures";
+import type { ScenarioName } from "./projectionApi";
+import { SCENARIO_NAMES } from "./projectionForm";
 
-/** The specimen prints no future share price, so it has none to give. */
-type Column = Pick<PrintedOutputs, "x" | "cagr"> & Partial<PrintedOutputs>;
+/** A scenario that gives no result is left out, and prints the dash. */
+type Columns<Column> = Partial<Record<ScenarioName, Column>>;
 
-type Props = {
-  /** Bear, Base, Bull, in that order; undefined for a column that gives no result, which prints the dash. */
-  columns: readonly [Column | undefined, Column | undefined, Column | undefined];
-  /** Whether the Future share price row is printed. */
-  showFuturePrice?: boolean;
+type Props = (
+  | { columns: Columns<PrintedOutputs>; showFuturePrice?: true }
+  /** The specimen prints no Future share price row, so its columns have none to give. */
+  | { columns: Columns<Omit<PrintedOutputs, "futurePrice">>; showFuturePrice: false }
+) & {
   /** Tints the rows for a moment after an edit. */
   tinted?: boolean;
 };
 
 /** The rows that close a statement's table: the Return multiple as its total, then CAGR and the future share price. */
-export function OutputRows({ columns, showFuturePrice = true, tinted = false }: Props) {
+export function OutputRows({ tinted = false, ...props }: Props) {
+  const { columns } = props;
   return (
     <>
       <tr className={`subtotal-rule total${tinted ? " changed" : ""}`}>
         <th scope="row" className="label">
           Return multiple
         </th>
-        {columns.map((outputs, i) => (
-          <td key={i} className="num x">
-            {outputs ? (
+        {SCENARIO_NAMES.map((name) => (
+          <td key={name} className="num x">
+            {columns[name] ? (
               <>
-                {outputs.x}
+                {columns[name].x}
                 <sup>×</sup>
               </>
             ) : (
@@ -40,20 +43,20 @@ export function OutputRows({ columns, showFuturePrice = true, tinted = false }: 
         <th scope="row" className="label">
           CAGR <small>% per year</small>
         </th>
-        {columns.map((outputs, i) => (
-          <td key={i} className="num">
-            {outputs?.cagr ?? BLANK}
+        {SCENARIO_NAMES.map((name) => (
+          <td key={name} className="num">
+            {columns[name]?.cagr ?? BLANK}
           </td>
         ))}
       </tr>
-      {showFuturePrice && (
+      {props.showFuturePrice !== false && (
         <tr className={tinted ? "changed" : undefined}>
           <th scope="row" className="label">
             Future share price <small>USD</small>
           </th>
-          {columns.map((outputs, i) => (
-            <td key={i} className="num">
-              {outputs?.futurePrice ?? BLANK}
+          {SCENARIO_NAMES.map((name) => (
+            <td key={name} className="num">
+              {props.columns[name]?.futurePrice ?? BLANK}
             </td>
           ))}
         </tr>

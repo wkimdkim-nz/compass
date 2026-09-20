@@ -271,7 +271,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                 ))}
               </tr>
             ))}
-            <OutputRows columns={[shown("bear"), shown("base"), shown("bull")]} tinted={tinted} />
+            <OutputRows columns={{ bear: shown("bear"), base: shown("base"), bull: shown("bull") }} tinted={tinted} />
           </tbody>
         </table>
         <Disclaimer as="footnote" />

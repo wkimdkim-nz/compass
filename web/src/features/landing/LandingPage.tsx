@@ -3,11 +3,11 @@ import { useNavigate } from "react-router";
 import { OutputRows } from "../projection/OutputRows";
 
 /** The specimen's outputs, Bear / Base / Bull, printed as the calculator prints its own. */
-const SPECIMEN = [
-  { x: "0.7", cagr: "(6) %" },
-  { x: "1.2", cagr: "4 %" },
-  { x: "1.9", cagr: "14 %" },
-] as const;
+const SPECIMEN = {
+  bear: { x: "0.7", cagr: "(6) %" },
+  base: { x: "1.2", cagr: "4 %" },
+  bull: { x: "1.9", cagr: "14 %" },
+} as const;
 
 /**
  * The statement's cover block: what Compass does, and the ticker box. It works signed out: the
