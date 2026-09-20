@@ -295,6 +295,7 @@ All under `/api`, JSON bodies only, ProblemDetails on every error.
 | `POST /api/auth/login` | 200, `{ id, email }` | Any failure is the same generic 401. Repeated failures lock the account. |
 | `POST /api/auth/logout` | 204 | Ends the session on the server. 401 when there is no session to end. |
 | `GET /api/auth/me` | 200, `{ id, email }` | The session check. 401 (no redirect) when signed out. |
+| `GET /api/tickers/{symbol}` | 200, `{ ticker, companyName, cik, baseFacts, history, scenarios, missing }` | The ticker lookup (ADR 0010). Raw values and decimal rates. `scenarios` is Bear, Base, Bull seeded from `history` (ADR 0004, amended), or empty with fewer than two years of it. 404 unknown ticker; 422 a filer that cannot be normalised, with the plain reason in `detail`; 503 when the fundamentals source fails. When only the quote fails it is still a 200: `baseFacts.currentPrice` is null, `missing` is `["currentPrice"]`, and each scenario's `exitMultiple` keeps its `kind` with a null `value`. On the stub ports the tickers are `AAPL` (profitable), `LCID` (unprofitable), `MRP` (one year of history, no scenarios) and `TSM` (422), all with made-up figures at a price of 100. |
 | `GET /api/notes` | 200, `[note]` | Only the caller's rows, newest first. |
 | `POST /api/notes` | 201, `note` | `{ text }`, attributed to the caller. |
 
