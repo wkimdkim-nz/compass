@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import type { SerializedError } from "@reduxjs/toolkit";
+import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { useParams } from "react-router";
 import { detail, isStatus } from "../auth/problemDetails";
 import { CalculatorForm } from "./CalculatorForm";
-import { useGetProjectionQuery, useLookUpTickerQuery } from "./projectionApi";
+import { useGetProjectionQuery, useLookUpTickerQuery, type TickerResponse } from "./projectionApi";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -13,6 +15,70 @@ const date = (value: string, zone: "utc" | "local") => {
     ? `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
     : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 };
+
+type NoticeProps = {
+  ticker: string;
+  /** The lookup's answer; absent when it failed. */
+  found: TickerResponse | undefined;
+  error: FetchBaseQueryError | SerializedError | undefined;
+  hasSaved: boolean;
+  retry: () => void;
+};
+
+/** The statement note above the base facts: why the lookup could not pre-fill, in plain words. */
+function lookupNotice({ ticker, found, error, hasSaved, retry }: NoticeProps): ReactNode {
+  const enterThem = <p>Enter the figures yourself; the projection works the same way.</p>;
+  if (found) {
+    return found.missing.includes("currentPrice") ? (
+      <p>
+        <b>The share price could not be fetched just now.</b> The exit multiples are worked out from it, so they
+        are empty too; enter the price and a multiple to see the outputs.
+      </p>
+    ) : null;
+  }
+  if (isStatus(error, 404)) {
+    return (
+      <>
+        <p>
+          <b>No SEC filings found for {ticker}.</b> Compass covers US companies that file 10-K and 10-Q reports with
+          the SEC.
+        </p>
+        {enterThem}
+      </>
+    );
+  }
+  if (isStatus(error, 422)) {
+    // The lookup's own plain reason, which already says the figures can be typed in.
+    const reason = detail(error);
+    return reason ? (
+      <p>
+        <b>{reason}</b>
+      </p>
+    ) : (
+      <>
+        <p>
+          <b>Compass cannot read {ticker}'s filings.</b> Only 10-K and 10-Q filers are pre-filled.
+        </p>
+        {enterThem}
+      </>
+    );
+  }
+  return (
+    <>
+      <p>
+        <b>The company's figures could not be reached just now.</b>{" "}
+        {hasSaved ? "Your saved assumptions are loaded; the filed figures are not." : "Nothing is pre-filled."}
+      </p>
+      <p>
+        Enter the figures yourself, or{" "}
+        <button type="button" className="link" onClick={retry}>
+          try again
+        </button>
+        .
+      </p>
+    </>
+  );
+}
 
 /**
  * `/projections/{ticker}`: the ticker lookup and the saved projection, asked for side by side. The
@@ -79,63 +145,8 @@ export function CalculatorPage() {
         baseFacts={found?.baseFacts}
         seeded={found?.scenarios ?? []}
         saved={saved && { scenarios: saved.scenarios, on: date(saved.updatedAt, "local") }}
-        notice={notice()}
+        notice={lookupNotice({ ticker, found, error: lookup.error, hasSaved: saved !== undefined, retry: () => void lookup.refetch() })}
       />
     </main>
   );
-
-  /** The statement note above the base facts: why the lookup could not pre-fill, in plain words. */
-  function notice(): ReactNode {
-    const enterThem = <p>Enter the figures yourself; the projection works the same way.</p>;
-    if (found) {
-      return found.missing.includes("currentPrice") ? (
-        <p>
-          <b>The share price could not be fetched just now.</b> The exit multiples are worked out from it, so they
-          are empty too; enter the price and a multiple to see the outputs.
-        </p>
-      ) : null;
-    }
-    if (isStatus(lookup.error, 404)) {
-      return (
-        <>
-          <p>
-            <b>No SEC filings found for {ticker}.</b> Compass covers US companies that file 10-K and 10-Q reports with
-            the SEC.
-          </p>
-          {enterThem}
-        </>
-      );
-    }
-    if (isStatus(lookup.error, 422)) {
-      // The lookup's own plain reason, which already says the figures can be typed in.
-      const reason = detail(lookup.error);
-      return reason ? (
-        <p>
-          <b>{reason}</b>
-        </p>
-      ) : (
-        <>
-          <p>
-            <b>Compass cannot read {ticker}'s filings.</b> Only 10-K and 10-Q filers are pre-filled.
-          </p>
-          {enterThem}
-        </>
-      );
-    }
-    return (
-      <>
-        <p>
-          <b>The company's figures could not be reached just now.</b>{" "}
-          {saved ? "Your saved assumptions are loaded; the filed figures are not." : "Nothing is pre-filled."}
-        </p>
-        <p>
-          Enter the figures yourself, or{" "}
-          <button type="button" className="link" onClick={() => lookup.refetch()}>
-            try again
-          </button>
-          .
-        </p>
-      </>
-    );
-  }
 }

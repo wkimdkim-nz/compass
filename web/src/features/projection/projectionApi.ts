@@ -2,7 +2,7 @@ import { api } from "../../app/api";
 import type { ProjectionOutputs } from "../../projection/calculator";
 
 // The wire shapes of the ticker lookup and the projection endpoints (README, "The API"). Raw
-// values and decimal rates throughout: millions and whole-number percents are `figures.ts`'s.
+// values and decimal rates throughout: millions and percents are `figures.ts`'s.
 
 export type ScenarioName = "bear" | "base" | "bull";
 export type ExitMultipleKind = "pe" | "ps";
@@ -32,7 +32,6 @@ export type TickerResponse = {
   companyName: string;
   cik: number;
   baseFacts: BaseFactsResponse;
-  history: unknown[];
   /** Bear, Base, Bull; or none, when the filed history gave nothing sound to seed from. */
   scenarios: SeededScenario[];
   missing: string[];

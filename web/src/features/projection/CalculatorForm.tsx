@@ -68,10 +68,10 @@ const FACT_ROWS: { field: keyof BaseFactsForm; label: ReactNode; aria: string; s
 
 const ASSUMPTION_ROWS: { field: ScenarioField; label: string; small: string; aria: string }[] = [
   { field: "horizon", label: "Horizon", small: "years", aria: "horizon, years" },
-  { field: "growth", label: "Revenue growth", small: "% per year", aria: "revenue growth, percent per year" },
-  { field: "margin", label: "Future net margin", small: "%", aria: "future net margin, percent" },
-  { field: "multiple", label: "Exit multiple", small: "P/E on earnings, or P/S on revenue", aria: "exit multiple" },
-  { field: "dilution", label: "Share dilution", small: "% per year; buybacks in parentheses", aria: "share dilution, percent per year" },
+  { field: "growthRate", label: "Revenue growth", small: "% per year", aria: "revenue growth, percent per year" },
+  { field: "futureNetMargin", label: "Future net margin", small: "%", aria: "future net margin, percent" },
+  { field: "exitMultiple", label: "Exit multiple", small: "P/E on earnings, or P/S on revenue", aria: "exit multiple" },
+  { field: "dilutionRate", label: "Share dilution", small: "% per year; buybacks in parentheses", aria: "share dilution, percent per year" },
 ];
 
 const KINDS: { kind: ExitMultipleKind; label: string }[] = [
@@ -289,7 +289,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                       autoComplete="off"
                       aria-label={`${TITLE[name]} ${aria}`}
                     />
-                    {field === "multiple" && (
+                    {field === "exitMultiple" && (
                       <span className="basis" role="radiogroup" aria-label={`${TITLE[name]} exit multiple basis`}>
                         {KINDS.map(({ kind, label: kindLabel }) => (
                           <label key={kind}>

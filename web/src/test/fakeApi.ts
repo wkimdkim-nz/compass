@@ -90,7 +90,6 @@ const aapl = (): TickerResponse => {
       currentNetMargin: 0.25,
       figuresTo: "2025-12-31",
     },
-    history: [],
     scenarios: [scenario("bear", 0.04), scenario("base", 0.08), scenario("bull", 0.12)],
     missing: state.quoteDown ? ["currentPrice"] : [],
   };

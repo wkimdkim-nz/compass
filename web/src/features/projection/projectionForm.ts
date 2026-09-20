@@ -21,11 +21,11 @@ export const SCENARIO_NAMES = ["bear", "base", "bull"] as const satisfies readon
 export type BaseFactsForm = { price: string; revenue: string; shares: string };
 export type ScenarioForm = {
   horizon: string;
-  growth: string;
-  margin: string;
-  multiple: string;
+  growthRate: string;
+  futureNetMargin: string;
+  exitMultiple: string;
   kind: ExitMultipleKind;
-  dilution: string;
+  dilutionRate: string;
 };
 export type ProjectionForm = { facts: BaseFactsForm; scenarios: Record<ScenarioName, ScenarioForm> };
 
@@ -42,23 +42,30 @@ export const currentMarginText = (baseFacts: BaseFactsResponse | undefined) => t
 
 export const SCENARIO_UNITS: Record<ScenarioField, Unit> = {
   horizon: "plain",
-  growth: "percent",
-  margin: "percent",
-  multiple: "multiple",
-  dilution: "percent",
+  growthRate: "percent",
+  futureNetMargin: "percent",
+  exitMultiple: "multiple",
+  dilutionRate: "percent",
 };
 
-const emptyScenario = (): ScenarioForm => ({ horizon: "", growth: "", margin: "", multiple: "", kind: "pe", dilution: "" });
+const emptyScenario = (): ScenarioForm => ({
+  horizon: "",
+  growthRate: "",
+  futureNetMargin: "",
+  exitMultiple: "",
+  kind: "pe",
+  dilutionRate: "",
+});
 
 const scenarioForm = (scenario: SeededScenario | SavedScenario | undefined): ScenarioForm =>
   scenario
     ? {
         horizon: toUi(scenario.horizon, SCENARIO_UNITS.horizon),
-        growth: toUi(scenario.growthRate, SCENARIO_UNITS.growth),
-        margin: toUi(scenario.futureNetMargin, SCENARIO_UNITS.margin),
-        multiple: toUi(scenario.exitMultiple.value, SCENARIO_UNITS.multiple),
+        growthRate: toUi(scenario.growthRate, SCENARIO_UNITS.growthRate),
+        futureNetMargin: toUi(scenario.futureNetMargin, SCENARIO_UNITS.futureNetMargin),
+        exitMultiple: toUi(scenario.exitMultiple.value, SCENARIO_UNITS.exitMultiple),
         kind: scenario.exitMultiple.kind,
-        dilution: toUi(scenario.dilutionRate, SCENARIO_UNITS.dilution),
+        dilutionRate: toUi(scenario.dilutionRate, SCENARIO_UNITS.dilutionRate),
       }
     : emptyScenario();
 
@@ -92,10 +99,10 @@ const factsDraft = (facts: BaseFactsForm): DraftBaseFacts => ({
 
 const scenarioDraft = (scenario: ScenarioForm): DraftAssumptionSet => ({
   horizon: wire(scenario.horizon, SCENARIO_UNITS.horizon),
-  growthRate: wire(scenario.growth, SCENARIO_UNITS.growth),
-  futureNetMargin: wire(scenario.margin, SCENARIO_UNITS.margin),
-  exitMultiple: { kind: scenario.kind, value: wire(scenario.multiple, SCENARIO_UNITS.multiple) },
-  dilutionRate: wire(scenario.dilution, SCENARIO_UNITS.dilution),
+  growthRate: wire(scenario.growthRate, SCENARIO_UNITS.growthRate),
+  futureNetMargin: wire(scenario.futureNetMargin, SCENARIO_UNITS.futureNetMargin),
+  exitMultiple: { kind: scenario.kind, value: wire(scenario.exitMultiple, SCENARIO_UNITS.exitMultiple) },
+  dilutionRate: wire(scenario.dilutionRate, SCENARIO_UNITS.dilutionRate),
 });
 
 /** The live preview: each column through the TypeScript calculator, as the form stands. */
