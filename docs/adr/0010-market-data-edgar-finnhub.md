@@ -180,7 +180,7 @@ draft build tickets #54–#63.
 >    documentation alone. The deployed smoke test of 2026-09-21 looked AAPL up against the real
 >    Finnhub and the real EDGAR and got a live price, so the adapter written from the
 >    documentation stands. The key travels in a header, not the `token` query parameter, so it is
->    in no URL and no log of one. A symbol Finnhub does not know is a 200 of zeroes; the adapter
+>    in no URL and no log of one. A ticker Finnhub does not know is a 200 of zeroes; the adapter
 >    reads a price that is not above zero as a failure, which makes it the partial 200.
 > 2. **The history is at most five fiscal years and may be shorter than three.** The spec (#65)
 >    said "3–5 years". The normaliser returns what is filed, oldest first, each year with all
@@ -189,8 +189,8 @@ draft build tickets #54–#63.
 > 3. **The 422 has five reasons, not one.** Not a US domestic filer (no 10-K or 10-Q facts); no
 >    revenue that can be read; too few periods to sum twelve months; no net income for them; no
 >    diluted share count for the latest period. Each is plain words that end by saying the figures
->    can be entered by hand, and the same words are what a saved projection's read carries when it has no base
->    facts. The **current net margin is null** when TTM revenue is not positive; that is a 200.
+>    can be entered by hand, and the same words are what a saved projection's read carries when
+>    it has no base facts. The **current net margin is null** when TTM revenue is not positive; that is a 200.
 > 4. **What the cache does not hold.** An unknown-ticker answer is not cached, since what a user
 >    can mistype has no bound and the ticker map it was checked against is already held. A fetch
 >    that throws is not cached either, so an outage lasts as long as the provider's and no

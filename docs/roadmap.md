@@ -79,7 +79,8 @@ deploy, so the tokens are built from the chosen look.**
 6. [x] **Configuration.** Finnhub key: `compass/finnhub-api-key` in the **foundation** stack,
        value set by hand, injected by name in the app-stack task definition; locally
        `dotnet user-secrets`. EDGAR User-Agent contact: an environment variable everywhere. With
-       either absent the matching stub is registered **in Development and test only**; elsewhere
+       either absent the matching stub is registered **in Development only** (which the tests boot
+       as); elsewhere
        startup fails naming the missing setting. Record the config key names.
 7. [x] **EDGAR normalisation.** Ticker → CIK via the SEC ticker file; `companyfacts` →
        TTM revenue (ordered tag list per period, Q4 = FY − 9M), TTM net income, current margin,
@@ -110,14 +111,13 @@ deploy, so the tokens are built from the chosen look.**
 12. [x] **Close out.** Roadmap ticked, glossary and ADRs reconciled with what was built, the
         spec issue closed with pointers to the PRs.
 
-**Done on 2026-09-21** ([#76](https://github.com/wkimdkim-nz/compass/issues/76)): a logged-in
-user, in the deployed app, types a US ticker, gets a pre-filled Bear/Base/Bull form, edits it, sees
-X and CAGR update live, saves, reloads and sees the same assumptions with fresh base facts —
-disclaimer beside the output and in the footer — and the smoke script proves lookup → save → load
-against the real providers.
+**Done on 2026-09-21.** The bar was: a logged-in user, in the deployed app, types a US ticker,
+gets a pre-filled Bear/Base/Bull form, edits it, sees X and CAGR update live, saves, reloads and
+sees the same assumptions with fresh base facts — disclaimer beside the output and in the footer —
+and the smoke script proves lookup → save → load against the real providers.
 
-> ✅ **Met on 2026-09-21.** `scripts/smoke-deployed.sh` passed all eleven assertions against an app
-> stack running image `21e84e9` on the real providers: AAPL looked up from SEC EDGAR and Finnhub
+> ✅ **Met on 2026-09-21** ([#76](https://github.com/wkimdkim-nz/compass/issues/76)).
+> `scripts/smoke-deployed.sh` passed all eleven assertions against an app stack running image `21e84e9` on the real providers: AAPL looked up from SEC EDGAR and Finnhub
 > (assertion 9), saved with a 201 (7), and loaded back as the saved assumptions over a live price,
 > a 404 to a second user (10). A human then ran the browser pass at phone and desktop widths:
 > pre-fill, live X and CAGR, save, reload, *Update* through the confirmation, both disclaimers.

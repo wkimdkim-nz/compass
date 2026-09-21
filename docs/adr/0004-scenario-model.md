@@ -90,7 +90,8 @@ Persistence rule (single model, since FMP is in iteration 1):
 > **Amended 2026-09-21 (Phase 1 close-out, #77).** The record walked against the shipped code
 > (#73, #74, #75). Nothing above is withdrawn; five things it did not say, or said loosely.
 >
-> 1. **The schema is in the one database** (ADR 0008; the "ADR 0003" above is superseded):
+> 1. **The schema is in the one database** (ADR 0008, which superseded the ADR 0003 the
+>    Consequences cite):
 >    `projections`, unique on `(user_id, ticker)`, and `scenarios`, unique on
 >    `(projection_id, name)`, so a projection holds each of `bear`, `base` and `bull` at most
 >    once. Both foreign keys cascade on delete. A save takes one to three scenarios.
@@ -106,6 +107,9 @@ Persistence rule (single model, since FMP is in iteration 1):
 >    stored assumptions give. Whatever the calculator rejects is a 400 validation Problem keyed
 >    by the field at fault (`scenarios[1].horizon`). A save answers with the outputs; a read
 >    answers without them, since nothing is stored to give and the base facts may not be there.
+>    The "empty base facts" of the first amendment are, on the wire, a null `baseFacts` beside
+>    a `baseFactsUnavailable` holding the lookup's reason. The vectors file "at the repo root"
+>    is `spec/projection-vectors.json`.
 > 4. **A replace can also answer 409**, when two replaces of the same projection land together;
 >    the other's answer stands, and the client is told to load again. A replace whose body names
 >    a ticker other than the one in the address is a 400.
