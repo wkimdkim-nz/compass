@@ -1,6 +1,6 @@
 # ADR 0004 — Projections hold Bear/Base/Bull scenarios; snapshot vs. live inputs
 
-**Status:** Accepted (amended 2026-09-17)
+**Status:** Accepted (amended 2026-09-17, 2026-09-20 and 2026-09-21)
 **Date:** 2026-07-01
 
 ## Context
@@ -86,3 +86,36 @@ Persistence rule (single model, since FMP is in iteration 1):
 > The duplicated compute is kept, and made honest: both calculators use **double** and are tested
 > against one hand-computed vectors file at the repo root, with the tolerance stated in the file.
 > Persisted assumptions remain `numeric` in Postgres (ADR 0008); outputs are never stored.
+
+> **Amended 2026-09-21 (Phase 1 close-out, #77).** The record walked against the shipped code
+> (#73, #74, #75). Nothing above is withdrawn; five things it did not say, or said loosely.
+>
+> 1. **The schema is in the one database** (ADR 0008, which superseded the ADR 0003 the
+>    Consequences cite):
+>    `projections`, unique on `(user_id, ticker)`, and `scenarios`, unique on
+>    `(projection_id, name)`, so a projection holds each of `bear`, `base` and `bull` at most
+>    once. Both foreign keys cascade on delete. A save takes one to three scenarios.
+> 2. **The ticker is normalised, not only upper-cased**: trimmed, upper-cased, and a share class
+>    written the way the SEC writes it, so BRK.B and brk-b are both BRK-B, one company and one
+>    projection. The lookup's cache keys on the same spelling, and the quote source turns it back
+>    to Finnhub's BRK.B.
+> 3. **A save carries the base facts on the user's form** (price, TTM revenue, diluted shares),
+>    fetched or typed. "Recomputes authoritatively" means against those: the server does not
+>    look the company up again on a save, so a manual-entry projection saves the same way as a
+>    looked-up one. The base facts are used and let go, never stored. Each rate is turned to the
+>    `numeric` its column holds before the outputs are computed, so a save answers with what the
+>    stored assumptions give. Whatever the calculator rejects is a 400 validation Problem keyed
+>    by the field at fault (`scenarios[1].horizon`). A save answers with the outputs; a read
+>    answers without them, since nothing is stored to give and the base facts may not be there.
+>    The "empty base facts" of the first amendment are, on the wire, a null `baseFacts` beside
+>    a `baseFactsUnavailable` holding the lookup's reason. The vectors file "at the repo root"
+>    is `spec/projection-vectors.json`.
+> 4. **A replace can also answer 409**, when two replaces of the same projection land together;
+>    the other's answer stands, and the client is told to load again. A replace whose body names
+>    a ticker other than the one in the address is a 400.
+> 5. **No defaults in two more cases than point 4 of the first amendment gives.** Beside fewer
+>    than two years of history: no current net margin (TTM revenue not positive), and a history
+>    no growth rate can be taken over (revenue or shares that start or end at nothing or below).
+>    The lookup is still a 200 with its base facts and an empty scenario list, never a scenario
+>    holding NaN. The UI's reset-to-defaults reseeds the assumptions only; base facts typed over
+>    stay (ADR 0011).
