@@ -61,32 +61,32 @@ deploy, so the tokens are built from the chosen look.**
 
 1. [x] **Test CI.** GitHub Actions runs `dotnet test` and Vitest on every PR. No AWS, no
        secrets. Deploy CI via OIDC is a Later item.
-2. [ ] **Shared projection vectors.** `spec/projection-vectors.json`: hand-computed cases from the
+2. [x] **Shared projection vectors.** `spec/projection-vectors.json`: hand-computed cases from the
        glossary formula, P/E and P/S paths, edge cases (0% growth, buybacks, 1-year horizon, zero
        margin on P/S), tolerance in the header. The glossary points at it.
-3. [ ] **Two calculators.** Pure functions, double on both sides: .NET (authoritative on save)
+3. [x] **Two calculators.** Pure functions, double on both sides: .NET (authoritative on save)
        and TypeScript (live preview), each passing every vector. Invalid inputs rejected
        explicitly, never NaN.
-4. [ ] **Tailwind + design tokens.** Tailwind via the Vite plugin, our own token set (spacing,
+4. [x] **Tailwind + design tokens.** Tailwind via the Vite plugin, our own token set (spacing,
        colour, numeric type), light and dark, built from the design's token values. Groundwork
        only; no page changes. **Blocked by 5.**
-5. [ ] **Design.** Decide the look of the landing page and the calculator page before any UI is
+5. [x] **Design.** Decide the look of the landing page and the calculator page before any UI is
        built: mobile-first, phone / tablet / desktop; the calculator is a **table** (rows =
        inputs, columns = Bear / Base / Bull, base facts above, outputs as the last rows, **X** as
        the headline with CAGR and future price beneath, the disclaimer under the output row); the
        landing page is a ticker box and one line on what Compass does. Candidates are generated
        with agent skills the user adds for the purpose. **Blocks 4, 10 and 11.**
-6. [ ] **Configuration.** Finnhub key: `compass/finnhub-api-key` in the **foundation** stack,
+6. [x] **Configuration.** Finnhub key: `compass/finnhub-api-key` in the **foundation** stack,
        value set by hand, injected by name in the app-stack task definition; locally
        `dotnet user-secrets`. EDGAR User-Agent contact: an environment variable everywhere. With
        either absent the matching stub is registered **in Development and test only**; elsewhere
        startup fails naming the missing setting. Record the config key names.
-7. [ ] **EDGAR normalisation.** Ticker → CIK via the SEC ticker file; `companyfacts` →
+7. [x] **EDGAR normalisation.** Ticker → CIK via the SEC ticker file; `companyfacts` →
        TTM revenue (ordered tag list per period, Q4 = FY − 9M), TTM net income, current margin,
-       diluted weighted-average shares, 3–5 years of annual history, figures-to date. 422 reasons
+       diluted weighted-average shares, up to five years of annual history, figures-to date. 422 reasons
        for filers it cannot normalise. Unit-tested on recorded `companyfacts` fixtures. The
        largest single item.
-8. [ ] **Ticker lookup.** `GET /api/tickers/{symbol}` behind two ports (fundamentals, quote) and
+8. [x] **Ticker lookup.** `GET /api/tickers/{symbol}` behind two ports (fundamentals, quote) and
        one lookup service; Finnhub adapter; stubs; in-memory cache (quote 15 min, fundamentals
        and ticker map 24 h); 404 / 422 / 503 / partial-200 exactly as ADR 0010 states; seeded
        Bear/Base/Bull per ADR 0004's amended rules, returned with the lookup.
@@ -104,16 +104,28 @@ deploy, so the tokens are built from the chosen look.**
         date beside the base facts, percents (to one decimal, ADR 0011) and millions in the UI
         (decimals and raw values on the wire), P/E vs P/S per scenario, the disclaimer beside the
         output and in the footer (ADR 0006), 404 / 422 / 503 messages that leave the form usable.
-11. [ ] **Deploy + smoke.** Foundation secret applied, task definition injects it, EDGAR contact
+11. [x] **Deploy + smoke.** Foundation secret applied, task definition injects it, EDGAR contact
         env var set; `scripts/smoke-deployed.sh` gains lookup → save → load against the **real**
         providers on AAPL; full work session (push, apply, migrate, smoke, browser pass, destroy).
-12. [ ] **Close out.** Roadmap ticked, glossary and ADRs reconciled with what was built, the
+12. [x] **Close out.** Roadmap ticked, glossary and ADRs reconciled with what was built, the
         spec issue closed with pointers to the PRs.
 
-**Done when:** a logged-in user, in the deployed app, types a US ticker, gets a pre-filled
-Bear/Base/Bull form, edits it, sees X and CAGR update live, saves, reloads and sees the same
-assumptions with fresh base facts — disclaimer beside the output and in the footer — and the
-smoke script proves lookup → save → load against the real providers.
+**Done on 2026-09-21** ([#76](https://github.com/wkimdkim-nz/compass/issues/76)): a logged-in
+user, in the deployed app, types a US ticker, gets a pre-filled Bear/Base/Bull form, edits it, sees
+X and CAGR update live, saves, reloads and sees the same assumptions with fresh base facts —
+disclaimer beside the output and in the footer — and the smoke script proves lookup → save → load
+against the real providers.
+
+> ✅ **Met on 2026-09-21.** `scripts/smoke-deployed.sh` passed all eleven assertions against an app
+> stack running image `21e84e9` on the real providers: AAPL looked up from SEC EDGAR and Finnhub
+> (assertion 9), saved with a 201 (7), and loaded back as the saved assumptions over a live price,
+> a 404 to a second user (10). A human then ran the browser pass at phone and desktop widths:
+> pre-fill, live X and CAGR, save, reload, *Update* through the confirmation, both disclaimers.
+> One deviation from the plan: only the lookup can tell a stub from a real provider, so it alone
+> was seen failing locally first; save and load never reach a provider. The app stack was
+> destroyed the same day, as after Phase 0; the Finnhub secret lives in the foundation stack and
+> survived. The record was reconciled with the code in #77, and spec issue
+> [#65](https://github.com/wkimdkim-nz/compass/issues/65) lists the pull request for each ticket.
 
 ## Phase 2 — Make it usable for beginners
 

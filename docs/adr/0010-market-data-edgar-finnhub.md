@@ -1,6 +1,6 @@
 # ADR 0010 — SEC EDGAR for fundamentals and Finnhub for the quote; US domestic filers only
 
-**Status:** Accepted (amended 2026-09-20)
+**Status:** Accepted (amended 2026-09-20 and 2026-09-21)
 **Date:** 2026-09-17
 **Supersedes:** ADR 0005
 
@@ -172,3 +172,32 @@ draft build tickets #54–#63.
 > quote: each `exitMultiple` keeps its `kind` and carries a null `value`, and the missing-field
 > list names `currentPrice` alone, the one thing not fetched. Dropping the scenarios was the
 > alternative, and would have had the user retype four fields for want of one.
+
+> **Amended 2026-09-21 (Phase 1 close-out, #77).** The record walked against the shipped code
+> (#68, #72, #73) and the live session of #76. Nothing above is withdrawn.
+>
+> 1. **Finnhub has now been observed.** The context above took its quote endpoint from the
+>    documentation alone. The deployed smoke test of 2026-09-21 looked AAPL up against the real
+>    Finnhub and the real EDGAR and got a live price, so the adapter written from the
+>    documentation stands. The key travels in a header, not the `token` query parameter, so it is
+>    in no URL and no log of one. A symbol Finnhub does not know is a 200 of zeroes; the adapter
+>    reads a price that is not above zero as a failure, which makes it the partial 200.
+> 2. **The history is at most five fiscal years and may be shorter than three.** The spec (#65)
+>    said "3–5 years". The normaliser returns what is filed, oldest first, each year with all
+>    three figures: possibly one year, or none after a split it could not reconcile (amendment of
+>    2026-09-20, #88). A short history is still a 200; it seeds no scenarios (ADR 0004, amended).
+> 3. **The 422 has five reasons, not one.** Not a US domestic filer (no 10-K or 10-Q facts); no
+>    revenue that can be read; too few periods to sum twelve months; no net income for them; no
+>    diluted share count for the latest period. Each is plain words that end by saying the figures
+>    can be entered by hand, and the same words are what a saved projection's read carries when it has no base
+>    facts. The **current net margin is null** when TTM revenue is not positive; that is a 200.
+> 4. **What the cache does not hold.** An unknown-ticker answer is not cached, since what a user
+>    can mistype has no bound and the ticker map it was checked against is already held. A fetch
+>    that throws is not cached either, so an outage lasts as long as the provider's and no
+>    longer. Two requests that miss together both fetch. Keys are the normalised ticker
+>    (ADR 0004, amended 2026-09-21).
+> 5. **The stub rule is per port.** Each port's stub is registered when that port's own setting
+>    is absent (unset or blank), and only in Development, which the test factory also boots as.
+>    Elsewhere startup fails naming the setting both as configuration spells it and as an
+>    environment variable does (`Finnhub__ApiKey`, `Edgar__ContactEmail`). A process using a stub
+>    logs a warning saying so; the absence of that line is how #76 confirmed real adapters.
