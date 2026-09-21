@@ -61,6 +61,13 @@ git diff --stat <tag>..HEAD -- api
 Not empty means `api/` has moved since that image was built: push a new one (*Putting an image in
 the registry*) and use the tag it prints.
 
+The same question has two quieter siblings, because an image is not the only thing a session can
+find stale. **If `web/` has moved since the SPA was last published**, publish it —
+`scripts/deploy-spa.sh` — or the browser pass exercises the old pages against the new API. **If
+`infra/foundation/` has moved**, plan it and apply whatever the plan shows; *Bringing the
+foundation stack up* says why an unapplied `outputs.tf` stops the app stack's plan. Then
+`scripts/verify-foundation.sh`, which also says whether the Finnhub key is still the placeholder.
+
 **2. Bring the ephemeral stack up.** One apply creates the database, runs the migration task
 against it, waits for that to finish and only then brings the service up — an ordering the
 dependency graph enforces. `init` is needed once per clone, and is a no-op afterwards:
@@ -71,7 +78,8 @@ terraform -chdir=infra/app init
 
 The apply also needs the **EDGAR contact address** — `edgar_contact_email`, which has no default
 because it is not in source (ADR 0010). Export it once and both this apply and step 5's destroy
-pick it up:
+pick it up. Replace the whole placeholder, brackets included: pasted as it stands, zsh reads
+`<you@example.com>` as a redirect from a file of that name and the export fails:
 
 ```bash
 export TF_VAR_edgar_contact_email=<you@example.com>
@@ -101,6 +109,11 @@ still required, and is still exported from step 2 unless this is a new shell:
 ```bash
 terraform -chdir=infra/app destroy -var "image_tag=none"
 ```
+
+It is done when it prints `Destroy complete!` and not before: it stops at a prompt that takes only
+`yes`, and a new shell without the export stops it earlier still, at a prompt for the address. A
+destroy that was started is not one that ran — in #76's session the first attempt left all 24
+resources up and billing, and only step 6 said so.
 
 It takes the origin record with it, so the site goes on serving the SPA and `/api/*` returns an
 origin error again. That is the destroyed state, not a fault.
@@ -443,7 +456,11 @@ lookup returns AAPL's base facts from the real providers; the projection reads b
 assumptions over a live price, and as a 404 to the second user; and the session survives a forced
 redeployment. The lookup assertion is the only place SEC EDGAR and Finnhub are asked for real, and
 it fails against a local API by design: with neither setting the ports are stubs, and it checks
-for the SEC's CIK. It stops at the first failure, because it walks one session forwards and everything
+for the SEC's CIK. The script itself cannot be pointed there — it refuses a plaintext base URL, and
+its first two assertions are about CloudFront — so seeing that failure means replaying the lookup
+with curl against `http://localhost:5111`, where the stub answers CIK 1, "Stub Profitable Inc.". It
+is the only one of the three that can tell: save and load never reach a provider, and pass on the
+stubs (#76). It stops at the first failure, because it walks one session forwards and everything
 after a break would be noise.
 
 Two of those are worth knowing about before you read a red line.
