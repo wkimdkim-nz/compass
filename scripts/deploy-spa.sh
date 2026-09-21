@@ -36,7 +36,9 @@ aws s3 sync web/dist "s3://${bucket}" \
   --cache-control "no-cache"
 
 echo "Invalidating the distribution..."
-aws cloudfront create-invalidation \
+# --no-cli-pager: this is the one call here that prints straight to the terminal, and with a
+# `LESS` that lacks -F the CLI parks the run at "(END)" until someone presses q (#76).
+aws cloudfront create-invalidation --no-cli-pager \
   --distribution-id "$distribution" \
   --paths "/*" \
   --query 'Invalidation.Id' --output text
