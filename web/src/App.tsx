@@ -6,6 +6,9 @@ import { RegisterPage } from "./features/auth/RegisterPage";
 import { LandingPage } from "./features/landing/LandingPage";
 import { CalculatorPage } from "./features/projection/CalculatorPage";
 import { Disclaimer } from "./app/Disclaimer";
+// PROTOTYPE routes (branch prototype/phase2-ui)
+import { CalculatorHelpPrototype, GuidePrototype, MarkerPrototype } from "./features/guide/GuidePrototype";
+import { DeleteMessagePrototype, LandingListPrototype, ProjectionsPagePrototype } from "./features/projection/ProjectionListPrototype";
 
 function Layout() {
   const { data: me } = useGetMeQuery();
@@ -19,6 +22,10 @@ function Layout() {
             Compass
           </Link>
           <nav aria-label="Account">
+            <Link to="/prototype/calculator-help">Calculator (proto)</Link>
+            <Link to="/prototype/landing">Landing (proto)</Link>
+            <Link to="/prototype/guide">Guide</Link>
+            <Link to="/prototype/projections">My projections</Link>
             {me ? (
               <button type="button" className="link" onClick={() => logout()}>
                 Sign out
@@ -51,6 +58,12 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/" element={<LandingPage />} />
+        <Route path="/prototype/calculator-help" element={<CalculatorHelpPrototype />} />
+        <Route path="/prototype/guide" element={<GuidePrototype />} />
+        <Route path="/prototype/landing" element={<LandingListPrototype />} />
+        <Route path="/prototype/projections" element={<ProjectionsPagePrototype />} />
+        <Route path="/prototype/marker" element={<MarkerPrototype />} />
+        <Route path="/prototype/deleted" element={<DeleteMessagePrototype />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/projections/:ticker" element={<CalculatorPage />} />
         </Route>
