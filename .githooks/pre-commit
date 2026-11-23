@@ -9,8 +9,19 @@ if [ "$branch" = "main" ]; then
 fi
 
 if git diff --cached --name-only | grep -q '^web/'; then
-  if ! npm --prefix web run --silent typecheck; then
-    echo "pre-commit: the web typecheck failed; fix it before committing." >&2
+  if [ ! -d web/node_modules ]; then
+    echo "pre-commit: web/node_modules is missing; run npm ci in web/ before committing." >&2
+    exit 1
+  fi
+
+  # Typecheck a copy of the staged web/ files, so unstaged edits in the working tree can neither
+  # hide a broken commit nor block a good one.
+  staged=$(mktemp -d)
+  trap 'rm -rf "$staged"' EXIT
+  git ls-files -z -- web | xargs -0 git checkout-index --prefix="$staged/" --
+  ln -s "$PWD/web/node_modules" "$staged/web/node_modules"
+  if ! npm --prefix "$staged/web" run --silent typecheck; then
+    echo "pre-commit: the staged web typecheck failed; fix it before committing." >&2
     exit 1
   fi
 fi

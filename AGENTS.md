@@ -13,3 +13,7 @@ Default label vocabulary — each triage role's label equals its name (`needs-tr
 ### Domain docs
 
 Single-context: the glossary is `docs/glossary.md`, decisions are `docs/adr/`. See `docs/agents/domain.md`.
+
+### Coding standards
+
+The judgement rules a reviewer checks a diff against, and that code written here follows, are in `CODING_STANDARDS.md`.
