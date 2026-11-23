@@ -8,6 +8,15 @@ if [ "$branch" = "main" ]; then
   exit 1
 fi
 
+# claude/* is the name the Claude desktop app gives its worktree branches. An empty name is a
+# detached HEAD, as in the middle of a rebase.
+types='feat|fix|docs|chore|refactor|ci|research|prototype'
+if [ -n "$branch" ] && ! echo "$branch" | grep -Eq "^(($types)/[a-z0-9]+(-[a-z0-9]+)*|claude/.+)$"; then
+  echo "pre-commit: branch '$branch' does not match <type>/<slug>, with <type> one of" >&2
+  echo "  $(echo "$types" | sed 's/|/, /g'). Issue work is <type>/issue-<N>-<slug>. Rename: git branch -m <name>" >&2
+  exit 1
+fi
+
 if git diff --cached --name-only | grep -q '^web/'; then
   if [ ! -d web/node_modules ]; then
     echo "pre-commit: web/node_modules is missing; run npm ci in web/ before committing." >&2
