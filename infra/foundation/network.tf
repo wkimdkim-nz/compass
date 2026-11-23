@@ -2,19 +2,19 @@
 # and an internet gateway cost nothing while nothing is running — which is why the network persists
 # here rather than being torn down with the ALB, the service and the database it will hold.
 #
-# The shape is settled (#10, #18, ADR 0009) and the reasoning is worth keeping close, because the
+# The shape is settled (ADR 0009) and the reasoning is worth keeping close, because the
 # obvious "more secure" rearrangement does not work:
 #
 #   * **The task runs in a public subnet with a public IP.** ECS has no control-plane exemption.
 #     App Runner could pull an image on your behalf; a Fargate task cannot. It pulls from ECR,
-#     fetches its secret and ships its logs over the *same* network path as application traffic, so
+#     fetches its secrets and ships its logs over the *same* network path as application traffic, so
 #     a private, NAT-less, endpoint-less task does not start slowly or degrade — it cannot start at
 #     all, and the failure surfaces as a task that stops before the container ever runs.
 #   * A NAT gateway would fix that for about $43/month in this region, which is more than the rest
 #     of the running stack put together. Interface endpoints are *worse* here, not better: across
-#     two AZs they cost about $57/month (#8's contrary figure is wrong for ap-southeast-2).
-#   * The public subnet is also cheaper *later*: Phase 1's outbound market-data call leaves through
-#     the internet gateway at no charge, where every private shape meters it.
+#     two AZs they cost about $57/month.
+#   * The public subnet also keeps the outbound market-data calls (Finnhub, EDGAR) free: they leave
+#     through the internet gateway at no charge, where every private shape meters it.
 #
 # What keeps that safe is not the subnet, it is the security-group chain in security-groups.tf:
 # the task admits the load balancer and nothing else, and the database admits the task and nothing

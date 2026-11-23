@@ -7,7 +7,7 @@
 # environment is client-side. What is new is header-level, DNS-level and networking-level — cookie
 # attributes, the origin lock, cache behaviour, whether two secrets resolved — and curl asserts on
 # those far more precisely than a rendered page can. Client behaviour is already owned by the
-# SPA's own seam (#27) and is not re-tested here.
+# SPA's own seam and is not re-tested here.
 #
 # Every assertion is **named for the silent failure it catches**, and they run **cheapest first**,
 # so a red line says what broke rather than only that something did. The failures being hunted are
@@ -57,8 +57,6 @@ done
 curl_version="$(curl --version)"
 grep -qE '^Protocols:.*[[:space:]]telnet([[:space:]]|$)' <<<"$curl_version" \
   || { echo "curl was built without telnet:// support, which the direct-origin probe needs for a raw TCP connection" >&2; exit 2; }
-
-# --- What to point at ---------------------------------------------------------------------------
 
 base_url="${1:-}"
 cluster="${2:-}"
@@ -129,8 +127,6 @@ if ! aws sts get-caller-identity >/dev/null 2>&1; then
   exit 2
 fi
 
-# --- Reporting ----------------------------------------------------------------------------------
-
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
@@ -151,8 +147,6 @@ fail() {
   printf '  \033[31mFAIL\033[0m  %s\n         %s\n' "$1" "${2:-}" >&2
   exit 1
 }
-
-# --- Requests -----------------------------------------------------------------------------------
 
 # One request. Leaves the status code in `status`, the body in `$body_path` and the *raw* response
 # headers in `$headers_path` — raw because assertion 4 has to read cookie attributes that no cookie
@@ -375,7 +369,7 @@ pass "${email_b} sees themselves, X-Cache: ${x_cache}"
 
 # 7 — One write, three proofs. There is no cheaper way to learn any of them: a write reaching
 #     Postgres means the migration task ran against the database the service is talking to, that
-#     `Trust Server Certificate=true` still holds against RDS's certificate, and that both injected
+#     `Trust Server Certificate=true` still holds against RDS's certificate, and that both database
 #     secrets resolved. All three fail as a 500 that names none of them. The figures are the vectors
 #     file's `pe-base-5y`, so the outputs that come back are known to the digit: X is (55/51)^5.
 #     Reading it back waits for assertion 10, because a read also asks the providers.

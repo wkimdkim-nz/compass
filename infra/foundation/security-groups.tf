@@ -1,4 +1,4 @@
-# Security here is a chain, not a perimeter (#10, ADR 0009). Each group admits exactly one
+# Security here is a chain, not a perimeter (ADR 0009). Each group admits exactly one
 # upstream and nothing else:
 #
 #     CloudFront ──443──▶ load balancer ──8080──▶ task ──5432──▶ database
@@ -66,8 +66,6 @@ resource "aws_security_group" "database" {
   tags = { Name = "compass-database" }
 }
 
-# --- The load balancer -------------------------------------------------------------------------
-
 # HTTPS only. There is no port 80 rule to redirect from: CloudFront reaches the origin over HTTPS,
 # and a plaintext listener would be a second door putting the session cookie on the wire.
 resource "aws_vpc_security_group_ingress_rule" "alb_from_cloudfront" {
@@ -90,8 +88,6 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_task" {
   referenced_security_group_id = aws_security_group.task.id
 }
 
-# --- The task ----------------------------------------------------------------------------------
-
 resource "aws_vpc_security_group_ingress_rule" "task_from_alb" {
   security_group_id = aws_security_group.task.id
   description       = "Requests and health checks from the load balancer only"
@@ -103,8 +99,8 @@ resource "aws_vpc_security_group_ingress_rule" "task_from_alb" {
 }
 
 # The one place the chain opens outward, and it has to. The task pulls its image from ECR, fetches
-# the database secret and ships logs to CloudWatch over this path — all before the container runs —
-# and Phase 1's market-data call will leave the same way. Narrowing it to 443 would break the image
+# its secrets and ships logs to CloudWatch over this path — all before the container runs — and the
+# market-data calls leave the same way. Narrowing it to 443 would break the image
 # pull the moment ECR answers on anything else, and narrowing it by address means tracking AWS's
 # service ranges by hand. The chain's guarantee is about what may reach in.
 resource "aws_vpc_security_group_egress_rule" "task_to_internet" {
@@ -114,8 +110,6 @@ resource "aws_vpc_security_group_egress_rule" "task_to_internet" {
   ip_protocol = "-1"
   cidr_ipv4   = "0.0.0.0/0"
 }
-
-# --- The database ------------------------------------------------------------------------------
 
 resource "aws_vpc_security_group_ingress_rule" "database_from_task" {
   security_group_id = aws_security_group.database.id

@@ -15,7 +15,6 @@ public static class ApiClient
 
     public static string UniqueEmail() => $"user-{Guid.NewGuid():N}@example.com";
 
-    /// <summary>A client that keeps its own cookie jar and never follows redirects.</summary>
     public static HttpClient CreateBrowserLikeClient(this WebApplicationFactory<Program> factory) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
 
@@ -26,7 +25,6 @@ public static class ApiClient
     public static Task<HttpResponseMessage> Register(this HttpClient client, string email, string password = DefaultPassword) =>
         client.PostAsJsonAsync("/api/auth/register", new { email, password });
 
-    /// <summary>Registers a fresh user on this client and returns who the API says they are.</summary>
     public static async Task<MeResponse> RegisterNewUser(this HttpClient client)
     {
         var response = await client.Register(UniqueEmail());

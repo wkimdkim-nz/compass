@@ -29,7 +29,7 @@ resource "aws_lb" "api" {
   # only in any case.
   ip_address_type = "ipv4"
 
-  # Stated rather than defaulted, for the same reason RDS's deletion protection will be: this stack
+  # Stated rather than defaulted, for the same reason RDS's is (rds.tf): this stack
   # exists to be destroyed, and a protected load balancer turns the cost lever into a support
   # ticket. It is off by default; saying so here means a later change to it is a visible diff.
   enable_deletion_protection = false

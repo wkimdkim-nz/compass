@@ -52,7 +52,6 @@ public static class AuthEndpoints
             return Results.ValidationProblem(result.Errors.ToFieldErrors());
         }
 
-        // Signed in the moment registration succeeds; the cookie is always persistent.
         await signIn.SignInAsync(user, isPersistent: true);
         return Results.Created("/api/auth/me", user.ToMeResponse());
     }

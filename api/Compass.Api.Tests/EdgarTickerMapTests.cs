@@ -3,7 +3,7 @@ using Compass.Api.MarketData;
 namespace Compass.Api.Tests;
 
 /// <summary>
-/// Ticker → CIK through a recorded copy of the SEC ticker file (ticket #72). The file lists every
+/// Ticker → CIK through a recorded copy of the SEC ticker file. The file lists every
 /// SEC registrant with a ticker, foreign ones included, so resolving says only that EDGAR knows
 /// the company; whether Compass can read its filings is the normaliser's question.
 /// </summary>

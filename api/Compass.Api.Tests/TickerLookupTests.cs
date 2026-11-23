@@ -3,7 +3,7 @@ using System.Net;
 namespace Compass.Api.Tests;
 
 /// <summary>
-/// The ticker lookup through the HTTP seam (ticket #73, ADR 0010), on the stub ports the test host
+/// The ticker lookup through the HTTP seam (ADR 0010), on the stub ports the test host
 /// boots with. What the lookup does with the real adapters, and with ports that fail, is in
 /// <c>TickerLookupPortsTests</c>.
 /// </summary>

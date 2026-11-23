@@ -5,19 +5,18 @@
 # schedule, and never tells Terraform the value — the only thing that comes back is the secret's
 # ARN. The alternative shape, a password generated here and written into a Terraform-managed
 # secret, was rejected as self-defeating: it puts the password back into state, which is the thing
-# this is for (#28).
+# this is for.
 #
 # **Nothing reaches it but the task.** The instance sits in the foundation stack's private subnets,
 # which have no route off the VPC in either direction, behind the security group that admits the
 # task's group on 5432 and nothing else. `publicly_accessible = false` is stated below even though
 # it is the default, because it is the difference between private and not.
 #
-# ⚠️ The 7-day tripwire (#19, #28). RDS rotates that managed secret every seven days by default,
+# ⚠️ The 7-day tripwire. RDS rotates that managed secret every seven days by default,
 # ECS injects its two keys once at task start, and AWS has no channel to push a new value into a
 # running container — only a restart. This stack is safe from that *solely* because it is
-# ephemeral: a work session is hours, not days. #19 names the trigger to move to an
-# application-side password provider — *"the environment becomes permanent"*, which here means this
-# app stack stops being destroyed between sessions — and nothing else is that trigger.
+# ephemeral: a work session is hours, not days. If this app stack ever stops being
+# destroyed between sessions, move to an application-side password provider.
 
 resource "aws_db_instance" "compass" {
   identifier = "compass"
@@ -26,8 +25,7 @@ resource "aws_db_instance" "compass" {
   # Testcontainers image the API's own suite runs against, so the deployed database is not a
   # different major version from the one every test has ever seen.
   #
-  # ADR 0009 left this as parity *chosen but not verified*, and it is now verified — 18.1 through
-  # 18.6 are offered in ap-southeast-2, and `db.t4g.micro` on `gp3` is orderable against 18. Worth
+  # Verified: 18.1 through 18.6 are offered in ap-southeast-2, and `db.t4g.micro` on `gp3` is orderable against 18. Worth
   # checking rather than assuming: an engine version a region does not offer is refused in the
   # middle of the apply, after the load balancer has been provisioned.
   #
@@ -43,7 +41,7 @@ resource "aws_db_instance" "compass" {
   # RDS is the thing allowed to move the minor.
   auto_minor_version_upgrade = true
 
-  # ADR 0009 and #10. 2 vCPU burstable, 1 GiB — the smallest current-generation instance, and the
+  # 2 vCPU burstable, 1 GiB — the smallest current-generation instance, and the
   # class the pool ceiling below is sized against.
   instance_class = "db.t4g.micro"
 
@@ -69,7 +67,7 @@ resource "aws_db_instance" "compass" {
   vpc_security_group_ids = [local.foundation.database_security_group_id]
 
   # Stated rather than left to the default, because it is the whole of "the database is unreachable
-  # from the internet" (#28). Private subnets alone would not settle it: `publicly_accessible` is
+  # from the internet". Private subnets alone would not settle it: `publicly_accessible` is
   # what decides whether the endpoint resolves to a public address at all.
   publicly_accessible = false
 
@@ -88,7 +86,7 @@ resource "aws_db_instance" "compass" {
   backup_retention_period = 0
 
   # No point-in-time recovery follows from that retention, and that is correct rather than
-  # regrettable: teardown is the cleanup mechanism (#28), so there is no state here worth a backup
+  # regrettable: teardown is the cleanup mechanism, so there is no state here worth a backup
   # window's I/O.
 
   # Nothing here waits for a maintenance window. An ephemeral stack may not live until the next one.
@@ -126,7 +124,7 @@ locals {
   #     server's certificate, and RDS's certificate authority is not in the runtime image's trust
   #     store. Without it the connection does not fall back to something weaker, it fails outright.
   #     `Verify-Full` with a baked-in RDS CA bundle was rejected as a second thing expiring on
-  #     AWS's schedule (#19).
+  #     AWS's schedule.
   #   * `Maximum Pool Size=20` — Npgsql defaults to 100, and a deployment runs the old task and
   #     the new one at once, so the default would reach for 200 connections exactly while
   #     deploying. Two tasks × 20 is 40. ⚠️ The measured ceiling is **79**, not the ~100 the

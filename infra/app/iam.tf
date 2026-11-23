@@ -2,12 +2,12 @@
 #
 # ECS distinguishes two roles and confusing them is the usual mistake. The **execution role** is
 # assumed by the ECS agent, before the container runs, to pull the image, ship logs, and fetch the
-# database secret. The **task role** is assumed by the application itself, for AWS calls it makes
+# two secrets. The **task role** is assumed by the application itself, for AWS calls it makes
 # at runtime.
 #
 # ⚠️ There is no task role here, and its absence is the design rather than an omission. Compass
 # makes zero AWS calls: credentials arrive as environment variables the agent injected, so there is
-# no SDK in the image and nothing for a task role to hold (#19). Omitting it makes that structural
+# no SDK in the image and nothing for a task role to hold. Omitting it makes that structural
 # — a task with no role cannot acquire one by someone adding a policy to it — and it is why the
 # secret header is enforced at the listener rather than by anything the container is given.
 
@@ -38,7 +38,7 @@ resource "aws_iam_role_policy_attachment" "task_execution" {
 
 # The database secret, named by its ARN rather than by a wildcard or a path prefix. With the Finnhub
 # key below, the blast radius of this deployment is exactly two credentials — which is the whole of
-# the argument for having the agent fetch them rather than the application (#28).
+# the argument for having the agent fetch them rather than the application.
 #
 # ⚠️ No `kms:Decrypt` statement, and none is needed: RDS encrypts the managed secret with the
 # AWS-managed `aws/secretsmanager` key, which grants use through the calling service. A

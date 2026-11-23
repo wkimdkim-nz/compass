@@ -84,9 +84,8 @@ const TINT_MS = 700;
  * calculator's outputs in their place until the next edit.
  */
 export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Props) {
-  // What the page opened with: the figures an edit is measured against. Restating moves it to the defaults.
-  const [opened, setOpened] = useState(() => buildForm(baseFacts, saved?.scenarios ?? seeded));
-  const [form, setForm] = useState(opened);
+  const [baseline, setBaseline] = useState(() => buildForm(baseFacts, saved?.scenarios ?? seeded));
+  const [form, setForm] = useState(baseline);
   const [restated, setRestated] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [tinted, setTinted] = useState(false);
@@ -94,9 +93,8 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
   const { save, noteEdit, exists, busy, serverOutputs, problems } = useSaveProjection({
     company,
     alreadySaved: saved !== undefined,
-    // What was saved is now what an edit is measured against.
     onSaved: (sent) => {
-      setOpened(sent);
+      setBaseline(sent);
       setRestated(false);
     },
   });
@@ -122,7 +120,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
     const defaults = buildForm(baseFacts, seeded);
     // The base facts on the page stay: only the assumptions go back to what the filings seed.
     const next = { facts: form.facts, scenarios: defaults.scenarios };
-    setOpened({ facts: opened.facts, scenarios: defaults.scenarios });
+    setBaseline({ facts: baseline.facts, scenarios: defaults.scenarios });
     edit(next);
     setRestated(true);
   };
@@ -187,7 +185,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                 <td className="src-col note">{source}</td>
                 <td className="num">
                   <input
-                    className={`fig${wide ? " wide" : ""}${form.facts[field] !== opened.facts[field] ? " edited" : ""}`}
+                    className={`fig${wide ? " wide" : ""}${form.facts[field] !== baseline.facts[field] ? " edited" : ""}`}
                     value={form.facts[field]}
                     onChange={(e) => editFact(field, e.target.value)}
                     inputMode="decimal"
@@ -243,7 +241,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                 {SCENARIO_NAMES.map((name) => (
                   <td key={name} className="num">
                     <input
-                      className={`fig${form.scenarios[name][field] !== opened.scenarios[name][field] ? " edited" : ""}`}
+                      className={`fig${form.scenarios[name][field] !== baseline.scenarios[name][field] ? " edited" : ""}`}
                       value={form.scenarios[name][field]}
                       onChange={(e) => editScenario(name, { [field]: e.target.value })}
                       inputMode="decimal"

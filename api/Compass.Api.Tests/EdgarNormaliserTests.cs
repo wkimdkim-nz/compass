@@ -3,7 +3,7 @@ using Compass.Api.MarketData;
 namespace Compass.Api.Tests;
 
 /// <summary>
-/// The EDGAR normaliser against recorded <c>companyfacts</c> documents (ticket #72, ADR 0010). No
+/// The EDGAR normaliser against recorded <c>companyfacts</c> documents (ADR 0010). No
 /// network and no class fixture: the normaliser is pure, so each test reads a recorded document
 /// and asserts on the figures. Where no recorded filer shows a case, the test says so and makes one up.
 /// </summary>
@@ -339,7 +339,7 @@ public class EdgarNormaliserTests
     }
 
     /// <summary>
-    /// Made up, as are the filers below it: a calendar-year filer moves its year end to June and
+    /// Made up: a calendar-year filer moves its year end to June and
     /// files a 10-KT for the six months between. The short year is read, but it is not a fiscal
     /// year, so the history stops at it.
     /// </summary>
@@ -453,9 +453,7 @@ public class EdgarNormaliserTests
     /// as 27,886, one for 2,900; the second, filed on 16 August 2024, was 4,085,132 and a year on
     /// 41,011, one for 99.6. So one of about 29 fell between those two 10-Qs and one of 100 after
     /// them. 2023, filed on 1 April 2024 as 17,039,309, is 7,925 in the 10-K of 18 March 2025,
-    /// which is on today's count. Before the splits were checked that sighting was taken for the
-    /// split of May 2024, the one of 100 was dated 12 May 2025, and 2023 came out as 7,925 ÷ 99.5
-    /// = 80 shares beside 736,339 for 2024.
+    /// which is on today's count.
     /// <para>
     /// No set of dated factors fits these restatements: they are of weighted averages, which the
     /// other consolidations move too (the quarters of 2023 are restated by 18.3, 19.4 and 21.2
@@ -716,7 +714,6 @@ public class EdgarNormaliserTests
                             unit => unit.Value?.Select(f => f?.Filed == filed ? f with { Form = form } : f).ToList())))),
         };
 
-    /// <summary>The document as recorded, less one us-gaap concept.</summary>
     private static CompanyFacts Without(CompanyFacts facts, string concept) =>
         facts with
         {

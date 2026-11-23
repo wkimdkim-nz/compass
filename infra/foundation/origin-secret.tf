@@ -17,7 +17,7 @@
 # there is no second constant to keep in step across two stacks.
 #
 # ⚠️ The container is never configured with any of this. The listener rule enforces it in front of
-# the task, and the app makes no AWS calls at all (#19). The header itself still reaches the task
+# the task, and the app makes no AWS calls at all. The header itself still reaches the task
 # on the wire — an ALB cannot strip a request header — which is why the API must never log request
 # headers.
 

@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Compass.Api.Tests;
 
 /// <summary>
-/// The ticker lookup through the HTTP seam with its ports swapped (ticket #73, ADR 0010): the real
+/// The ticker lookup through the HTTP seam with its ports swapped (ADR 0010): the real
 /// EDGAR adapter over the recorded documents, the real Finnhub adapter over a made-up network, and
 /// ports that fail or count their calls. Each test boots its own host over the one database, at
 /// the injection point the stubs use.
@@ -427,7 +427,7 @@ public static class TestPorts
         services.AddSingleton(source);
 }
 
-/// <summary>SEC EDGAR as recorded: the ticker file, and the <c>companyfacts</c> of every filer with a fixture.</summary>
+/// <summary>SEC EDGAR as recorded: the ticker file, and the <c>companyfacts</c> of the filers in <c>Recorded</c>.</summary>
 public sealed class RecordedEdgar : HttpMessageHandler
 {
     public const string ProviderText = "Request Rate Threshold Exceeded";
@@ -524,7 +524,6 @@ public sealed class CountingQuote : IQuoteSource
         ++Calls == 1 && FailFirst ? throw new HttpRequestException("down") : Task.FromResult(Price);
 }
 
-/// <summary>A clock that moves only when a test moves it.</summary>
 public sealed class ManualClock : TimeProvider
 {
     private DateTimeOffset _now = DateTimeOffset.UtcNow;

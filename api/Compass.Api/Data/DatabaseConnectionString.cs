@@ -75,10 +75,6 @@ public static class DatabaseConnectionString
                 $"Connection string '{Name}' is not configured. In production it arrives as the " +
                 $"environment variable ConnectionStrings__{Name}."));
 
-        // The runtime image ships no Kerberos libraries and Compass never authenticates that way,
-        // so stop Npgsql probing for them. Left on, the probe fails on the first connection of
-        // every process and writes "Cannot load library libgssapi_krb5.so.2" to stderr — an error
-        // line about nothing, on every task start and every migration run.
         connection.GssEncryptionMode = GssEncryptionMode.Disable;
 
         if (configuration[UsernameKey] is { Length: > 0 } username)

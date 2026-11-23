@@ -45,8 +45,8 @@ them, so all there is to see once signed in is a heading and your email address.
 You need Docker, the .NET 10 SDK and Node 26 (`nvm use` inside `web/` picks the pinned version).
 Three commands in three terminals, plus three one-off setup commands:
 
-**0. Once per clone: turn on the pre-commit hook** (it refuses commits on `main` and typechecks
-staged web changes)
+**0. Once per clone: turn on the pre-commit hook** (it refuses commits on `main` and on
+branches not named `<type>/<slug>` as `AGENTS.md` describes, and typechecks staged web changes)
 
 ```bash
 git config core.hooksPath .githooks

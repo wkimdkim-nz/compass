@@ -143,9 +143,7 @@ public static class EdgarNormaliser
         var latestYear = fiscalYears.MaxBy(p => p.End);
         var figuresTo = revenuePeriods.Max(p => p.End);
 
-        // What is added to the latest fiscal year and what is taken from it. Nothing, when the
-        // latest filing is the 10-K itself.
-        (Period Period, int Sign)[] terms = [(latestYear, +1)];
+        (Period Period, int Sign)[] ttmTerms = [(latestYear, +1)];
         if (figuresTo != latestYear.End)
         {
             var yearToDate = new Period(latestYear.End.AddDays(1), figuresTo);
@@ -159,13 +157,13 @@ public static class EdgarNormaliser
                 return Unsupported(UnsupportedFiler.TooFewPeriods);
             }
             var lastYearToDate = sameSpanLastYear.MinBy(p => Math.Abs(p.Days - yearToDate.Days));
-            terms = [(latestYear, +1), (yearToDate, +1), (lastYearToDate, -1)];
+            ttmTerms = [(latestYear, +1), (yearToDate, +1), (lastYearToDate, -1)];
         }
 
         double? Ttm(Func<Period, double?> figure)
         {
             double total = 0;
-            foreach (var (period, sign) in terms)
+            foreach (var (period, sign) in ttmTerms)
             {
                 if (figure(period) is not { } value) return null;
                 total += sign * value;
@@ -224,7 +222,6 @@ public static class EdgarNormaliser
     private static Dictionary<Period, double> Series(Dictionary<string, CompanyConcept?>? taxonomy, string tag, string unit) =>
         Latest(FactsByPeriod(taxonomy, tag, unit));
 
-    /// <summary>Each period's figure as last filed.</summary>
     private static Dictionary<Period, double> Latest(IEnumerable<KeyValuePair<Period, List<CompanyFact>>> factsByPeriod) =>
         factsByPeriod.ToDictionary(period => period.Key, period => period.Value[^1].Val);
 
@@ -283,7 +280,6 @@ public static class EdgarNormaliser
     /// </summary>
     private readonly record struct Restatement(DateOnly Before, DateOnly After, double Ratio)
     {
-        /// <summary>Restated by <see cref="MinSplitRatio"/> or more, either way.</summary>
         public bool IsSplitSized => Ratio >= MinSplitRatio || Ratio <= 1 / MinSplitRatio;
     }
 

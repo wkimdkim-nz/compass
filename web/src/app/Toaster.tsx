@@ -24,16 +24,15 @@ function ToastNote({ toast }: { toast: Toast }) {
   const dispatch = useDispatch();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  // What is left of the 5 seconds: the pointer or focus pauses the count, and leaving resumes it.
-  const remaining = useRef(TOAST_MS);
+  const remainingMs = useRef(TOAST_MS);
 
   useEffect(() => {
     if (hovered || focused) return;
     const startedAt = Date.now();
-    const timer = setTimeout(() => dispatch(dismissToast(toast.id)), remaining.current);
+    const timer = setTimeout(() => dispatch(dismissToast(toast.id)), remainingMs.current);
     return () => {
       clearTimeout(timer);
-      remaining.current -= Date.now() - startedAt;
+      remainingMs.current -= Date.now() - startedAt;
     };
   }, [hovered, focused, toast.id, dispatch]);
 

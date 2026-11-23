@@ -6,10 +6,10 @@ namespace Compass.Api.MarketData;
 
 /// <summary>
 /// The two SEC EDGAR documents the fundamentals source reads (ADR 0010), fetched and parsed and
-/// nothing more: no cache and no normalisation, which belong to the lookup and to
-/// <see cref="EdgarNormaliser"/>. A failure, a document that cannot be read included, is thrown as
-/// <see cref="HttpRequestException"/> for the caller to report as an outage; EDGAR's body is never
-/// passed upward.
+/// nothing more: no cache and no normalisation, which belong to the fundamentals source and
+/// the lookup, and to <see cref="EdgarNormaliser"/>. A failure, a document that cannot be read
+/// included, is thrown as <see cref="HttpRequestException"/> for the caller to report as an
+/// outage; EDGAR's body is never passed upward.
 /// </summary>
 public sealed class EdgarClient(HttpClient http)
 {

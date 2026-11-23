@@ -7,9 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Compass.Api.Tests;
 
 /// <summary>
-/// Reading a saved projection when the ticker lookup cannot seed it (ticket #74, ADR 0004 as
+/// Reading a saved projection when the ticker lookup cannot seed it (ADR 0004 as
 /// amended, point 2): the assumptions are answered all the same, with no base facts and the
-/// lookup's reason. Each test boots its own host with the ports swapped, as <c>TickerLookupPortsTests</c> does.
+/// lookup's reason. Two tests boot their own host with a port swapped, as <c>TickerLookupPortsTests</c> does.
 /// </summary>
 public class ProjectionLookupFailureTests(CompassApiFactory factory) : IClassFixture<CompassApiFactory>
 {
