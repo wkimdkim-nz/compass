@@ -45,5 +45,8 @@ jobs:
 
       - run: npm ci
 
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Run the Vitest suite
         run: npm test
