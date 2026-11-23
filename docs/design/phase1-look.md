@@ -144,6 +144,26 @@ Negatives in parentheses, never a minus sign. Percents (8, not 0.08, to one deci
 UI, as the roadmap requires. Self-hosting the face is the token ticket's job; the mock-ups load it from Google
 Fonts.
 
+## Feedback
+
+How the app tells the user an action worked, or did not:
+
+- **Confirmations use the toast.** An action that worked (Save, Update, and later Delete) says so in
+  one toast: "Saved your projection for AAPL." A feature confirms by dispatching `showToast(text)`
+  (`web/src/app/toast.ts`); it does not invent a banner or message of its own.
+- **Errors stay inline**, as a statement note beside the form that failed, and stay there until the
+  user deals with them. A failure never shows a toast.
+- **What the toast does:** it appears at the foot of the window, bottom-right on any screen wider
+  than a phone (30rem) and across the bottom within the page gutter on a phone. It is a statement
+  note (a heavy rule over a hairline, on paper), announced through a `role="status"` live region
+  that is always in the layout. It goes on its own after 5 seconds; the count pauses while the
+  pointer is over it or it holds focus and resumes where it was when they leave; × dismisses it at
+  once. One at a time: a new toast replaces the current one. It lives in the store and is mounted
+  in the shared layout, so it outlives a route change.
+- **What it does not do:** hold an error, carry an action or an undo, stack, or replace information
+  the page already gives. The calculator keeps its inline note that the outputs are the server's own
+  calculation; the toast only confirms the save.
+
 ## Open items
 
 - Whether blue pencil is the right single accent. It is the auditor's colour and reads as "edited"

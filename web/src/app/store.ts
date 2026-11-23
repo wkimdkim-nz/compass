@@ -1,5 +1,6 @@
 import { configureStore, isRejectedWithValue, type Middleware } from "@reduxjs/toolkit";
 import { api } from "./api";
+import { toastReducer } from "./toast";
 
 /**
  * Endpoints whose 401 is an answer, not a sign the session has gone:
@@ -23,10 +24,15 @@ const resetOnUnauthorized: Middleware = (store) => (next) => (action) => {
   return next(action);
 };
 
-/** The store holds the API cache alone. There is no auth slice: `useGetMeQuery()` is the session. */
+/**
+ * The store holds the API cache and the current toast. There is no auth slice: `useGetMeQuery()` is
+ * the session.
+ */
 export function makeStore() {
   return configureStore({
-    reducer: { [api.reducerPath]: api.reducer },
+    reducer: { [api.reducerPath]: api.reducer, toast: toastReducer },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(api.middleware, resetOnUnauthorized),
   });
 }
+
+export type RootState = ReturnType<ReturnType<typeof makeStore>["getState"]>;

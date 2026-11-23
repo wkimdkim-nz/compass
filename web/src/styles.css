@@ -350,6 +350,35 @@
     margin-bottom: 0;
   }
 
+  /*
+    The toast: a confirmation, set as a statement note pinned to the foot of the window. On a phone
+    it runs the width of the page within the gutter; on anything wider it sits in the bottom-right
+    corner. The empty area lets clicks through to the page beneath it.
+  */
+  .toast-region {
+    @apply pointer-events-none fixed inset-x-4 bottom-4 z-10 flex justify-center;
+  }
+  .toast {
+    @apply pointer-events-auto flex w-full items-start gap-3 border-t-2 border-b border-t-rule border-b-hairline bg-paper py-3 pl-4 pr-2 text-sm text-ink;
+  }
+  .toast p {
+    @apply flex-1 py-1;
+  }
+  .toast-dismiss {
+    @apply -my-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center text-lg leading-none text-ink-2;
+  }
+  .toast-dismiss:hover {
+    @apply text-ink;
+  }
+  @media (min-width: 30.01rem) {
+    .toast-region {
+      @apply left-auto right-6 bottom-6 justify-end;
+    }
+    .toast {
+      @apply w-auto max-w-[24rem];
+    }
+  }
+
   /* Phone: the table stays whole, and labels abbreviate the way a statement's do. */
   @media (max-width: 30rem) {
     .statement-table th,
