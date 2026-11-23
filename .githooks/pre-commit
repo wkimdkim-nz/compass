@@ -1,0 +1,16 @@
+#!/bin/sh
+# Runs before every commit once `git config core.hooksPath .githooks` is set (README, "Running it
+# locally"). GitHub cannot protect main on this repo's plan, so this is the guard.
+
+branch=$(git branch --show-current)
+if [ "$branch" = "main" ]; then
+  echo "pre-commit: refusing to commit on main. Create a branch first: git switch -c <name>" >&2
+  exit 1
+fi
+
+if git diff --cached --name-only | grep -q '^web/'; then
+  if ! npm --prefix web run --silent typecheck; then
+    echo "pre-commit: the web typecheck failed; fix it before committing." >&2
+    exit 1
+  fi
+fi
