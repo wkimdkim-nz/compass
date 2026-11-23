@@ -2,8 +2,8 @@
 #
 # Builds the API's runtime image and pushes it to the foundation stack's ECR repository.
 #
-# ⚠️ This deploys nothing. A standard ECS service has no auto-deploy-on-push — that was App
-# Runner's behaviour, and App Runner is out (ADR 0009). This puts a tag in the registry; naming it
+# ⚠️ This deploys nothing. A standard ECS service has no auto-deploy-on-push.
+# This puts a tag in the registry; naming it
 # in a task definition and rolling the service is a separate, explicit step in the app stack.
 #
 # The tag is the commit the image was built from, and the script refuses to build a dirty `api/`

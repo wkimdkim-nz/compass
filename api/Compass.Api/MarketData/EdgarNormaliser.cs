@@ -143,7 +143,7 @@ public static class EdgarNormaliser
         var latestYear = fiscalYears.MaxBy(p => p.End);
         var figuresTo = revenuePeriods.Max(p => p.End);
 
-        (Period Period, int Sign)[] ttmTerms =[(latestYear, +1)];
+        (Period Period, int Sign)[] ttmTerms = [(latestYear, +1)];
         if (figuresTo != latestYear.End)
         {
             var yearToDate = new Period(latestYear.End.AddDays(1), figuresTo);

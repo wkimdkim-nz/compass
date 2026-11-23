@@ -9,7 +9,7 @@ terraform {
 
     # Generates the CloudFront-to-origin header value. Its result lives in state — which is the
     # trade this one secret makes and the reason the *database* password is left to
-    # `manage_master_user_password` instead (#19).
+    # `manage_master_user_password` instead.
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"

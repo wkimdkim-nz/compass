@@ -39,17 +39,17 @@ locals {
   task_cpu    = 256
   task_memory = 512
 
-  # --- Declared once, referenced by every task definition below ---------------------------------
+  # --- Declared once, referenced by the api and migrate task definitions ------------------------
   #
   # ⚠️ This is the reason the service task and the migration task cannot connect to different
-  # databases (#28). Not discipline, and not a review checklist: there is one list, and a second
-  # copy would have to be written deliberately. Anything a task needs to reach Postgres belongs
-  # here rather than in a `container_definitions` block.
+  # databases. Not discipline, and not a review checklist: there is one list, and a second
+  # copy would have to be written deliberately. Anything the API's tasks need to reach Postgres
+  # belongs here rather than in a `container_definitions` block.
 
   task_environment = [
     # Set explicitly even though Production is already the value an unset ASPNETCORE_ENVIRONMENT
     # takes. The session cookie's SecurePolicy is Always outside Development, and that must not
-    # rest on an implicit default (#19).
+    # rest on an implicit default.
     { name = "ASPNETCORE_ENVIRONMENT", value = "Production" },
 
     # Also explicit, and also already the base image's default via ASPNETCORE_HTTP_PORTS. Written
@@ -161,8 +161,6 @@ resource "aws_ecs_task_definition" "api" {
   ])
 }
 
-# --- Migrations -----------------------------------------------------------------------------------
-#
 # The same image as the service, with a `command` override. `dotnet ef database update` needs the
 # SDK and the sources and the runtime image has neither, so api/Dockerfile also builds `efbundle` —
 # the committed migrations compiled into one executable — and the app is a CMD rather than an
@@ -171,7 +169,7 @@ resource "aws_ecs_task_definition" "api" {
 # ⚠️ Migrations are never applied at application startup, and the reason is not tidiness. A
 # deployment runs the old task and the new one at once, so a startup `Migrate()` races itself; and
 # the Data Protection key ring lives in a migration-created table, so the loser of that race is not
-# a missing feature — **nobody can log in** (#12, #19, ADR 0007).
+# a missing feature — **nobody can log in** (ADR 0007).
 resource "aws_ecs_task_definition" "migrate" {
   family = local.migrate_task_family
 
@@ -181,7 +179,7 @@ resource "aws_ecs_task_definition" "migrate" {
   cpu    = local.task_cpu
   memory = local.task_memory
 
-  # The same execution role, because this task fetches the same secret. And, like the service,
+  # The same execution role, because this task fetches the same secrets. And, like the service,
   # deliberately no task role: efbundle makes no AWS calls either.
   execution_role_arn = aws_iam_role.task_execution.arn
 
@@ -210,8 +208,7 @@ resource "aws_ecs_task_definition" "migrate" {
       # No portMappings: nothing listens. This runs, applies what is outstanding, and exits.
       command = ["./efbundle"]
 
-      # ⚠️ The same two lists the service uses, not copies of them. This is the criterion "declared
-      # once and shared by both task definitions" (#28) actually holding: a migration applied to one
+      # ⚠️ The same two lists the service uses, not copies of them: a migration applied to one
       # database while the service talks to another is a failure with no error message anywhere.
       environment = local.task_environment
       secrets     = local.task_secrets
@@ -228,10 +225,10 @@ resource "aws_ecs_task_definition" "migrate" {
   ])
 }
 
-# What makes the ordering structural on a first manual deploy, which is the question #28 left open
-# and the one that breaks login if it is missed.
+# What makes the ordering structural on a first manual deploy, the one that breaks login if it is
+# missed.
 #
-# There is no CI here yet, so there is no pipeline to sequence the two steps — and a sequence a
+# There is no deploy pipeline here, so nothing to sequence the two steps — and a sequence a
 # human is asked to remember is not a mechanism. This is: `terraform apply` runs the migration task
 # to completion, and the service below `depends_on` it, so a Terraform graph that has no way to
 # reorder itself is what enforces "migrate, then serve". If the migration fails, the provisioner
@@ -283,8 +280,7 @@ resource "terraform_data" "migrate" {
 # would need the task role this stack deliberately does not have.
 #
 # So the way in is a task in the same network position as the API, with a client in it. It exists
-# for the one observation #28 asks for — the live connection ceiling, recorded in infra/README.md —
-# and is otherwise a diagnostic, not part of any deploy. It costs nothing while it is not running.
+# to read the live connection ceiling (recorded in infra/README.md) and is otherwise a diagnostic, not part of any deploy. It costs nothing while it is not running.
 resource "aws_ecs_task_definition" "psql" {
   family = local.psql_task_family
 
@@ -311,8 +307,8 @@ resource "aws_ecs_task_definition" "psql" {
       image     = "public.ecr.aws/docker/library/postgres:18-alpine"
       essential = true
 
-      # Overridden per run by scripts/run-one-off-task.sh. This default is the observation the
-      # ticket asks for, so the task is useful with no arguments at all.
+      # Overridden per run by scripts/run-one-off-task.sh. The default reads the connection ceiling,
+      # so the task is useful with no arguments at all.
       command = ["psql", "-c", "SHOW max_connections"]
 
       # ⚠️ Not local.task_environment. psql reads libpq's variables, not .NET's configuration, so
@@ -325,7 +321,6 @@ resource "aws_ecs_task_definition" "psql" {
         { name = "PGDATABASE", value = aws_db_instance.compass.db_name },
       ]
 
-      # The same two selectors the API's task definitions use, under the names libpq reads.
       secrets = [
         { name = "PGUSER", valueFrom = local.database_username_secret },
         { name = "PGPASSWORD", valueFrom = local.database_password_secret },
@@ -398,8 +393,7 @@ resource "aws_ecs_service" "api" {
     rollback = false
   }
 
-  # Two orderings Terraform cannot infer from the arguments above, and one of them is the whole of
-  # this ticket:
+  # Two orderings Terraform cannot infer from the arguments above:
   #
   #   * **The migration first.** Nothing in this resource references the migration run, so without
   #     this edge Terraform is free to start the service while the schema is still empty — and the

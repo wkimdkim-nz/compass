@@ -1,7 +1,7 @@
-# The pull-request gate (issue #66): the .NET tests and the web Vitest suite must both pass
+# The pull-request gate: the .NET tests, the web typecheck and the Vitest suite must all pass
 # before a change reaches main. It is the only workflow, it needs no AWS access, no repository
 # secret and no environment; the API tests start their own Postgres through Testcontainers on the
-# runner's Docker. Deploying from Actions via OIDC is a separate, later item.
+# runner's Docker.
 #
 # Versions are read from the repo's pins so the runner cannot drift from a developer machine:
 # `api/global.json` for the .NET SDK and `web/.nvmrc` for Node.

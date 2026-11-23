@@ -85,8 +85,8 @@ done
 # this function is running in a subshell, where `exit` sets the substitution's status and nothing
 # more — the caller reads it as an ordinary failed read and carries on, which is the exact failure
 # this branch exists to prevent. So it leaves the reason in a file and returns like any other
-# failure; `fail` and the exit trap, both of which do run in the parent, act on it. Anything else
-# keeps the original behaviour and becomes a named failure.
+# failure; `fail` and the exit trap, both of which do run in the parent, act on it. Any other
+# failure becomes a named failure.
 aws_read() {
   local value stderr
   stderr="$(mktemp)"

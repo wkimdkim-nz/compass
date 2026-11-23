@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Records one company's SEC EDGAR `companyfacts` document as a test fixture for the EDGAR
-# normaliser (ADR 0010, issue #72), and refreshes the recorded copy of the SEC ticker file.
+# normaliser (ADR 0010), and refreshes the recorded copy of the SEC ticker file.
 #
 # A fixture is the real document, cut down and never edited: a whole `companyfacts` runs to
 # several megabytes, so only the concepts the normaliser reads are kept (the revenue candidates,

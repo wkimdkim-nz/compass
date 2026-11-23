@@ -2,8 +2,8 @@
 # no "point it at a repository and it builds" — so an image in a registry is the only thing a task
 # definition can name, and ECR is the registry inside the account.
 #
-# ⚠️ Pushing an image deploys nothing. There is no auto-deploy-on-push for a standard ECS service
-# (that is App Runner's behaviour, and App Runner is out — ADR 0009). A push puts a new tag in this
+# ⚠️ Pushing an image deploys nothing. There is no auto-deploy-on-push for a standard ECS service.
+# A push puts a new tag in this
 # repository and changes nothing else; a deployment is a separate, explicit step in the app stack.
 #
 # The repository persists because it is the thing the ephemeral stack starts *from*: tearing it down
