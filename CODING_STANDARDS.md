@@ -7,6 +7,16 @@ Wider sources the reviewer also checks the diff against: the design note
 (`docs/design/phase1-look.md`), the token rules in `web/README.md`, the glossary
 (`docs/glossary.md`) and the ADRs (`docs/adr/`).
 
+## Comments
+
+- **Comments are rare and say why.** Names, types and tests say what the code does. A comment is
+  for what they cannot say: the reason behind a choice that looks wrong, a workaround for
+  something outside the code, a gotcha. Every comment is one more thing to keep true, so the
+  reviewer flags the comments a diff adds or leaves behind when they restate the code, narrate the
+  change or its history ("now uses…", "per the review"), or no longer match the code beside them.
+  A diff that changes code under a comment updates or removes that comment. The fix for a
+  confusing line is usually a better name, not a comment.
+
 ## Web
 
 - **Breakpoints match the design note's words.** The breakpoints are phone (`max-width: 30rem`,
