@@ -184,6 +184,18 @@ describe("saving", () => {
     expect(outputs(/return multiple/i)).toEqual(["1.4×", "1.9×", "2.2×"]);
   });
 
+  it("keeps its toast when the user moves on to another page", async () => {
+    fakeApi.seedUser();
+    const user = await calculatorFor("AAPL");
+    await user.click(screen.getByRole("button", { name: /save projection/i }));
+    await waitFor(() => expect(toasts()).toHaveTextContent("Saved your projection for AAPL."));
+
+    await user.click(screen.getByRole("link", { name: /compass/i }));
+
+    expect(await screen.findByRole("textbox", { name: /ticker/i })).toBeInTheDocument();
+    expect(toasts()).toHaveTextContent("Saved your projection for AAPL.");
+  });
+
   it("keeps the preview of an edit made while the save was on its way", async () => {
     fakeApi.seedUser();
     fakeApi.holdSaveResponsesFor(150);

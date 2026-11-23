@@ -54,14 +54,27 @@ describe("the toast", () => {
     show("Saved your projection for AAPL.");
     wait(3_000);
 
-    fireEvent.mouseEnter(screen.getByText(/saved your projection/i));
+    fireEvent.pointerEnter(screen.getByText(/saved your projection/i), { pointerType: "mouse" });
     wait(10_000);
     expect(region()).toHaveTextContent(/saved/i);
 
-    fireEvent.mouseLeave(screen.getByText(/saved your projection/i));
+    fireEvent.pointerLeave(screen.getByText(/saved your projection/i), { pointerType: "mouse" });
     wait(1_900);
     expect(region()).toHaveTextContent(/saved/i);
     wait(100);
+    expect(region()).toBeEmptyDOMElement();
+  });
+
+  it("is not held by a tap, which has no pointer to leave it again", () => {
+    const { show } = renderToaster();
+    show("Saved your projection for AAPL.");
+    wait(3_000);
+
+    // What a touch screen sends for a tap on the text: the pointer enters, and the mouse events the
+    // browser makes up after it include an enter but never a leave.
+    fireEvent.pointerEnter(screen.getByText(/saved your projection/i), { pointerType: "touch" });
+    fireEvent.mouseEnter(screen.getByText(/saved your projection/i));
+    wait(2_000);
     expect(region()).toBeEmptyDOMElement();
   });
 

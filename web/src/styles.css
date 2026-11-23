@@ -331,10 +331,10 @@
     @apply mt-1;
   }
 
-  /* The confirmation, set as a statement note over the dimmed page. */
+  /* The confirmation, set as a statement note over the dimmed page, and over a toast still showing. */
   .modal-backdrop {
     inset: 0;
-    @apply fixed flex items-center justify-center bg-scrim p-4;
+    @apply fixed z-20 flex items-center justify-center bg-scrim p-4;
   }
   .modal {
     @apply w-full max-w-[28rem] border-t-2 border-b-2 border-rule bg-paper px-6 pt-6 pb-4 text-ink;

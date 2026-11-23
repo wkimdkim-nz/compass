@@ -40,8 +40,12 @@ function ToastNote({ toast }: { toast: Toast }) {
   return (
     <div
       className="toast"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      // Pointer events, not mouse events: a tap sends a mouseenter with no mouseleave to follow, which
+      // would hold the toast for good. A finger does not hover, so only a mouse or pen pauses it.
+      onPointerEnter={(event) => {
+        if (event.pointerType !== "touch") setHovered(true);
+      }}
+      onPointerLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
