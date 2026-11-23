@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { KINDS, vectors, within } from "../test/projectionVectors";
 
 // Shape guard for the shared vectors file (docs/glossary.md, "The core formula"). The
-// calculators (ticket #70) assert every case against the formula; this test only proves the
+// calculators assert every case against the formula; this test only proves the
 // file is well-formed and that each case's three outputs agree with each other, so a
 // transcription slip is caught here rather than blamed on a calculator.
 describe("spec/projection-vectors.json", () => {

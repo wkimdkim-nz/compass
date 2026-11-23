@@ -206,7 +206,7 @@ tr.changed td { background: var(--pencil-tint); transition: background-color 600
 .ticker:focus { outline: none; border-bottom: 2px solid var(--pencil-line); padding-bottom: calc(var(--s-1) - 1px); }
 .ticker::placeholder { color: var(--ink-2); text-transform: none; letter-spacing: 0; font-weight: 400; font-size: var(--text); }
 
-/* Statement notes: errors and specimen */
+/* Statement notes: errors and lookup notices */
 .statement-note {
   border-top: var(--rule-w) solid var(--rule);
   border-bottom: var(--rule-w) solid var(--hairline);

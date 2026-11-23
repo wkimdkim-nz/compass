@@ -20,7 +20,6 @@ public class CompassApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         .WithPassword("compass")
         .Build();
 
-    /// <summary>The hosting environment the app boots in. Development unless a test overrides it.</summary>
     public string Environment { get; protected init; } = "Development";
 
     public string ConnectionString => _postgres.GetConnectionString();

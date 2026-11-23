@@ -27,7 +27,7 @@ describe("a logged-out visitor", () => {
 
     expect(await signInHeading()).toBeInTheDocument();
 
-    // The loop the seam prototype found made ~5000 of these in seconds.
+    // A reset-on-401 loop on getMe would make thousands of these.
     await sleep();
     expect(fakeApi.requestCount("GET /api/auth/me")).toBeLessThanOrEqual(2);
   });

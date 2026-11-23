@@ -3,7 +3,7 @@ import { vectors, within } from "../test/projectionVectors";
 import { calculateProjection } from "./calculator";
 import type { AssumptionSet, BaseFacts, ExitMultiple, ProjectionResult } from "./calculator";
 
-// The live-preview calculator against the shared vectors (ticket #70): a new case in the file
+// The live-preview calculator against the shared vectors: a new case in the file
 // fails here and in the .NET suite until each side is fixed. `vectors.test.ts` guards the file's
 // own shape; this one only trusts it.
 const facts: BaseFacts = { currentPrice: 40, ttmRevenue: 1_000_000_000, dilutedShares: 100_000_000 };

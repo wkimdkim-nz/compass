@@ -13,7 +13,7 @@ export default defineConfig({
     // 5173 unless the launcher assigns another (PORT), as when a second project already holds it.
     // The proxy below is what same-site delivery rests on, and it works from any port.
     port: Number(process.env.PORT) || 5173,
-    // A taken port must fail loudly: a silent shift to 5174 would break the proxy assumption.
+    // A taken port must fail loudly: whatever launched the dev server expects the port it asked for.
     strictPort: true,
     proxy: {
       "/api": {

@@ -3,9 +3,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// The design note (docs/design/phase1-look.md) declares mockups/tokens.css the source of truth
-// and asks this ticket to read its values rather than retype them. These tests keep the app's
-// token file and the design's token file from drifting apart, and keep every colour in the UI
+// The design note (docs/design/phase1-look.md) declares mockups/tokens.css the source of truth.
+// These tests keep the app's token file and the design's token file from drifting apart, and keep every colour in the UI
 // coming from that one file.
 
 const here = dirname(fileURLToPath(import.meta.url));

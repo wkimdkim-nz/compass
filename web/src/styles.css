@@ -1,7 +1,8 @@
 /*
   The app stylesheet. Tailwind supplies the utilities and its preflight reset; every colour, size
-  and face they resolve to comes from tokens.css. The few bare numbers here (a hover brightness, a
-  disabled opacity, a control height) are Tailwind scale steps, not design values.
+  and face they resolve to comes from tokens.css. Arbitrary values here are taken
+  from the mock-up stylesheet (docs/design/mockups/statement.css); only the hover brightness and
+  the disabled opacity are Tailwind scale steps.
 */
 @import "tailwindcss";
 @import "./tokens.css";
@@ -43,13 +44,11 @@
 
 /* The statement vocabulary the mock-ups established, for the pages that already exist. */
 @layer components {
-  /* The page column: one measure wide, centred, with a phone gutter. */
   .sheet {
     @apply mx-auto w-full max-w-measure px-4;
   }
 
-  /* The Phase 0 pages keep the 40rem column the old stylesheet gave them (issue #71 asks for no
-     layout change there); the statement measure belongs to the pages the design covers. */
+  /* Phase 0 pages are outside the design: a fixed 40rem column, not the statement measure. */
   .phase0-column {
     @apply mx-auto max-w-[40rem];
   }

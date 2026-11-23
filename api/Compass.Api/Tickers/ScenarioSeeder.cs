@@ -38,9 +38,8 @@ public static class ScenarioSeeder
         var growth = Cagr(history[0].Revenue, history[^1].Revenue, years);
         var dilution = Cagr(history[0].DilutedShares, history[^1].DilutedShares, years);
 
-        // P/E is price ÷ earnings per share and P/S price ÷ revenue per share, on the TTM figures.
-        var (kind, perShareOf) = fundamentals.TtmNetIncome > 0 ? ("pe", fundamentals.TtmNetIncome) : ("ps", fundamentals.TtmRevenue);
-        var multiple = currentPrice * fundamentals.DilutedShares / perShareOf;
+        var (kind, ttmEarningsOrRevenue) = fundamentals.TtmNetIncome > 0 ? ("pe", fundamentals.TtmNetIncome) : ("ps", fundamentals.TtmRevenue);
+        var multiple = currentPrice * fundamentals.DilutedShares / ttmEarningsOrRevenue;
 
         if (!double.IsFinite(growth) || !double.IsFinite(dilution) || multiple is { } m && !double.IsFinite(m)) return [];
 

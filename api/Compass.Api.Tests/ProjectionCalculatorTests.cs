@@ -4,7 +4,7 @@ using Compass.Api.Projections;
 namespace Compass.Api.Tests;
 
 /// <summary>
-/// The authoritative calculator against the shared vectors (ticket #70). The cases are read from
+/// The authoritative calculator against the shared vectors. The cases are read from
 /// <c>spec/projection-vectors.json</c> at the repo root, linked into the test output rather than
 /// copied into a list here, so a new case fails this suite and the web one until each is fixed.
 /// No fixture: the calculator is pure, so nothing here boots the app or touches a database.

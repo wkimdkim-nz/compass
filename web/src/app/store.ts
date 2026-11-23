@@ -24,10 +24,7 @@ const resetOnUnauthorized: Middleware = (store) => (next) => (action) => {
   return next(action);
 };
 
-/**
- * The store holds the API cache and the current toast. There is no auth slice: `useGetMeQuery()` is
- * the session.
- */
+/** There is no auth slice: `useGetMeQuery()` is the session. */
 export function makeStore() {
   return configureStore({
     reducer: { [api.reducerPath]: api.reducer, toast: toastReducer },

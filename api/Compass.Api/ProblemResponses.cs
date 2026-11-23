@@ -4,7 +4,6 @@ namespace Compass.Api;
 
 public static class ProblemResponses
 {
-    /// <summary>Writes a ProblemDetails body for <paramref name="statusCode"/> to the current response.</summary>
     public static async Task WriteProblemAsync(this HttpContext http, int statusCode)
     {
         http.Response.StatusCode = statusCode;

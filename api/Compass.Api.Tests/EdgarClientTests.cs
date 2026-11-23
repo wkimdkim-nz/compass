@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Compass.Api.Tests;
 
 /// <summary>
-/// The EDGAR HTTP client as the app registers it (ticket #72), with the network replaced by a
+/// The EDGAR HTTP client as the app registers it, with the network replaced by a
 /// handler that records the request and answers from the recorded fixtures. EDGAR refuses a
 /// request whose User-Agent carries no contact address (ADR 0010), so that header is the point.
 /// </summary>

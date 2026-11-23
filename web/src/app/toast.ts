@@ -17,14 +17,12 @@ const toastSlice = createSlice({
   name: "toast",
   initialState,
   reducers: {
-    /** Shows a confirmation, replacing any current one. */
     showToast: {
       reducer: (state, action: PayloadAction<Toast>) => {
         state.current = action.payload;
       },
       prepare: (text: string) => ({ payload: { id: nextId++, text } }),
     },
-    /** Clears the toast with this id, if it is still the current one. */
     dismissToast: (state, action: PayloadAction<number>) => {
       if (state.current?.id === action.payload) state.current = null;
     },

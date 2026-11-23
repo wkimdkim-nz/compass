@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Compass.Api.Tests;
 
 /// <summary>
-/// Saving, replacing and loading a projection through the HTTP seam (ticket #74, ADR 0004 as
+/// Saving, replacing and loading a projection through the HTTP seam (ADR 0004 as
 /// amended), on the stub ports the test host boots with. Reading with a lookup that cannot seed is
 /// in <c>ProjectionLookupFailureTests</c>.
 /// </summary>
@@ -49,7 +49,7 @@ public class ProjectionTests(CompassApiFactory factory) : IClassFixture<CompassA
         // Twice the exit multiple is twice the price: X doubles, and 1 + CAGR is 55/51 times the fifth root of two, 1.148698354997035.
         AssertOutputs(scenarios[1], futurePrice: 2 * 58.347541061567114, x: 2 * 1.4586885265391779, cagr: 0.2387923436242534);
 
-        // No base facts and no outputs are anywhere in what was saved, only in what was answered.
+        // Base facts are never saved, so the answer carries none.
         Assert.False(body.TryGetProperty("baseFacts", out _));
     }
 

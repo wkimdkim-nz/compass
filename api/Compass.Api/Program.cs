@@ -108,4 +108,5 @@ app.MapTickerEndpoints();
 
 app.Run();
 
-// Migrations are applied explicitly with `dotnet ef database update` — never here on startup.
+// Migrations are applied explicitly, never here on startup: `./efbundle` as a one-off task when
+// deployed, `dotnet ef database update` locally.

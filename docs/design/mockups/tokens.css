@@ -1,6 +1,7 @@
 /*
-  Compass Phase 1 tokens — "The Audited Statement" (issue #69).
-  This file is the token source the Tailwind ticket builds from. Light is the
+  Compass Phase 1 tokens — "The Audited Statement".
+  The design's token source of truth; web/src/tokens.css must match it (web/src/tokens.test.ts).
+  Light is the
   statement page; dark is its microfiche negative. Both pairs meet WCAG 2.2 AA.
 */
 

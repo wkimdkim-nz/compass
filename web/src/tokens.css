@@ -1,5 +1,5 @@
 /*
-  Compass design tokens: "The Audited Statement" (issue #69, docs/design/phase1-look.md).
+  Compass design tokens: "The Audited Statement" (docs/design/phase1-look.md).
 
   The custom properties below are the design's own, copied from docs/design/mockups/tokens.css
   under the names the design note uses; src/tokens.test.ts fails if the two files drift. Light is

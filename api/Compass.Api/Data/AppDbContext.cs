@@ -43,11 +43,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             projection.Property(p => p.CompanyName).IsRequired().HasMaxLength(Projection.MaxCompanyNameLength);
 
             // One projection per user per company (ADR 0004, amended). The ticker is stored
-            // upper-cased, so this is the index on user plus upper-cased ticker.
+            // normalised (Projection.NormaliseTicker), so the index is case- and class-separator-blind.
             projection.HasIndex(p => new { p.UserId, p.Ticker }).IsUnique();
 
             // Wired explicitly because Projection deliberately has no navigation property to the user.
-            // ON DELETE CASCADE: deleting a user deletes their projections in the database itself.
             projection.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(p => p.UserId)
