@@ -23,6 +23,11 @@ const calculatorFor = async (ticker: string) => {
   return userEvent.setup();
 };
 
+/** The app-wide toast area, which is always there and empty until something confirms. */
+const toasts = () => screen.getByRole("status", { name: /notifications/i });
+/** The calculator's own note that the outputs are the server's calculation. */
+const serverNote = () => screen.queryByText(/the outputs above are the server's own calculation/i);
+
 const retype = async (user: ReturnType<typeof userEvent.setup>, input: HTMLElement, text: string) => {
   await user.clear(input);
   if (text) await user.type(input, text);
@@ -156,6 +161,8 @@ describe("saving", () => {
     await user.click(screen.getByRole("button", { name: /save projection/i }));
 
     expect(await screen.findByRole("button", { name: /update projection/i })).toBeInTheDocument();
+    expect(toasts()).toHaveTextContent("Saved your projection for AAPL.");
+    expect(serverNote()).toBeInTheDocument();
     expect(outputs(/return multiple/i)).toEqual(["4.3×", "4.3×", "4.3×"]);
     expect(outputs(/cagr/i)).toEqual(["33.6 %", "33.6 %", "33.6 %"]);
     expect(fakeApi.requestCount("POST /api/projections")).toBe(1);
@@ -177,6 +184,18 @@ describe("saving", () => {
     expect(outputs(/return multiple/i)).toEqual(["1.4×", "1.9×", "2.2×"]);
   });
 
+  it("keeps its toast when the user moves on to another page", async () => {
+    fakeApi.seedUser();
+    const user = await calculatorFor("AAPL");
+    await user.click(screen.getByRole("button", { name: /save projection/i }));
+    await waitFor(() => expect(toasts()).toHaveTextContent("Saved your projection for AAPL."));
+
+    await user.click(screen.getByRole("link", { name: /compass/i }));
+
+    expect(await screen.findByRole("textbox", { name: /ticker/i })).toBeInTheDocument();
+    expect(toasts()).toHaveTextContent("Saved your projection for AAPL.");
+  });
+
   it("keeps the preview of an edit made while the save was on its way", async () => {
     fakeApi.seedUser();
     fakeApi.holdSaveResponsesFor(150);
@@ -188,7 +207,9 @@ describe("saving", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /update projection/i })).toBeEnabled());
     // Base now matches Bull; the save's answer, worked from 8%, is not put over it.
     expect(outputs(/return multiple/i)).toEqual(["1.3×", "1.9×", "1.9×"]);
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(serverNote()).not.toBeInTheDocument();
+    // The save itself was taken, and says so.
+    expect(toasts()).toHaveTextContent("Saved your projection for AAPL.");
   });
 
   it("replaces an existing projection only after the confirmation", async () => {
@@ -210,7 +231,8 @@ describe("saving", () => {
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /replace/i }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(await screen.findByRole("status")).toHaveTextContent(/saved/i);
+    await waitFor(() => expect(toasts()).toHaveTextContent("Updated your projection for AAPL."));
+    expect(serverNote()).toBeInTheDocument();
     expect(fakeApi.requestCount("PUT /api/projections/AAPL")).toBe(1);
     expect(fakeApi.saves()[0].scenarios[1].growthRate).toBe(0.1);
   });
@@ -378,5 +400,7 @@ describe("a lookup that cannot pre-fill", () => {
     await user.click(screen.getByRole("button", { name: /save projection/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/you already have a projection for AAPL/i);
+    expect(toasts()).toBeEmptyDOMElement();
+    expect(serverNote()).not.toBeInTheDocument();
   });
 });

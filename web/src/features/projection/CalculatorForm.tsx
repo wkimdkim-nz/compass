@@ -291,7 +291,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
         </button>
         {serverOutputs ? (
           <span role="status" className="note">
-            Saved. The outputs above are the server's own calculation.
+            The outputs above are the server's own calculation.
           </span>
         ) : (
           <span className="note">Saves your assumptions only; the filed figures are fetched fresh each time.</span>

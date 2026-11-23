@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
+import { useDispatch } from "react-redux";
 import type { ProjectionOutputs } from "../../projection/calculator";
 import { detail, fieldErrors, isStatus } from "../../app/problemDetails";
+import { showToast } from "../../app/toast";
 import {
   useCreateProjectionMutation,
   useReplaceProjectionMutation,
@@ -32,6 +34,7 @@ export function useSaveProjection({ company, alreadySaved, onSaved }: Options) {
   const [serverOutputs, setServerOutputs] = useState<ServerOutputs | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
 
+  const dispatch = useDispatch();
   const [create, creating] = useCreateProjectionMutation();
   const [replace, replacing] = useReplaceProjectionMutation();
   const exists = alreadySaved || savedHere;
@@ -70,6 +73,8 @@ export function useSaveProjection({ company, alreadySaved, onSaved }: Options) {
     if (edits.current === sentAt) setServerOutputs(outputsByName(result.data));
     setSavedHere(true);
     setProblems([]);
+    // Confirmations go to the toast; what went wrong stays inline, above, in `problems`.
+    dispatch(showToast(`${exists ? "Updated" : "Saved"} your projection for ${company.ticker}.`));
     onSaved(form);
   };
 

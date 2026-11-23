@@ -37,7 +37,7 @@ describe("a logged-out visitor", () => {
     fakeApi.holdMeResponsesFor(200);
     renderApp(CALCULATOR);
 
-    expect(await screen.findByRole("status")).toHaveTextContent(/checking your session/i);
+    expect(await screen.findByText(/checking your session/i)).toHaveAttribute("role", "status");
     expect(screen.queryByRole("heading", { name: /sign in/i })).not.toBeInTheDocument();
 
     expect(await calculatorHeading()).toBeInTheDocument();

@@ -6,6 +6,7 @@ import { RegisterPage } from "./features/auth/RegisterPage";
 import { LandingPage } from "./features/landing/LandingPage";
 import { CalculatorPage } from "./features/projection/CalculatorPage";
 import { Disclaimer } from "./app/Disclaimer";
+import { Toaster } from "./app/Toaster";
 
 function Layout() {
   const { data: me } = useGetMeQuery();
@@ -39,6 +40,8 @@ function Layout() {
           <p>Fundamentals: SEC EDGAR. Quotes: Finnhub.</p>
         </div>
       </footer>
+      {/* In the layout, not a page: a toast shown before a route change is still there after it. */}
+      <Toaster />
     </div>
   );
 }

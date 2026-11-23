@@ -527,7 +527,7 @@ public sealed class CountingQuote : IQuoteSource
 /// <summary>A clock that moves only when a test moves it.</summary>
 public sealed class ManualClock : TimeProvider
 {
-    private DateTimeOffset _now = new(2026, 9, 20, 0, 0, 0, TimeSpan.Zero);
+    private DateTimeOffset _now = DateTimeOffset.UtcNow;
 
     public override DateTimeOffset GetUtcNow() => _now;
 
