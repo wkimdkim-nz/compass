@@ -527,7 +527,10 @@ public sealed class CountingQuote : IQuoteSource
 /// <summary>A clock that moves only when a test moves it.</summary>
 public sealed class ManualClock : TimeProvider
 {
-    private DateTimeOffset _now = new(2026, 9, 20, 0, 0, 0, TimeSpan.Zero);
+    // Starts at the real time, not a fixed date: the app signs its session cookie by this clock, and
+    // the test client's cookie jar judges that cookie's expiry by the real one. A fixed start went
+    // stale seven days after it was written, when the jar began dropping the cookie as expired.
+    private DateTimeOffset _now = DateTimeOffset.UtcNow;
 
     public override DateTimeOffset GetUtcNow() => _now;
 
