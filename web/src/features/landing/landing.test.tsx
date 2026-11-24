@@ -5,7 +5,7 @@ import { fakeApi } from "../../test/fakeApi";
 import { renderApp } from "../../test/renderApp";
 
 // A real wait: the absent cases assert what does not appear, and there is no later event to wait for.
-const sleep = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = () => new Promise((resolve) => setTimeout(resolve, 100));
 
 const yourProjections = () => screen.findByRole("table", { name: /your projections/i });
 const rows = async () => within(await yourProjections()).getAllByRole("row").slice(1);
@@ -40,6 +40,19 @@ describe("the landing page's Your projections", () => {
     expect(shown[0]).toHaveTextContent("Bear, Base, Bull");
     expect(shown[0]).toHaveTextContent("21 Nov 2026");
     expect(screen.getByRole("link", { name: "All 7 →" })).toHaveAttribute("href", "/projections");
+  });
+
+  it("sits under the ticker box and above the specimen", async () => {
+    fakeApi.seedUser();
+    fakeApi.seedProjection();
+    renderApp("/");
+
+    const section = await yourProjections();
+    const tickerBox = screen.getByRole("textbox", { name: /ticker/i });
+    const specimen = screen.getByRole("table", { name: /specimen/i });
+
+    expect(tickerBox.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.compareDocumentPosition(specimen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("opens a projection's calculator from its ticker", async () => {
@@ -109,6 +122,6 @@ describe("the landing page's Your projections", () => {
     expect(screen.queryByText(/your projections/i)).not.toBeInTheDocument();
     expect(fakeApi.requestCount("GET /api/projections")).toBe(0);
     expect(screen.getByRole("textbox", { name: /ticker/i })).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: /specimen/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("table")).toEqual([screen.getByRole("table", { name: /specimen/i })]);
   });
 });

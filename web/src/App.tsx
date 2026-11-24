@@ -8,7 +8,7 @@ import { LandingPage } from "./features/landing/LandingPage";
 import { CalculatorPage } from "./features/projection/CalculatorPage";
 import { ProjectionsPage } from "./features/projection/ProjectionsPage";
 import { Disclaimer } from "./app/Disclaimer";
-import { PROJECTIONS_PATH } from "./app/paths";
+import { CALCULATOR_ROUTE, PROJECTIONS_PATH } from "./app/paths";
 import { Toaster } from "./app/Toaster";
 
 function Layout() {
@@ -64,7 +64,7 @@ export function App() {
         <Route path="/guide" element={<GuidePage />} />
         <Route element={<ProtectedRoute />}>
           <Route path={PROJECTIONS_PATH} element={<ProjectionsPage />} />
-          <Route path="/projections/:ticker" element={<CalculatorPage />} />
+          <Route path={CALCULATOR_ROUTE} element={<CalculatorPage />} />
         </Route>
       </Route>
     </Routes>

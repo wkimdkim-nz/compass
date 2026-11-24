@@ -41,7 +41,7 @@ export function YourProjections() {
                 </Link>
                 <small className="wrap-anywhere">{projection.companyName}</small>
               </th>
-              <td className="num text-sm text-ink-2">{scenarioTitles(projection.scenarios)}</td>
+              <td className="text-right text-sm whitespace-nowrap text-ink-2">{scenarioTitles(projection.scenarios)}</td>
               <td className="num text-sm">{printDate(projection.updatedAt, "local")}</td>
             </tr>
           ))}
