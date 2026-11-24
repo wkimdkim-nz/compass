@@ -89,6 +89,13 @@ describe("the guide", () => {
       expect(entry).toHaveAttribute("aria-current", "true");
       expect(screen.getByRole("row", { name: /^revenue growth/i })).not.toHaveAttribute("aria-current");
     });
+
+    it("still renders when the address carries a malformed fragment", async () => {
+      renderApp("/guide#%E0%A4%A");
+      await guideHeading();
+
+      expect(scrolled).not.toHaveBeenCalled();
+    });
   });
 
   it("works the shared Apple example's Base scenario through the formula, step by step", async () => {

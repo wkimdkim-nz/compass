@@ -11,7 +11,8 @@ const GROUPS: { group: GuideEntry["group"]; title: string; units: string }[] = [
 
 /** Every figure on the calculator, what it means, and where to look it up. Public. */
 export function GuidePage() {
-  const target = decodeURIComponent(useLocation().hash.slice(1));
+  // Entry ids are plain ASCII, so the fragment is matched as written: decoding it would only add a way to throw.
+  const target = useLocation().hash.slice(1);
 
   useEffect(() => {
     if (target) document.getElementById(target)?.scrollIntoView();
