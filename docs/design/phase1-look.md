@@ -197,7 +197,7 @@ hover shows nothing, because touch screens have no hover.
 ## My projections
 
 The protected `/projections`, reached from **My projections** in the masthead when signed in, is
-a ledger rather than a table: prototype variant B.
+a ledger rather than a table.
 
 - **Stacked entries, newest save first**, each between hairlines. The first line is the company
   name in the caption size with its ticker beside it in the secondary ink, the whole a link to the

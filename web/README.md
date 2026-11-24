@@ -36,7 +36,8 @@ has dark values (`--scrim`, from `--ink`) follows the theme through it and is de
 sets the page defaults (paper, ink, Archivo, tabular figures) in the base layer, and holds the
 statement vocabulary the pages use (`.sheet`, `.masthead`, `.field`, `.entry`, `.btn`, `.note`,
 `.statement-note`, and for the landing page and the calculator `.caption`, `.statement-table`,
-`.fig`, `.basis`, the output rows' `.total` / `.double-rule` / `.changed`, `.footnote`, `.modal`),
+`.fig`, `.basis`, the output rows' `.total` / `.double-rule` / `.changed`, `.footnote`, `.modal`,
+and for My projections `.projection-list`, `.projection-line`, `.projection-name`),
 ported from [`docs/design/mockups/statement.css`](../docs/design/mockups/statement.css), plus the `condensed` utility that narrows the output
 totals to the design's width (`text-total font-semibold condensed`). Archivo is self-hosted from
 `@fontsource-variable/archivo`, imported in `main.tsx`.
@@ -49,7 +50,10 @@ lives, which the calculator's "?" popovers (`features/guide/GuideHelp.tsx`) read
 (`features/projection`), behind `ProtectedRoute`, which hands the address to sign in so that a
 signed-out visitor lands on their projection afterwards. The calculator asks the ticker lookup and
 the saved projection side by side: the lookup gives fresh base facts and the seeded defaults, the
-projection (when there is one) the assumptions that go over them.
+projection (when there is one) the assumptions that go over them. `/projections` is My projections
+(`ProjectionsPage.tsx`, also `features/projection`), behind `ProtectedRoute` too and linked from the
+masthead when signed in: the saved projections, newest save first, each opening its calculator. The
+addresses pages link each other by (`calculatorPath`, the landing page's ticker box) are in `app/paths.ts`.
 
 The form holds **text** in the UI's units, percents (8, not 0.08, to one decimal: ADR 0011) and
 millions, negatives in parentheses. The current net margin is printed, not typed: no formula takes it. It crosses to the wire's decimals and raw values in exactly one module,

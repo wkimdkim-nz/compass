@@ -12,6 +12,9 @@ public class Scenario
     /// <summary>The names a scenario can have, in the order they are answered in.</summary>
     public static readonly ImmutableArray<string> Names = ["bear", "base", "bull"];
 
+    /// <summary>Where a name stands in <see cref="Names"/>: the key that sorts scenarios Bear, Base, Bull.</summary>
+    public static int Order(string name) => Names.IndexOf(name);
+
     public const int MaxNameLength = 8;
 
     /// <summary>The two kinds of exit multiple, as the vectors file spells them.</summary>

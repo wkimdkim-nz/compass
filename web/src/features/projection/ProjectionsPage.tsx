@@ -1,9 +1,8 @@
 import { Link } from "react-router";
+import { calculatorPath, TICKER_BOX_PATH } from "../../app/paths";
 import { printDate } from "./dates";
 import { useListProjectionsQuery } from "./projectionApi";
 import { SCENARIO_TITLE } from "./projectionForm";
-
-const calculatorPath = (ticker: string) => `/projections/${encodeURIComponent(ticker)}`;
 
 export function ProjectionsPage() {
   const { data: projections, isLoading, isError, refetch } = useListProjectionsQuery();
@@ -27,7 +26,7 @@ export function ProjectionsPage() {
         </div>
       ) : projections.length === 0 ? (
         <p className="note py-6">
-          No saved projections yet. <Link to="/#ticker">Type a ticker</Link> to start one.
+          No saved projections yet. <Link to={TICKER_BOX_PATH}>Type a ticker</Link> to start one.
         </p>
       ) : (
         <ol className="projection-list" aria-label="Saved projections">

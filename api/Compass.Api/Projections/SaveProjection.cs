@@ -177,7 +177,7 @@ public static class SaveProjection
         if (errors.Count > 0) return new SaveProjectionResult.Invalid(errors);
 
         return new SaveProjectionResult.Valid(
-            ticker, companyName, request.Cik, [.. Scenario.Names.SelectMany(name => scenarios.Where(s => s.Name == name))], outputs);
+            ticker, companyName, request.Cik, [.. scenarios.OrderBy(s => Scenario.Order(s.Name))], outputs);
 
         double Required(double? value, string at, string what)
         {

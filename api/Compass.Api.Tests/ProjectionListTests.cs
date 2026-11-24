@@ -21,7 +21,7 @@ public class ProjectionListTests(CompassApiFactory factory) : IClassFixture<Comp
 
     /// <summary>The clock moves a minute between saves, so the order is the stamps' and not the insert's.</summary>
     [Fact]
-    public async Task The_list_is_newest_first_by_last_save_and_calls_no_provider()
+    public async Task The_list_is_newest_first_by_last_save_and_calls_neither_source()
     {
         var clock = new ManualClock();
         var fundamentals = new CountingFundamentals(new FailingFundamentals());

@@ -66,7 +66,7 @@ public static class ProjectionEndpoints
     {
         var projections = routes.MapGroup("/api/projections").RequireAuthorization();
 
-        // From the database alone: a list that looked each company up would be as slow as its slowest provider call.
+        // From the database alone: a list that looked each company up would be as slow as its slowest Fundamentals or Quote source call.
         projections.MapGet("/", async (ClaimsPrincipal caller, AppDbContext db, CancellationToken cancellationToken) =>
         {
             var userId = caller.UserId();
@@ -79,7 +79,7 @@ public static class ProjectionEndpoints
             return Results.Ok(rows.Select(row => new ProjectionSummaryResponse(
                 row.Ticker,
                 row.CompanyName,
-                [.. row.ScenarioNames.OrderBy(Scenario.Names.IndexOf)],
+                [.. row.ScenarioNames.OrderBy(Scenario.Order)],
                 row.UpdatedAt)));
         });
 
@@ -198,7 +198,7 @@ public static class ProjectionEndpoints
     private static IReadOnlyList<ScenarioResponse> ScenarioResponses(this Projection projection, IReadOnlyDictionary<string, ProjectionOutputs>? outputsByName) =>
     [
         .. projection.Scenarios
-            .OrderBy(s => Scenario.Names.IndexOf(s.Name))
+            .OrderBy(s => Scenario.Order(s.Name))
             .Select(s => new ScenarioResponse(
                 s.Name,
                 (double)s.GrowthRate,
