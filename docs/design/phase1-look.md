@@ -201,7 +201,8 @@ a ledger rather than a table.
 
 - **Stacked entries, newest save first**, each between hairlines. The first line is the company
   name in the caption size with its ticker beside it in the secondary ink, the whole a link to the
-  calculator, and "Saved {date}" set right. The second line is the Scenarios saved, "Bear, Base,
+  calculator, and "Saved {date}" set right. A long name wraps, breaking inside a word if it must;
+  the date never wraps or leaves the page. The second line is the Scenarios saved, "Bear, Base,
   Bull" in the secondary ink, and **Open** set right.
 - **A note under the heading** says that opening one fetches today's filed figures and that only
   the assumptions are stored.

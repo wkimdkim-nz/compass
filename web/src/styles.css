@@ -191,8 +191,9 @@
   .projection-line + .projection-line {
     @apply mt-1;
   }
+  /* A hand-typed name can be one long token: it gives way and breaks, so the date beside it stays on the page. */
   .projection-name {
-    @apply text-lg font-semibold text-ink no-underline;
+    @apply text-lg font-semibold text-ink no-underline wrap-anywhere;
   }
 
   /* The saved line, in pencil, tucked under the provenance line. */
