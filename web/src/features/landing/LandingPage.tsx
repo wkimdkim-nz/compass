@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { calculatorPath, TICKER_BOX_HASH } from "../../app/paths";
 import { APPLE_EXAMPLE } from "../../projection/appleExample";
 import { calculateProjection } from "../../projection/calculator";
 import { formatOutputs, toUi, type PrintedOutputs } from "../projection/figures";
@@ -20,11 +21,18 @@ for (const name of SCENARIO_NAMES) {
 export function LandingPage() {
   const [ticker, setTicker] = useState("");
   const navigate = useNavigate();
+  const tickerBox = useRef<HTMLInputElement>(null);
+  const { hash } = useLocation();
+
+  // A link to the ticker box comes from within the app, where the browser does not act on the fragment itself.
+  useEffect(() => {
+    if (hash === TICKER_BOX_HASH) tickerBox.current?.focus();
+  }, [hash]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const typed = ticker.trim().toUpperCase();
-    if (typed) navigate(`/projections/${encodeURIComponent(typed)}`);
+    if (typed) navigate(calculatorPath(typed));
   };
 
   return (
@@ -44,6 +52,7 @@ export function LandingPage() {
           <label htmlFor="ticker">Ticker</label>
           <div className="line">
             <input
+              ref={tickerBox}
               className="ticker"
               id="ticker"
               name="ticker"

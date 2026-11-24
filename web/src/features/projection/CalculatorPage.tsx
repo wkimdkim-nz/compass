@@ -4,17 +4,9 @@ import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { useParams } from "react-router";
 import { detail, isStatus } from "../../app/problemDetails";
 import { CalculatorForm } from "./CalculatorForm";
+import { printDate } from "./dates";
 import { useGetProjectionQuery, useLookUpTickerQuery, type TickerResponse } from "./projectionApi";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** A date as a statement prints it, 28 Jun 2025. A period end is a calendar date, read in UTC; a moment is read in the user's own zone. */
-const date = (value: string, zone: "utc" | "local") => {
-  const d = new Date(value);
-  return zone === "utc"
-    ? `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
-    : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-};
 
 type NoticeProps = {
   ticker: string;
@@ -131,7 +123,7 @@ export function CalculatorPage() {
       <p className="provenance">
         {found ? (
           <>
-            Figures to <b>{date(found.baseFacts.figuresTo, "utc")}</b> · Fundamentals <b>SEC EDGAR</b> · Quote{" "}
+            Figures to <b>{printDate(found.baseFacts.figuresTo, "utc")}</b> · Fundamentals <b>SEC EDGAR</b> · Quote{" "}
             <b>Finnhub</b>
           </>
         ) : (
@@ -144,7 +136,7 @@ export function CalculatorPage() {
         company={{ ticker, companyName: companyName ?? ticker, cik: found?.cik ?? saved?.cik ?? null }}
         baseFacts={found?.baseFacts}
         seeded={found?.scenarios ?? []}
-        saved={saved && { scenarios: saved.scenarios, on: date(saved.updatedAt, "local") }}
+        saved={saved && { scenarios: saved.scenarios, on: printDate(saved.updatedAt, "local") }}
         notice={lookupNotice({ ticker, found, error: lookup.error, hasSaved: saved !== undefined, retry: () => void lookup.refetch() })}
       />
     </main>

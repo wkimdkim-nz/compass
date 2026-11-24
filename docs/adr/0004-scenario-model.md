@@ -1,6 +1,6 @@
 # ADR 0004 — Projections hold Bear/Base/Bull scenarios; snapshot vs. live inputs
 
-**Status:** Accepted (amended 2026-09-17, 2026-09-20 and 2026-09-21)
+**Status:** Accepted (amended 2026-09-17, 2026-09-20, 2026-09-21 and 2026-11-24)
 **Date:** 2026-07-01
 
 ## Context
@@ -119,3 +119,12 @@ Persistence rule (single model, since FMP is in iteration 1):
 >    The lookup is still a 200 with its base facts and an empty scenario list, never a scenario
 >    holding NaN. The UI's reset-to-defaults reseeds the assumptions only; base facts typed over
 >    stay (ADR 0011).
+
+> **Amended 2026-11-24 (My projections, #102).** **`GET /api/projections` lists the caller's
+> projections**, owner-only like the routes above: a 200 with an array, newest `updatedAt` first,
+> empty when there are none, no paging. Each entry is the ticker (normalised), the company name,
+> the names of the scenarios saved (Bear, Base, Bull in that order) and `updatedAt`. The list
+> reads the database only: no ticker lookup and no call to either source, so it is as quick with
+> fifty projections as with one, and a provider being down never hides what a user has saved.
+> Base facts and outputs stay where point 2 of the first amendment put them, behind opening a
+> projection. No schema change.
