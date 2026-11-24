@@ -7,6 +7,7 @@ import { formatOutputs, toUi, type PrintedOutputs } from "../projection/figures"
 import { OutputRows } from "../projection/OutputRows";
 import type { ScenarioName } from "../projection/projectionApi";
 import { SCENARIO_NAMES } from "../projection/projectionForm";
+import { YourProjections } from "./YourProjections";
 
 const SPECIMEN_OUTPUTS: Partial<Record<ScenarioName, PrintedOutputs>> = {};
 for (const name of SCENARIO_NAMES) {
@@ -72,6 +73,8 @@ export function LandingPage() {
         </form>
         <p className="note">Signed out? You will sign in first and land on your projection afterwards.</p>
       </section>
+
+      <YourProjections />
 
       <section aria-labelledby="specimen">
         <div className="caption">
