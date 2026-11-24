@@ -39,7 +39,7 @@ Success:
 ## Positioning
 
 **A teaching tool first.** Every input is explained and anchored to where its number comes from
-(the glossary's input guide is the source; the Phase 2 education page is the planned home). The
+(the public Guide at `/guide`, rendered from `web/src/features/guide/guideEntries.ts`). The
 calculator is the exercise; understanding the inputs is the product. A "1000X"-style sheet, a
 broker widget, or a spreadsheet gives a number; Compass gives the number *and* the reasoning
 scaffold around it, presented as a hypothetical range rather than a prediction.

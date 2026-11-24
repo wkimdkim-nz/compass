@@ -164,13 +164,25 @@ How the app tells the user an action worked, or did not:
   the page already gives. The calculator keeps its inline note that the outputs are the server's own
   calculation; the toast only confirms the save.
 
+## Guide
+
+The public `/guide` is a Read surface in the same statement grammar:
+
+- **A reference table in three groups**, Base facts, Assumptions and Outputs, each under a
+  statement caption. A row is the figure's name; *what it is, and how to choose it*; and *find it*.
+  The cells are prose, so they set from the top of the row in the label size, not at the row rhythm.
+- **On a phone** (`max-width: 30rem`) each row stacks into a block: the name as a heading, the
+  explanation, then a small "Find it" over the sources and the filing note. Nothing scrolls sideways.
+- **The entry a link sent the reader to** (`/guide#<id>`) is scrolled into view and carries the
+  pencil tint, the colour the calculator uses for a changed row.
+- **The worked example** closes the page: the shared Apple example's Base scenario as a three-column
+  statement (step, working in the secondary ink, result), figures in millions except per share.
+
 ## Open items
 
 - Whether blue pencil is the right single accent. It is the auditor's colour and reads as "edited"
   without explanation; the alternative would be a red-pencil accent, which was not built because it
   drifts toward the signal-red of every finance app.
-- The Phase 2 education page inherits this world unchanged; it is a Read surface and the statement's
-  notes grammar carries it.
 
 ## Regenerating the captures
 

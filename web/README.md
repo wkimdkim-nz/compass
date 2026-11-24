@@ -43,7 +43,9 @@ totals to the design's width (`text-total font-semibold condensed`). Archivo is 
 
 ## The pages and the units line
 
-`/` is the landing page (`features/landing`), public; `/projections/{ticker}` is the calculator
+`/` is the landing page (`features/landing`), public; `/guide` is the Guide (`features/guide`),
+public, rendered from the typed content module `guideEntries.ts`, the one place the guide's text
+lives; `/projections/{ticker}` is the calculator
 (`features/projection`), behind `ProtectedRoute`, which hands the address to sign in so that a
 signed-out visitor lands on their projection afterwards. The calculator asks the ticker lookup and
 the saved projection side by side: the lookup gives fresh base facts and the seeded defaults, the
@@ -55,5 +57,7 @@ millions, negatives in parentheses. The current net margin is printed, not typed
 TypeScript calculator in `src/projection`) and for the body of a save. After a save the output rows
 show the .NET calculator's figures from the response until the next keystroke. The save path (create
 or replace, what the server refused, its outputs) is `useSaveProjection.ts`; the output rows are one
-component, `OutputRows.tsx`, shared by the calculator and the landing page's specimen. The disclaimer is
+component, `OutputRows.tsx`, shared by the calculator and the landing page's specimen. The specimen and the guide's worked
+example both run the one Apple example (`src/projection/appleExample.ts`) through the calculator, the
+worked example through `projectionSteps`, the formula one step at a time that `calculateProjection` uses. The disclaimer is
 one component, `app/Disclaimer.tsx`, used beside the outputs and in every page's footer.

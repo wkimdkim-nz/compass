@@ -53,7 +53,7 @@
     @apply mx-auto max-w-[40rem];
   }
 
-  /* The header rule: brand at one end, the account links at the other. */
+  /* The header rule: brand at one end, the guide and account links at the other. */
   .masthead {
     @apply flex items-baseline justify-between gap-4 border-b border-rule py-4 text-sm;
   }
@@ -415,6 +415,70 @@
   @media (max-width: 47.99rem) {
     .src-col {
       @apply hidden;
+    }
+  }
+
+  /* The guide: a statement table whose cells are prose, so they set from the top and take their own height. */
+  .guide-intro {
+    @apply mt-2 mb-2 max-w-[60ch];
+  }
+  .guide-table th,
+  .guide-table td {
+    @apply h-auto py-3 text-left align-top text-sm;
+  }
+  .guide-table thead th {
+    @apply py-2 text-left whitespace-normal;
+  }
+  .guide-table tbody th {
+    @apply w-[22%] text-base font-medium;
+  }
+  .guide-table td:last-child {
+    @apply w-[30%];
+  }
+  .guide-table p + p {
+    @apply mt-1;
+  }
+  .guide-table b {
+    @apply font-medium;
+  }
+  .guide-table tbody tr {
+    @apply scroll-mt-4;
+  }
+  /* The entry a link sent the reader to. */
+  .guide-table tr[aria-current="true"] > * {
+    @apply bg-pencil-tint;
+  }
+  .guide-example {
+    @apply mb-12;
+  }
+  .worked-example .working {
+    @apply text-sm text-ink-2;
+  }
+
+  /* Phone: each guide row stacks into a block, its name a heading over the explanation and where to find it. */
+  @media (max-width: 30rem) {
+    .guide-table,
+    .guide-table tbody,
+    .guide-table tr,
+    .guide-table th,
+    .guide-table td {
+      @apply block w-full;
+    }
+    .guide-table thead {
+      @apply sr-only;
+    }
+    .guide-table tbody th {
+      @apply w-full pt-3 font-semibold;
+      padding-bottom: 0;
+    }
+    .guide-table td {
+      @apply py-1;
+    }
+    .guide-table td:last-child {
+      @apply w-full pb-3;
+    }
+    .guide-table td:last-child:not(:empty)::before {
+      @apply block text-xs text-ink-2 content-['Find_it'];
     }
   }
 

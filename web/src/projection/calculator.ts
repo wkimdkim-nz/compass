@@ -100,15 +100,32 @@ export function calculateProjection(facts: DraftBaseFacts, assumptions: DraftAss
     return { status: "incomplete" };
   }
 
-  const futureRevenue = ttmRevenue * (1 + growthRate) ** horizon;
-  const futureShares = dilutedShares * (1 + dilutionRate) ** horizon;
-  // `margin` is 1 on the P/S path, which makes this the revenue multiple the glossary states.
-  const futureMarketCap = futureRevenue * margin * multiple;
-  const futurePrice = futureMarketCap / futureShares;
-  const x = futurePrice / currentPrice;
-  const cagr = x ** (1 / horizon) - 1;
+  const { futurePrice, x, cagr } = projectionSteps(
+    { currentPrice, ttmRevenue, dilutedShares },
+    { growthRate, futureNetMargin: margin, exitMultiple: { kind, value: multiple }, dilutionRate, horizon },
+  );
 
   // Every input was in range, so anything non-finite here is a double overflowing.
   if (![futurePrice, x, cagr].every(Number.isFinite)) return rejected("notFinite");
   return { status: "ok", outputs: { futurePrice, x, cagr } };
+}
+
+export type ProjectionSteps = ProjectionOutputs & {
+  futureRevenue: number;
+  futureNetIncome: number;
+  futureMarketCap: number;
+  futureShares: number;
+};
+
+/** The formula one step at a time, for inputs already known to be in range: `calculateProjection` checks them. */
+export function projectionSteps(facts: BaseFacts, assumptions: AssumptionSet): ProjectionSteps {
+  const { growthRate, futureNetMargin, exitMultiple, dilutionRate, horizon } = assumptions;
+  const futureRevenue = facts.ttmRevenue * (1 + growthRate) ** horizon;
+  const futureNetIncome = futureRevenue * futureNetMargin;
+  const futureShares = facts.dilutedShares * (1 + dilutionRate) ** horizon;
+  const futureMarketCap = (exitMultiple.kind === "pe" ? futureNetIncome : futureRevenue) * exitMultiple.value;
+  const futurePrice = futureMarketCap / futureShares;
+  const x = futurePrice / facts.currentPrice;
+  const cagr = x ** (1 / horizon) - 1;
+  return { futureRevenue, futureNetIncome, futureMarketCap, futureShares, futurePrice, x, cagr };
 }
