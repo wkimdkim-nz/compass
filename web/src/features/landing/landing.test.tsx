@@ -88,6 +88,19 @@ describe("the landing page's Your projections", () => {
     expect(await yourProjections()).toBeInTheDocument();
   });
 
+  it("is absent, with no error of its own, when the list cannot be loaded", async () => {
+    fakeApi.seedUser();
+    fakeApi.seedProjection();
+    fakeApi.failProjectionList();
+    renderApp("/");
+
+    await screen.findByRole("button", { name: /sign out/i });
+    await waitFor(() => expect(fakeApi.requestCount("GET /api/projections")).toBeGreaterThan(0));
+    await sleep();
+    expect(screen.queryByText(/your projections/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("is absent signed out, which neither asks for the list nor changes the rest of the page", async () => {
     renderApp("/");
 

@@ -8,6 +8,7 @@ import { LandingPage } from "./features/landing/LandingPage";
 import { CalculatorPage } from "./features/projection/CalculatorPage";
 import { ProjectionsPage } from "./features/projection/ProjectionsPage";
 import { Disclaimer } from "./app/Disclaimer";
+import { PROJECTIONS_PATH } from "./app/paths";
 import { Toaster } from "./app/Toaster";
 
 function Layout() {
@@ -25,7 +26,7 @@ function Layout() {
             <Link to="/guide">Guide</Link>
             {me ? (
               <>
-                <Link to="/projections">My projections</Link>
+                <Link to={PROJECTIONS_PATH}>My projections</Link>
                 <button type="button" className="link" onClick={() => logout()}>
                   Sign out
                 </button>
@@ -62,7 +63,7 @@ export function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/guide" element={<GuidePage />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/projections" element={<ProjectionsPage />} />
+          <Route path={PROJECTIONS_PATH} element={<ProjectionsPage />} />
           <Route path="/projections/:ticker" element={<CalculatorPage />} />
         </Route>
       </Route>

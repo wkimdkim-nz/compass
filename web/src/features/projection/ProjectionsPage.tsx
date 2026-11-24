@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { calculatorPath, TICKER_BOX_PATH } from "../../app/paths";
 import { printDate } from "./dates";
 import { useListProjectionsQuery } from "./projectionApi";
-import { SCENARIO_TITLE } from "./projectionForm";
+import { scenarioTitles } from "./projectionForm";
 
 export function ProjectionsPage() {
   const { data: projections, isLoading, isError, refetch } = useListProjectionsQuery();
@@ -39,7 +39,7 @@ export function ProjectionsPage() {
                 <span className="note whitespace-nowrap">Saved {printDate(projection.updatedAt, "local")}</span>
               </div>
               <div className="projection-line text-sm">
-                <span className="text-ink-2">{projection.scenarios.map((name) => SCENARIO_TITLE[name]).join(", ")}</span>
+                <span className="text-ink-2">{scenarioTitles(projection.scenarios)}</span>
                 <Link to={calculatorPath(projection.ticker)} aria-label={`Open ${projection.ticker}`}>
                   Open
                 </Link>

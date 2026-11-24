@@ -16,6 +16,9 @@ import type {
 export const SCENARIO_NAMES = ["bear", "base", "bull"] as const satisfies readonly ScenarioName[];
 export const SCENARIO_TITLE: Record<ScenarioName, string> = { bear: "Bear", base: "Base", bull: "Bull" };
 
+/** The Scenarios a Projection saved, as a list prints them: "Bear, Base, Bull". */
+export const scenarioTitles = (names: ScenarioName[]) => names.map((name) => SCENARIO_TITLE[name]).join(", ");
+
 /**
  * The text of every field. Any of it may be empty or mistyped at any moment. The current net margin
  * is not among them: no formula takes it, so it is printed, not typed (see `currentMarginText`).

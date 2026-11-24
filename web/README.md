@@ -53,7 +53,7 @@ the saved projection side by side: the lookup gives fresh base facts and the see
 projection (when there is one) the assumptions that go over them. `/projections` is My projections
 (`ProjectionsPage.tsx`, also `features/projection`), behind `ProtectedRoute` too and linked from the
 masthead when signed in: the saved projections, newest save first, each opening its calculator. The
-addresses pages link each other by (`calculatorPath`, the landing page's ticker box) are in `app/paths.ts`.
+addresses pages link each other by (`calculatorPath`, `PROJECTIONS_PATH`, the landing page's ticker box) are in `app/paths.ts`.
 
 The form holds **text** in the UI's units, percents (8, not 0.08, to one decimal: ADR 0011) and
 millions, negatives in parentheses. The current net margin is printed, not typed: no formula takes it. It crosses to the wire's decimals and raw values in exactly one module,

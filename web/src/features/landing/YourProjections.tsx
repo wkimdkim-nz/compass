@@ -1,17 +1,13 @@
 import { Link } from "react-router";
-import { calculatorPath } from "../../app/paths";
+import { calculatorPath, PROJECTIONS_PATH } from "../../app/paths";
 import { useGetMeQuery } from "../auth/authApi";
 import { printDate } from "../projection/dates";
 import { useListProjectionsQuery } from "../projection/projectionApi";
-import { SCENARIO_TITLE } from "../projection/projectionForm";
+import { scenarioTitles } from "../projection/projectionForm";
 
-const SHOWN = 5;
+const NEWEST_SHOWN = 5;
 
-/**
- * The signed-in user's newest Projections. Nothing renders until there is a list with something
- * in it: signed out, empty, still loading or failed, the landing page reads as it does signed out
- * and does not jump. A list that cannot load says so on My projections, not here.
- */
+/** Absent rather than loading or failed, so the landing page never jumps; My projections reports a failed list. */
 export function YourProjections() {
   const { data: me } = useGetMeQuery();
   const { data: projections } = useListProjectionsQuery(undefined, { skip: !me });
@@ -22,9 +18,9 @@ export function YourProjections() {
     <section aria-labelledby="your-projections">
       <div className="caption">
         <span id="your-projections">Your projections</span>
-        {projections.length > SHOWN && (
+        {projections.length > NEWEST_SHOWN && (
           <span className="units">
-            <Link to="/projections">All {projections.length} →</Link>
+            <Link to={PROJECTIONS_PATH}>All {projections.length} →</Link>
           </span>
         )}
       </div>
@@ -37,7 +33,7 @@ export function YourProjections() {
           </tr>
         </thead>
         <tbody>
-          {projections.slice(0, SHOWN).map((projection) => (
+          {projections.slice(0, NEWEST_SHOWN).map((projection) => (
             <tr key={projection.ticker}>
               <th scope="row" className="label">
                 <Link to={calculatorPath(projection.ticker)} className="font-semibold">
@@ -45,7 +41,7 @@ export function YourProjections() {
                 </Link>
                 <small className="wrap-anywhere">{projection.companyName}</small>
               </th>
-              <td className="num text-sm text-ink-2">{projection.scenarios.map((name) => SCENARIO_TITLE[name]).join(", ")}</td>
+              <td className="num text-sm text-ink-2">{scenarioTitles(projection.scenarios)}</td>
               <td className="num text-sm">{printDate(projection.updatedAt, "local")}</td>
             </tr>
           ))}

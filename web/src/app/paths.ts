@@ -1,3 +1,4 @@
+export const PROJECTIONS_PATH = "/projections";
 export const calculatorPath = (ticker: string) => `/projections/${encodeURIComponent(ticker)}`;
 
 /** The landing page's ticker box: the page focuses it on this fragment, and links aim at the path. */
