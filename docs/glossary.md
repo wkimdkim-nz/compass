@@ -37,44 +37,11 @@ P/S path: `future_market_cap = future_revenue × exit_PS`, then divide by `futur
 
 The executable form of this formula is `spec/projection-vectors.json` at the repo root: hand-computed cases that both the .NET and the TypeScript calculator assert against, with the tolerance and the wire units (decimals, raw values, exit multiple as a `pe`/`ps` kind plus value) stated in its header (ADR 0004, amended). If this prose and that file disagree, the file is wrong until a case is re-derived by hand.
 
-## Input guide (source for the Phase 2 education page)
+## Input guide
 
-Each input, where the number comes from, and how a beginner should anchor it. Where the app can
-derive a value from the company's filings it pre-fills it — the user only overrides when they expect the future to
-differ from the past.
-
-### Base facts (the Ticker lookup pre-fills; editable)
-
-- **Current share price** — *What:* today's price per share. *Where:* Quote source (Finnhub); any broker, Google,
-  Yahoo Finance. *Basis:* it's a fact, not an assumption — the denominator of the "X".
-- **Revenue (TTM)** — *What:* trailing-twelve-month sales. *Where:* Fundamentals source (EDGAR, derived TTM); 10-K/10-Q,
-  stockanalysis.com, Macrotrends. *Basis:* the starting point growth compounds from.
-- **Shares outstanding (diluted)** — *What:* the diluted weighted-average share count for the latest period (an average, not a point count). *Where:* Fundamentals source (EDGAR); 10-K cover /
-  weighted-average diluted shares, Macrotrends, Yahoo Statistics. *Basis:* fact; future value is this
-  grown by the dilution rate.
-- **Current net margin** — *What:* net income ÷ revenue today. *Where:* Fundamentals source (EDGAR): TTM net income ÷ TTM revenue.
-  *Basis:* the reference point for choosing a *future* margin. Printed, not typed (ADR 0011).
-
-### Assumptions (the guesses — pre-filled from history, meant to be edited)
-
-- **Horizon (years)** — *How to choose:* the holding period you're evaluating, commonly 5 or 10.
-  Longer = more compounding but less reliable.
-- **Revenue growth / yr** — *Anchor on:* the company's own trailing 3–5yr revenue CAGR (filed history),
-  cross-checked against analyst estimates and the size of its market (TAM). *Sanity:* >40%/yr is rarely
-  sustained past a few years; the bigger the revenue base, the harder high growth gets.
-- **Future net margin** — *Anchor on:* current margin plus where mature peers in the same sector land.
-  *Sanity:* software matures high (20–40%), retail/hardware low (single digits). Rising from a low
-  current margin assumes operating leverage — reasonable for scaling companies, optimistic for others.
-- **Exit multiple (P/E or P/S)** — *What:* the valuation multiple applied at the end of the horizon.
-  *Anchor on:* the sector's typical multiple and the company's own current multiple, usually assuming
-  it *compresses* as growth slows. *Where:* the company's current multiple (seeded) / sector comparisons. *Sanity:* use **P/S** when the
-  company isn't reliably profitable yet, **P/E** once margins are stable. This is the single biggest
-  swing factor — small changes here move the "X" a lot.
-- **Share dilution / yr** — *Anchor on:* the historical share-count CAGR, `(shares_now/shares_then)^(1/years) − 1`
-  (filed history; Compass computes this as the default). *Where else:* Macrotrends "Shares Outstanding",
-  10-K statement of stockholders' equity. *Sanity:* buyback companies < 0; stable ~0–1%; growth cos
-  2–5% (mostly **stock-based compensation**); frequent capital-raisers 5–10%+. Ignoring it overstates
-  per-share returns.
+What each figure on the calculator means, how to choose it and where to look it up is the public
+Guide at `/guide`, rendered from one typed content module in the web app,
+`web/src/features/guide/guideEntries.ts`. Edit the guide there, not here.
 
 ## Stack terms
 

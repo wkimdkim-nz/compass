@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { APPLE_EXAMPLE } from "../../projection/appleExample";
 import { calculateProjection } from "../../projection/calculator";
 import { formatOutputs, toUi, type PrintedOutputs } from "../projection/figures";
@@ -34,7 +34,7 @@ export function LandingPage() {
         <div className="cover-rule" role="presentation" />
         <p className="one-line">
           A stock projection you can argue with: pre-filled from the company's own SEC filings, edited by you, shown
-          as a Bear / Base / Bull range.
+          as a Bear / Base / Bull range. The guide explains <Link to="/guide">what every figure means</Link>.
         </p>
         <p className="note">
           Figures in millions, except per-share data. US companies filing 10-K and 10-Q reports with the SEC.

@@ -3,6 +3,7 @@ import { useGetMeQuery, useLogoutMutation } from "./features/auth/authApi";
 import { LoginPage } from "./features/auth/LoginPage";
 import { ProtectedRoute } from "./features/auth/ProtectedRoute";
 import { RegisterPage } from "./features/auth/RegisterPage";
+import { GuidePage } from "./features/guide/GuidePage";
 import { LandingPage } from "./features/landing/LandingPage";
 import { CalculatorPage } from "./features/projection/CalculatorPage";
 import { Disclaimer } from "./app/Disclaimer";
@@ -19,7 +20,8 @@ function Layout() {
           <Link to="/" className="brand">
             Compass
           </Link>
-          <nav aria-label="Account">
+          <nav aria-label="Site">
+            <Link to="/guide">Guide</Link>
             {me ? (
               <button type="button" className="link" onClick={() => logout()}>
                 Sign out
@@ -54,6 +56,7 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/" element={<LandingPage />} />
+        <Route path="/guide" element={<GuidePage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/projections/:ticker" element={<CalculatorPage />} />
         </Route>

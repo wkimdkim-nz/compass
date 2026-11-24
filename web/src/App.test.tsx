@@ -68,8 +68,9 @@ describe("a logged-out visitor", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     // On the landing page, with the account's way out in place of the way in.
+    // The redirect and the masthead's switch to signed-in land in either order, so wait for each.
+    expect(await screen.findByRole("textbox", { name: /ticker/i })).toBeInTheDocument();
     expect(await signOutButton()).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: /ticker/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /sign in/i })).not.toBeInTheDocument();
   });
 
