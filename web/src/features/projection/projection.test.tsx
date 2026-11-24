@@ -75,6 +75,22 @@ describe("the landing page", () => {
     expect(await screen.findByRole("heading", { name: /apple inc/i })).toBeInTheDocument();
   });
 
+  it("shows a specimen whose outputs follow from the shared Apple example", async () => {
+    renderApp("/");
+    const specimen = await screen.findByRole("table", { name: /specimen/i });
+    const row = (name: RegExp) =>
+      within(within(specimen).getByRole("row", { name })).getAllByRole("cell").map((cell) => cell.textContent);
+
+    // $228 a share, $391,035M revenue, 15,408M shares, 5 years to a 25% margin with 2.5% a year of
+    // buybacks. Worked by hand, Base is 391,035 × 1.06⁵ × 0.25 × 28 ÷ (15,408 × 0.975⁵) = $269.82:
+    // 1.1834×, and 1.1834^(1/5) − 1 = 3.43% a year. Bear (3%, P/E 22) is $183.65: 0.8055×, −4.23%.
+    // Bull (9%, P/E 34) is $376.70: 1.6522×, 10.56%.
+    expect(row(/revenue growth/i)).toEqual(["3", "6", "9"]);
+    expect(row(/exit multiple/i)).toEqual(["22", "28", "34"]);
+    expect(row(/return multiple/i)).toEqual(["0.8×", "1.2×", "1.7×"]);
+    expect(row(/cagr/i)).toEqual(["(4.2) %", "3.4 %", "10.6 %"]);
+  });
+
   it("carries the disclaimer in its footer", async () => {
     renderApp("/");
     await screen.findByRole("textbox", { name: /ticker/i });

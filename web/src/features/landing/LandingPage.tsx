@@ -1,13 +1,17 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
+import { APPLE_EXAMPLE } from "../../projection/appleExample";
+import { calculateProjection } from "../../projection/calculator";
+import { formatOutputs, toUi, type PrintedOutputs } from "../projection/figures";
 import { OutputRows } from "../projection/OutputRows";
+import type { ScenarioName } from "../projection/projectionApi";
+import { SCENARIO_NAMES } from "../projection/projectionForm";
 
-/** The specimen's outputs, Bear / Base / Bull, printed as the calculator prints its own. */
-const SPECIMEN = {
-  bear: { x: "0.7", cagr: "(6) %" },
-  base: { x: "1.2", cagr: "4 %" },
-  bull: { x: "1.9", cagr: "14 %" },
-} as const;
+const SPECIMEN_OUTPUTS: Partial<Record<ScenarioName, PrintedOutputs>> = {};
+for (const name of SCENARIO_NAMES) {
+  const result = calculateProjection(APPLE_EXAMPLE.facts, APPLE_EXAMPLE.scenarios[name]);
+  if (result.status === "ok") SPECIMEN_OUTPUTS[name] = formatOutputs(result.outputs);
+}
 
 /**
  * The statement's cover block: what Compass does, and the ticker box. It works signed out: the
@@ -79,19 +83,23 @@ export function LandingPage() {
               <th scope="row" className="label">
                 Revenue growth <small>% per year</small>
               </th>
-              <td className="num">4</td>
-              <td className="num">8</td>
-              <td className="num">12</td>
+              {SCENARIO_NAMES.map((name) => (
+                <td key={name} className="num">
+                  {toUi(APPLE_EXAMPLE.scenarios[name].growthRate, "percent")}
+                </td>
+              ))}
             </tr>
             <tr>
               <th scope="row" className="label">
                 Exit multiple <small>P/E</small>
               </th>
-              <td className="num">22</td>
-              <td className="num">28</td>
-              <td className="num">34</td>
+              {SCENARIO_NAMES.map((name) => (
+                <td key={name} className="num">
+                  {toUi(APPLE_EXAMPLE.scenarios[name].exitMultiple.value, "multiple")}
+                </td>
+              ))}
             </tr>
-            <OutputRows columns={SPECIMEN} showFuturePrice={false} />
+            <OutputRows columns={SPECIMEN_OUTPUTS} showFuturePrice={false} />
           </tbody>
         </table>
         <p className="footnote">
