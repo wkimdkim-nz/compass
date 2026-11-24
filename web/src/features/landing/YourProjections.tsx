@@ -10,9 +10,9 @@ const NEWEST_SHOWN = 5;
 /** Absent rather than loading or failed, so the landing page never jumps; My projections reports a failed list. */
 export function YourProjections() {
   const { data: me } = useGetMeQuery();
-  const { data: projections } = useListProjectionsQuery(undefined, { skip: !me });
+  const { data: projections, isError } = useListProjectionsQuery(undefined, { skip: !me });
 
-  if (!me || !projections?.length) return null;
+  if (!me || isError || !projections?.length) return null;
 
   return (
     <section aria-labelledby="your-projections">
