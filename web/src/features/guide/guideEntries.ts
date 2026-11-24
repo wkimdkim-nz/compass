@@ -135,3 +135,9 @@ export const GUIDE_ENTRIES: readonly GuideEntry[] = [
     sources: [],
   },
 ];
+
+export function guideEntry(id: string): GuideEntry {
+  const entry = GUIDE_ENTRIES.find((candidate) => candidate.id === id);
+  if (!entry) throw new Error(`No guide entry has the id "${id}".`);
+  return entry;
+}

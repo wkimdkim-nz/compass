@@ -378,6 +378,45 @@
     }
   }
 
+  /*
+    The popover hangs from the label's cell, the table's first column, so on a phone it fits
+    within the gutter. The circle is drawn small; its hit area is not.
+  */
+  .statement-table .label {
+    position: relative;
+  }
+  .help {
+    @apply whitespace-nowrap;
+  }
+  .help-marker {
+    position: relative;
+    width: 1.15em;
+    height: 1.15em;
+    border-radius: 50%;
+    vertical-align: 0.1em;
+    @apply ml-1 inline-grid cursor-pointer place-items-center border border-pencil text-xs leading-none text-pencil;
+  }
+  .help-marker::after {
+    content: "";
+    inset: calc(-1 * var(--s-3));
+    @apply absolute;
+  }
+  .help-marker[aria-expanded="true"] {
+    @apply bg-pencil text-pencil-ink;
+  }
+  .help-popover {
+    top: 100%;
+    left: 0;
+    width: min(18rem, calc(100vw - 2 * var(--s-4)));
+    @apply absolute z-10 flex flex-col gap-1 border-t-2 border-b border-t-rule border-b-hairline bg-paper px-3 py-2 text-sm font-normal whitespace-normal text-ink;
+  }
+  .help-anchor {
+    @apply text-ink-2;
+  }
+  .help-popover a {
+    @apply mt-1 text-pencil underline decoration-1 underline-offset-[0.2em];
+  }
+
   /* Phone: the table stays whole, and labels abbreviate the way a statement's do. */
   @media (max-width: 30rem) {
     .statement-table th,

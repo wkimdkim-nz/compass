@@ -45,7 +45,7 @@ totals to the design's width (`text-total font-semibold condensed`). Archivo is 
 
 `/` is the landing page (`features/landing`), public; `/guide` is the Guide (`features/guide`),
 public, rendered from the typed content module `guideEntries.ts`, the one place the guide's text
-lives; `/projections/{ticker}` is the calculator
+lives, which the calculator's "?" popovers (`features/guide/GuideHelp.tsx`) read too; `/projections/{ticker}` is the calculator
 (`features/projection`), behind `ProtectedRoute`, which hands the address to sign in so that a
 signed-out visitor lands on their projection afterwards. The calculator asks the ticker lookup and
 the saved projection side by side: the lookup gives fresh base facts and the seeded defaults, the
