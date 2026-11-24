@@ -1,3 +1,4 @@
+import { GuideHelp } from "../guide/GuideHelp";
 import { BLANK, type PrintedOutputs } from "./figures";
 import type { ScenarioName } from "./projectionApi";
 import { SCENARIO_NAMES } from "./projectionForm";
@@ -12,16 +13,18 @@ type Props = (
 ) & {
   /** Tints the rows for a moment after an edit. */
   tinted?: boolean;
+  withGuideHelp?: boolean;
 };
 
 /** The rows that close a statement's table: the Return multiple as its total, then CAGR and the future share price. */
-export function OutputRows({ tinted = false, ...props }: Props) {
+export function OutputRows({ tinted = false, withGuideHelp = false, ...props }: Props) {
   const { columns } = props;
+  const labelled = (id: string, label: string) => (withGuideHelp ? <GuideHelp id={id}>{label}</GuideHelp> : label);
   return (
     <>
       <tr className={`subtotal-rule total${tinted ? " changed" : ""}`}>
         <th scope="row" className="label">
-          Return multiple
+          {labelled("the-x", "Return multiple")}
         </th>
         {SCENARIO_NAMES.map((name) => (
           <td key={name} className="num x">
@@ -41,7 +44,7 @@ export function OutputRows({ tinted = false, ...props }: Props) {
       </tr>
       <tr className={tinted ? "changed" : undefined}>
         <th scope="row" className="label">
-          CAGR <small>% per year</small>
+          {labelled("cagr", "CAGR")} <small>% per year</small>
         </th>
         {SCENARIO_NAMES.map((name) => (
           <td key={name} className="num">
@@ -52,7 +55,7 @@ export function OutputRows({ tinted = false, ...props }: Props) {
       {props.showFuturePrice !== false && (
         <tr className={tinted ? "changed" : undefined}>
           <th scope="row" className="label">
-            Future share price <small>USD</small>
+            {labelled("future-price", "Future share price")} <small>USD</small>
           </th>
           {SCENARIO_NAMES.map((name) => (
             <td key={name} className="num">

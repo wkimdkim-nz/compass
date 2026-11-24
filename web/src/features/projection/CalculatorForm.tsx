@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Disclaimer } from "../../app/Disclaimer";
+import { GuideHelp } from "../guide/GuideHelp";
 import { ConfirmReplaceDialog } from "./ConfirmReplaceDialog";
 import { BLANK, formatOutputs } from "./figures";
 import { OutputRows } from "./OutputRows";
@@ -35,39 +36,43 @@ type Props = {
   notice: ReactNode;
 };
 
-const FACT_ROWS: { field: keyof BaseFactsForm; label: ReactNode; aria: string; source: string; wide?: boolean }[] = [
-  { field: "price", label: "Share price", aria: "Share price", source: "Finnhub, per share" },
+const FACT_ROWS: { field: keyof BaseFactsForm; guide: string; label: ReactNode; name: string; aria: string; source: string; wide?: boolean }[] = [
+  { field: "price", guide: "share-price", label: "Share price", name: "Share price", aria: "Share price", source: "Finnhub, per share" },
   {
     field: "revenue",
+    guide: "revenue-ttm",
     label: (
       <>
         Revenue<span className="long">, trailing twelve months</span>
         <span className="short"> TTM</span>
       </>
     ),
+    name: "Revenue, trailing twelve months",
     aria: "Revenue, trailing twelve months, millions",
     source: "SEC EDGAR, TTM",
     wide: true,
   },
   {
     field: "shares",
+    guide: "diluted-shares",
     label: (
       <>
         Shares <span className="long">outstanding, </span>diluted
       </>
     ),
+    name: "Shares outstanding, diluted",
     aria: "Shares outstanding, diluted, millions",
     source: "SEC EDGAR, weighted average",
     wide: true,
   },
 ];
 
-const ASSUMPTION_ROWS: { field: ScenarioField; label: string; small: string; aria: string }[] = [
-  { field: "horizon", label: "Horizon", small: "years", aria: "horizon, years" },
-  { field: "growthRate", label: "Revenue growth", small: "% per year", aria: "revenue growth, percent per year" },
-  { field: "futureNetMargin", label: "Future net margin", small: "%", aria: "future net margin, percent" },
-  { field: "exitMultiple", label: "Exit multiple", small: "P/E on earnings, or P/S on revenue", aria: "exit multiple" },
-  { field: "dilutionRate", label: "Share dilution", small: "% per year; buybacks in parentheses", aria: "share dilution, percent per year" },
+const ASSUMPTION_ROWS: { field: ScenarioField; guide: string; label: string; small: string; aria: string }[] = [
+  { field: "horizon", guide: "horizon", label: "Horizon", small: "years", aria: "horizon, years" },
+  { field: "growthRate", guide: "revenue-growth", label: "Revenue growth", small: "% per year", aria: "revenue growth, percent per year" },
+  { field: "futureNetMargin", guide: "future-net-margin", label: "Future net margin", small: "%", aria: "future net margin, percent" },
+  { field: "exitMultiple", guide: "exit-multiple", label: "Exit multiple", small: "P/E on earnings, or P/S on revenue", aria: "exit multiple" },
+  { field: "dilutionRate", guide: "share-dilution", label: "Share dilution", small: "% per year; buybacks in parentheses", aria: "share dilution, percent per year" },
 ];
 
 const KINDS: { kind: ExitMultipleKind; label: string }[] = [
@@ -177,10 +182,10 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
             </tr>
           </thead>
           <tbody>
-            {FACT_ROWS.map(({ field, label, aria, source, wide }) => (
+            {FACT_ROWS.map(({ field, guide, label, name, aria, source, wide }) => (
               <tr key={field}>
                 <th scope="row" className="label">
-                  {label} <small className="src">{source}</small>
+                  <GuideHelp id={guide} name={name}>{label}</GuideHelp> <small className="src">{source}</small>
                 </th>
                 <td className="src-col note">{source}</td>
                 <td className="num">
@@ -199,7 +204,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
             {/* Printed, not typed: no formula takes it. It is there to set the future net margin against. */}
             <tr>
               <th scope="row" className="label">
-                Net margin <small className="src">Net income ÷ revenue</small>
+                <GuideHelp id="net-margin">Net margin</GuideHelp> <small className="src">Net income ÷ revenue</small>
               </th>
               <td className="src-col note">Net income ÷ revenue</td>
               <td className="num">
@@ -233,10 +238,10 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
             </tr>
           </thead>
           <tbody>
-            {ASSUMPTION_ROWS.map(({ field, label, small, aria }) => (
+            {ASSUMPTION_ROWS.map(({ field, guide, label, small, aria }) => (
               <tr key={field}>
                 <th scope="row" className="label">
-                  {label} <small>{small}</small>
+                  <GuideHelp id={guide}>{label}</GuideHelp> <small>{small}</small>
                 </th>
                 {SCENARIO_NAMES.map((name) => (
                   <td key={name} className="num">
@@ -269,7 +274,7 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
                 ))}
               </tr>
             ))}
-            <OutputRows columns={{ bear: shown("bear"), base: shown("base"), bull: shown("bull") }} tinted={tinted} />
+            <OutputRows columns={{ bear: shown("bear"), base: shown("base"), bull: shown("bull") }} tinted={tinted} withGuideHelp />
           </tbody>
         </table>
         <Disclaimer as="footnote" />

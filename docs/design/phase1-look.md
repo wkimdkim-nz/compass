@@ -178,6 +178,22 @@ The public `/guide` is a Read surface in the same statement grammar:
 - **The worked example** closes the page: the shared Apple example's Base scenario as a three-column
   statement (step, working in the secondary ink, result), figures in millions except per share.
 
+## Calculator help
+
+Every Base Fact, Assumption and output label on the calculator carries a small circled "?" in blue
+pencil after its text, its last word kept on the same line. It is a disclosure, not a tooltip:
+hover shows nothing, because touch screens have no hover.
+
+- **Activating it** fills the circle with pencil and opens a popover hung from the label's cell: a
+  statement note (a heavy rule over a hairline, on paper) at most 18rem wide, holding the guide
+  entry's *what*, its *anchor on* in the secondary ink where it has one, and "Where to find it, in
+  the guide ↗". The text is the guide's own, from its content module.
+- **One at a time.** Escape (handing focus back to the "?") and a click anywhere outside it close
+  it, so opening another closes the first.
+- **The guide opens in a new tab**, so an edited projection is never lost, and nothing asks "leave
+  this page?".
+- The landing page's specimen carries no "?": it is a picture of the calculator, not the tool.
+
 ## Open items
 
 - Whether blue pencil is the right single accent. It is the auditor's colour and reads as "edited"
