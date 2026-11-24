@@ -19,15 +19,15 @@ describe("the calculator's help", () => {
 
     for (const name of [
       "Share price",
-      "Revenue (TTM)",
-      "Shares outstanding (diluted)",
+      "Revenue, trailing twelve months",
+      "Shares outstanding, diluted",
       "Net margin",
       "Horizon",
       "Revenue growth",
       "Future net margin",
-      "Exit multiple (P/E or P/S)",
+      "Exit multiple",
       "Share dilution",
-      "The X (return multiple)",
+      "Return multiple",
       "CAGR",
       "Future share price",
     ]) {
@@ -59,7 +59,7 @@ describe("the calculator's help", () => {
   it("links to the figure's guide entry in a new tab, so unsaved edits stay", async () => {
     const user = await calculator();
 
-    await user.click(help("Exit multiple (P/E or P/S)"));
+    await user.click(help("Exit multiple"));
 
     const link = screen.getByRole("link", { name: /where to find it, in the guide/i });
     expect(link).toHaveAttribute("href", "/guide#exit-multiple");

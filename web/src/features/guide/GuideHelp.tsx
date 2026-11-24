@@ -2,17 +2,16 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { guideEntry } from "./guideEntries";
 
-type Props = {
-  id: string;
-  /** The label it follows, which the "?" never wraps away from. */
-  children: ReactNode;
-};
+/** The label the "?" follows and never wraps away from. A label with markup in it says how it reads aloud. */
+type Label = { children: string; name?: undefined } | { children: ReactNode; name: string };
+
+type Props = { id: string } & Label;
 
 /**
  * The circled "?" after a calculator label, and the popover it discloses: the guide entry's gist.
  * Escape and a click anywhere outside it close it, so opening another closes this one.
  */
-export function GuideHelp({ id, children }: Props) {
+export function GuideHelp({ id, name, children }: Props) {
   const entry = guideEntry(id);
   const [open, setOpen] = useState(false);
   const popoverId = useId();
@@ -51,7 +50,8 @@ export function GuideHelp({ id, children }: Props) {
           className="help-marker"
           aria-expanded={open}
           aria-controls={open ? popoverId : undefined}
-          aria-label={`What is ${entry.name}?`}
+          // Named after the label on screen, not the guide entry, so what is heard matches what is seen.
+          aria-label={`What is ${name ?? children}?`}
           onClick={() => setOpen(!open)}
         >
           ?

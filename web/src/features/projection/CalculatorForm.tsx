@@ -36,8 +36,8 @@ type Props = {
   notice: ReactNode;
 };
 
-const FACT_ROWS: { field: keyof BaseFactsForm; guide: string; label: ReactNode; aria: string; source: string; wide?: boolean }[] = [
-  { field: "price", guide: "share-price", label: "Share price", aria: "Share price", source: "Finnhub, per share" },
+const FACT_ROWS: { field: keyof BaseFactsForm; guide: string; label: ReactNode; name: string; aria: string; source: string; wide?: boolean }[] = [
+  { field: "price", guide: "share-price", label: "Share price", name: "Share price", aria: "Share price", source: "Finnhub, per share" },
   {
     field: "revenue",
     guide: "revenue-ttm",
@@ -47,6 +47,7 @@ const FACT_ROWS: { field: keyof BaseFactsForm; guide: string; label: ReactNode; 
         <span className="short"> TTM</span>
       </>
     ),
+    name: "Revenue, trailing twelve months",
     aria: "Revenue, trailing twelve months, millions",
     source: "SEC EDGAR, TTM",
     wide: true,
@@ -59,6 +60,7 @@ const FACT_ROWS: { field: keyof BaseFactsForm; guide: string; label: ReactNode; 
         Shares <span className="long">outstanding, </span>diluted
       </>
     ),
+    name: "Shares outstanding, diluted",
     aria: "Shares outstanding, diluted, millions",
     source: "SEC EDGAR, weighted average",
     wide: true,
@@ -180,10 +182,10 @@ export function CalculatorForm({ company, baseFacts, seeded, saved, notice }: Pr
             </tr>
           </thead>
           <tbody>
-            {FACT_ROWS.map(({ field, guide, label, aria, source, wide }) => (
+            {FACT_ROWS.map(({ field, guide, label, name, aria, source, wide }) => (
               <tr key={field}>
                 <th scope="row" className="label">
-                  <GuideHelp id={guide}>{label}</GuideHelp> <small className="src">{source}</small>
+                  <GuideHelp id={guide} name={name}>{label}</GuideHelp> <small className="src">{source}</small>
                 </th>
                 <td className="src-col note">{source}</td>
                 <td className="num">
