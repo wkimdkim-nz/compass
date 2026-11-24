@@ -36,6 +36,8 @@ type State = {
   meDelay: number;
   /** Milliseconds to hold every save's answer. */
   saveDelay: number;
+  /** Milliseconds to hold every list's answer. */
+  listDelay: number;
   projections: SavedProjection[];
   /** Every create and replace body, oldest first. */
   saves: SaveProjectionRequest[];
@@ -52,6 +54,7 @@ const freshState = (): State => ({
   requests: {},
   meDelay: 0,
   saveDelay: 0,
+  listDelay: 0,
   projections: [],
   saves: [],
   fundamentalsDown: false,
@@ -147,8 +150,9 @@ const handlers = [
     return problem(lookup.status, "Lookup failed.", { detail: lookup.reason });
   }),
 
-  http.get("/api/projections", ({ request }) => {
+  http.get("/api/projections", async ({ request }) => {
     count(request);
+    if (state.listDelay) await delay(state.listDelay);
     if (!state.session) return unauthorized();
     if (state.listDown) return problem(503, "Service Unavailable");
     const own = state.projections.filter((p) => p.userId === state.session?.id);
@@ -286,6 +290,10 @@ export const fakeApi = {
 
   holdSaveResponsesFor(ms: number) {
     state.saveDelay = ms;
+  },
+
+  holdListResponsesFor(ms: number) {
+    state.listDelay = ms;
   },
 
   /** The fundamentals source is down: every known ticker's lookup is a 503. */

@@ -46,6 +46,13 @@ ticker box as a ruled entry line with the one blue action. Sign in and register 
 rule. The ticker box works signed out; submitting routes through sign in and on to the projection.
 Below the fold, a marked-illustrative specimen of the output rows shows the mechanism.
 
+Signed in with at least one Projection, **Your projections** sits between the ticker box and the
+specimen: a statement table of the five newest saves, each row the ticker (a link to its
+calculator) over the company name, the Scenarios saved, and the saved date set right. With more
+than five, the caption's units end carries "All N →" to My projections. Signed out, with nothing
+saved, while the list loads or when it cannot, the section is not there at all, so the page never
+jumps; My projections is where a failed list says so.
+
 | Phone (390) | Tablet (820) | Desktop (1440) |
 |---|---|---|
 | ![Landing, phone, light](mockups/shots/landing-phone-light.png) | ![Landing, tablet, light](mockups/shots/landing-tablet-light.png) | ![Landing, desktop, light](mockups/shots/landing-desktop-light.png) |
