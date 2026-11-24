@@ -31,7 +31,7 @@
   --text: 1rem;              /* 16px body */
   --text-sm: 0.875rem;       /* 14px labels, notes, sources */
   --text-xs: 0.75rem;        /* 12px footnotes */
-  --text-lg: 1.25rem;        /* 20px table captions */
+  --text-lg: 1.25rem;        /* 20px table captions, list entry names */
   --text-title: 1.75rem;     /* 28px page heading (phone) */
   --text-total: 2.25rem;     /* 36px the X (phone) */
   --leading: 1.5;

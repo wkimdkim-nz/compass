@@ -3,9 +3,8 @@ import { printDate } from "./dates";
 import { useListProjectionsQuery } from "./projectionApi";
 import { SCENARIO_TITLE } from "./projectionForm";
 
-const calculator = (ticker: string) => `/projections/${encodeURIComponent(ticker)}`;
+const calculatorPath = (ticker: string) => `/projections/${encodeURIComponent(ticker)}`;
 
-/** Every Projection the user has saved, newest first, each a way back to its calculator. */
 export function ProjectionsPage() {
   const { data: projections, isLoading, isError, refetch } = useListProjectionsQuery();
 
@@ -35,14 +34,14 @@ export function ProjectionsPage() {
           {projections.map((projection) => (
             <li key={projection.ticker}>
               <div className="projection-line">
-                <Link to={calculator(projection.ticker)} className="projection-name">
+                <Link to={calculatorPath(projection.ticker)} className="projection-name">
                   {projection.companyName} <span className="tag">{projection.ticker}</span>
                 </Link>
                 <span className="note whitespace-nowrap">Saved {printDate(projection.updatedAt, "local")}</span>
               </div>
               <div className="projection-line text-sm">
                 <span className="text-ink-2">{projection.scenarios.map((name) => SCENARIO_TITLE[name]).join(", ")}</span>
-                <Link to={calculator(projection.ticker)} aria-label={`Open ${projection.ticker}`}>
+                <Link to={calculatorPath(projection.ticker)} aria-label={`Open ${projection.ticker}`}>
                   Open
                 </Link>
               </div>

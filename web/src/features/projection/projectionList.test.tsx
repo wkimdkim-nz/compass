@@ -54,7 +54,7 @@ describe("the My projections page", () => {
     expect(list[0]).not.toHaveTextContent(/Bear|Bull/);
     expect(list[1]).toHaveTextContent("Bear, Base");
     expect(screen.getByText(/opening one fetches today's filed figures; only your assumptions are stored/i)).toBeInTheDocument();
-    expect(fakeApi.requestCount("GET /api/tickers/AAPL")).toBe(0);
+    for (const ticker of ["AAPL", "COST", "BRK-B"]) expect(fakeApi.requestCount(`GET /api/tickers/${ticker}`)).toBe(0);
 
     const user = userEvent.setup();
     await user.click(within(list[1]).getByRole("link", { name: /open/i }));

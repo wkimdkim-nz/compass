@@ -89,7 +89,6 @@ export const projectionApi = api.injectEndpoints({
       query: (ticker) => `/tickers/${encodeURIComponent(ticker)}`,
     }),
 
-    /** Newest save first. */
     listProjections: build.query<ProjectionSummary[], void>({
       query: () => "/projections",
       providesTags: ["Projection"],

@@ -73,13 +73,13 @@ public static class ProjectionEndpoints
             var rows = await db.Projections
                 .Where(p => p.UserId == userId)
                 .OrderByDescending(p => p.UpdatedAt)
-                .Select(p => new { p.Ticker, p.CompanyName, p.UpdatedAt, Names = p.Scenarios.Select(s => s.Name).ToList() })
+                .Select(p => new { p.Ticker, p.CompanyName, p.UpdatedAt, ScenarioNames = p.Scenarios.Select(s => s.Name).ToList() })
                 .ToListAsync(cancellationToken);
 
             return Results.Ok(rows.Select(row => new ProjectionSummaryResponse(
                 row.Ticker,
                 row.CompanyName,
-                [.. row.Names.OrderBy(Scenario.Names.IndexOf)],
+                [.. row.ScenarioNames.OrderBy(Scenario.Names.IndexOf)],
                 row.UpdatedAt)));
         });
 

@@ -194,6 +194,22 @@ hover shows nothing, because touch screens have no hover.
   this page?".
 - The landing page's specimen carries no "?": it is a picture of the calculator, not the tool.
 
+## My projections
+
+The protected `/projections`, reached from **My projections** in the masthead when signed in, is
+a ledger rather than a table: prototype variant B.
+
+- **Stacked entries, newest save first**, each between hairlines. The first line is the company
+  name in the caption size with its ticker beside it in the secondary ink, the whole a link to the
+  calculator, and "Saved {date}" set right. The second line is the Scenarios saved, "Bear, Base,
+  Bull" in the secondary ink, and **Open** set right.
+- **A note under the heading** says that opening one fetches today's filed figures and that only
+  the assumptions are stored.
+- **Empty:** "No saved projections yet." with a link to the landing page's ticker box, which takes
+  focus on arrival.
+- **A list that cannot load** says so in a statement note with *Try again*, in place of the list,
+  as any failure does (Feedback).
+
 ## Open items
 
 - Whether blue pencil is the right single accent. It is the auditor's colour and reads as "edited"

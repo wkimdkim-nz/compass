@@ -19,18 +19,17 @@ public class ProjectionListTests(CompassApiFactory factory) : IClassFixture<Comp
         Assert.Equal(0, (await response.Body()).GetArrayLength());
     }
 
-    /// <summary>
-    /// On a host whose fundamentals and quote sources throw, so any lookup the list made would turn
-    /// it into a 500. The clock moves a minute between saves, so the order is the stamps' and not the insert's.
-    /// </summary>
+    /// <summary>The clock moves a minute between saves, so the order is the stamps' and not the insert's.</summary>
     [Fact]
     public async Task The_list_is_newest_first_by_last_save_and_calls_no_provider()
     {
         var clock = new ManualClock();
+        var fundamentals = new CountingFundamentals(new FailingFundamentals());
+        var quote = new CountingQuote();
         var client = factory
             .WithWebHostBuilder(builder => builder.ConfigureTestServices(services => services
-                .UseFundamentals(new FailingFundamentals())
-                .UseQuote(new FailingQuote())
+                .UseFundamentals(fundamentals)
+                .UseQuote(quote)
                 .UseClock(clock)))
             .CreateBrowserLikeClient();
         await client.RegisterNewUser();
@@ -48,6 +47,7 @@ public class ProjectionListTests(CompassApiFactory factory) : IClassFixture<Comp
         var list = (await response.Body()).EnumerateArray().ToList();
         Assert.Equal(["AAPL", "NVDA", "MSFT"], list.Select(p => p.GetProperty("ticker").GetString()));
         Assert.Equal((await update.Body()).GetProperty("updatedAt").GetString(), list[0].GetProperty("updatedAt").GetString());
+        Assert.Equal((0, 0), (fundamentals.Calls, quote.Calls));
     }
 
     [Fact]

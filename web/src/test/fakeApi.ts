@@ -1,6 +1,7 @@
 import { HttpResponse, http, delay } from "msw";
 import { setupServer } from "msw/node";
 import { calculateProjection, type ProjectionOutputs } from "../projection/calculator";
+import { SCENARIO_NAMES } from "../features/projection/projectionForm";
 import type {
   Company,
   SaveProjectionRequest,
@@ -69,8 +70,6 @@ const count = (request: Request) => {
   const key = `${request.method} ${new URL(request.url).pathname}`;
   state.requests[key] = (state.requests[key] ?? 0) + 1;
 };
-
-const SCENARIO_ORDER: ScenarioName[] = ["bear", "base", "bull"];
 
 /** As the API's `Projection.NormaliseTicker`. */
 const normalise = (ticker: string) => ticker.trim().toUpperCase().replace(/\./g, "-");
@@ -159,7 +158,7 @@ const handlers = [
         .map(({ ticker, companyName, scenarios, updatedAt }) => ({
           ticker,
           companyName,
-          scenarios: SCENARIO_ORDER.filter((name) => scenarios.some((s) => s.name === name)),
+          scenarios: SCENARIO_NAMES.filter((name) => scenarios.some((s) => s.name === name)),
           updatedAt,
         })),
     );
@@ -301,7 +300,7 @@ export const fakeApi = {
 
   /**
    * A projection the signed-in user saved earlier: AAPL's seeded scenarios with these changes to
-   * each. Another company, or only some of the scenarios, for a test of the list.
+   * each, under another company if given, and only those named in `only` if given.
    */
   seedProjection({
     updatedAt = "2026-09-12T10:00:00Z",
