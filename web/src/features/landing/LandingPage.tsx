@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 import { APPLE_EXAMPLE } from "../../projection/appleExample";
 import { calculateProjection } from "../../projection/calculator";
 import { formatOutputs, toUi, type PrintedOutputs } from "../projection/figures";
@@ -20,6 +20,13 @@ for (const name of SCENARIO_NAMES) {
 export function LandingPage() {
   const [ticker, setTicker] = useState("");
   const navigate = useNavigate();
+  const tickerBox = useRef<HTMLInputElement>(null);
+  const { hash } = useLocation();
+
+  // A link to "/#ticker" comes from within the app, where the browser does not act on the fragment itself.
+  useEffect(() => {
+    if (hash === "#ticker") tickerBox.current?.focus();
+  }, [hash]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -44,6 +51,7 @@ export function LandingPage() {
           <label htmlFor="ticker">Ticker</label>
           <div className="line">
             <input
+              ref={tickerBox}
               className="ticker"
               id="ticker"
               name="ticker"

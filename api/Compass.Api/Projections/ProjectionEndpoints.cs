@@ -45,8 +45,16 @@ public sealed record LoadedProjectionResponse(
     IReadOnlyList<string> Missing,
     string? BaseFactsUnavailable);
 
+/// <summary>One line of the caller's list: enough to name the projection and open it.</summary>
+/// <param name="Scenarios">The names of those saved, Bear, Base, Bull in that order.</param>
+public sealed record ProjectionSummaryResponse(
+    string Ticker,
+    string CompanyName,
+    IReadOnlyList<string> Scenarios,
+    DateTimeOffset UpdatedAt);
+
 /// <summary>
-/// Saving, replacing and loading a projection (ADR 0004, amended). Create and replace are two
+/// Listing, saving, replacing and loading a projection (ADR 0004, amended). Create and replace are two
 /// verbs so that a client which skipped the confirmation cannot overwrite silently. Every query is
 /// filtered by the caller's user id, so another user's projection is a 404 like one that is not there.
 /// </summary>
@@ -57,6 +65,23 @@ public static class ProjectionEndpoints
     public static IEndpointRouteBuilder MapProjectionEndpoints(this IEndpointRouteBuilder routes)
     {
         var projections = routes.MapGroup("/api/projections").RequireAuthorization();
+
+        // From the database alone: a list that looked each company up would be as slow as its slowest provider call.
+        projections.MapGet("/", async (ClaimsPrincipal caller, AppDbContext db, CancellationToken cancellationToken) =>
+        {
+            var userId = caller.UserId();
+            var rows = await db.Projections
+                .Where(p => p.UserId == userId)
+                .OrderByDescending(p => p.UpdatedAt)
+                .Select(p => new { p.Ticker, p.CompanyName, p.UpdatedAt, Names = p.Scenarios.Select(s => s.Name).ToList() })
+                .ToListAsync(cancellationToken);
+
+            return Results.Ok(rows.Select(row => new ProjectionSummaryResponse(
+                row.Ticker,
+                row.CompanyName,
+                [.. row.Names.OrderBy(Scenario.Names.IndexOf)],
+                row.UpdatedAt)));
+        });
 
         projections.MapPost("/", async (SaveProjectionRequest body, ClaimsPrincipal caller, AppDbContext db, TimeProvider clock, CancellationToken cancellationToken) =>
         {

@@ -1,7 +1,13 @@
 import { HttpResponse, http, delay } from "msw";
 import { setupServer } from "msw/node";
 import { calculateProjection, type ProjectionOutputs } from "../projection/calculator";
-import type { SaveProjectionRequest, SavedScenario, ScenarioName, TickerResponse } from "../features/projection/projectionApi";
+import type {
+  Company,
+  SaveProjectionRequest,
+  SavedScenario,
+  ScenarioName,
+  TickerResponse,
+} from "../features/projection/projectionApi";
 
 /**
  * A fake of the Compass API for the rendered-app seam. It stands in for the network only: the
@@ -34,6 +40,7 @@ type State = {
   saves: SaveProjectionRequest[];
   fundamentalsDown: boolean;
   quoteDown: boolean;
+  listDown: boolean;
   /** Outputs every save answers with, in place of computing them. */
   saveOutputs: ProjectionOutputs | null;
 };
@@ -48,6 +55,7 @@ const freshState = (): State => ({
   saves: [],
   fundamentalsDown: false,
   quoteDown: false,
+  listDown: false,
   saveOutputs: null,
 });
 let state = freshState();
@@ -61,6 +69,8 @@ const count = (request: Request) => {
   const key = `${request.method} ${new URL(request.url).pathname}`;
   state.requests[key] = (state.requests[key] ?? 0) + 1;
 };
+
+const SCENARIO_ORDER: ScenarioName[] = ["bear", "base", "bull"];
 
 /** As the API's `Projection.NormaliseTicker`. */
 const normalise = (ticker: string) => ticker.trim().toUpperCase().replace(/\./g, "-");
@@ -136,6 +146,23 @@ const handlers = [
     const lookup = lookUp(String(params.symbol));
     if ("found" in lookup) return HttpResponse.json(lookup.found);
     return problem(lookup.status, "Lookup failed.", { detail: lookup.reason });
+  }),
+
+  http.get("/api/projections", ({ request }) => {
+    count(request);
+    if (!state.session) return unauthorized();
+    if (state.listDown) return problem(503, "Service Unavailable");
+    const own = state.projections.filter((p) => p.userId === state.session?.id);
+    return HttpResponse.json(
+      [...own]
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .map(({ ticker, companyName, scenarios, updatedAt }) => ({
+          ticker,
+          companyName,
+          scenarios: SCENARIO_ORDER.filter((name) => scenarios.some((s) => s.name === name)),
+          updatedAt,
+        })),
+    );
   }),
 
   http.get("/api/projections/:ticker", ({ request, params }) => {
@@ -272,10 +299,18 @@ export const fakeApi = {
     state.quoteDown = true;
   },
 
-  /** A projection the signed-in user saved earlier: AAPL's seeded scenarios with these changes to each. */
-  seedProjection({ updatedAt = "2026-09-12T10:00:00Z", ...changes }: Partial<SavedScenario> & { updatedAt?: string } = {}) {
+  /**
+   * A projection the signed-in user saved earlier: AAPL's seeded scenarios with these changes to
+   * each. Another company, or only some of the scenarios, for a test of the list.
+   */
+  seedProjection({
+    updatedAt = "2026-09-12T10:00:00Z",
+    company = {},
+    only,
+    ...changes
+  }: Partial<SavedScenario> & { updatedAt?: string; company?: Partial<Company>; only?: ScenarioName[] } = {}) {
     if (!state.session) throw new Error("Seed a signed-in user first.");
-    const { ticker, companyName, cik, scenarios } = aapl();
+    const { ticker, companyName, cik, scenarios } = { ...aapl(), ...company };
     state.projections.push({
       userId: state.session.id,
       ticker,
@@ -283,8 +318,15 @@ export const fakeApi = {
       cik,
       createdAt: updatedAt,
       updatedAt,
-      scenarios: scenarios.map((s) => ({ ...s, exitMultiple: { kind: "pe", value: 20 }, ...changes })),
+      scenarios: scenarios
+        .filter((s) => !only || only.includes(s.name))
+        .map((s) => ({ ...s, exitMultiple: { kind: "pe", value: 20 }, ...changes })),
     });
+  },
+
+  /** The list route answers 503, as when the database cannot be reached. */
+  failProjectionList() {
+    state.listDown = true;
   },
 
   /** Every save answers with these outputs, so a test can tell the server's figures from the preview's. */

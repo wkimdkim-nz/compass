@@ -68,6 +68,15 @@ export type LoadedProjectionResponse = {
   scenarios: SavedScenario[];
 };
 
+/** One entry of the caller's list: no base facts and no outputs, since the list fetches neither. */
+export type ProjectionSummary = {
+  ticker: string;
+  companyName: string;
+  /** Those saved, Bear, Base, Bull in that order. */
+  scenarios: ScenarioName[];
+  updatedAt: string;
+};
+
 export type SaveProjectionRequest = Company & {
   baseFacts: { currentPrice: number | null; ttmRevenue: number | null; dilutedShares: number | null };
   scenarios: SavedScenario[];
@@ -78,6 +87,12 @@ export const projectionApi = api.injectEndpoints({
     /** Untagged: nothing the user does changes what a company filed. */
     lookUpTicker: build.query<TickerResponse, string>({
       query: (ticker) => `/tickers/${encodeURIComponent(ticker)}`,
+    }),
+
+    /** Newest save first. */
+    listProjections: build.query<ProjectionSummary[], void>({
+      query: () => "/projections",
+      providesTags: ["Projection"],
     }),
 
     /** The saved projection, or null: this route's 404 means only "nothing saved", which is an answer. */
@@ -103,5 +118,10 @@ export const projectionApi = api.injectEndpoints({
   }),
 });
 
-export const { useLookUpTickerQuery, useGetProjectionQuery, useCreateProjectionMutation, useReplaceProjectionMutation } =
-  projectionApi;
+export const {
+  useLookUpTickerQuery,
+  useListProjectionsQuery,
+  useGetProjectionQuery,
+  useCreateProjectionMutation,
+  useReplaceProjectionMutation,
+} = projectionApi;

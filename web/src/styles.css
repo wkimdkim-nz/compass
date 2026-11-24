@@ -178,6 +178,23 @@
   .provenance b {
     @apply font-medium text-ink;
   }
+  /* My projections: stacked ledger entries under hairlines, name and date above, scenarios and Open below. */
+  .projection-list {
+    @apply mt-4;
+  }
+  .projection-list li {
+    @apply border-b border-hairline py-4;
+  }
+  .projection-line {
+    @apply flex items-baseline justify-between gap-4;
+  }
+  .projection-line + .projection-line {
+    @apply mt-1;
+  }
+  .projection-name {
+    @apply text-lg font-semibold text-ink no-underline;
+  }
+
   /* The saved line, in pencil, tucked under the provenance line. */
   .saved {
     @apply -mt-4 mb-6 flex flex-wrap gap-4 text-sm text-pencil;

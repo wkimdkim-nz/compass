@@ -6,6 +6,7 @@ import { RegisterPage } from "./features/auth/RegisterPage";
 import { GuidePage } from "./features/guide/GuidePage";
 import { LandingPage } from "./features/landing/LandingPage";
 import { CalculatorPage } from "./features/projection/CalculatorPage";
+import { ProjectionsPage } from "./features/projection/ProjectionsPage";
 import { Disclaimer } from "./app/Disclaimer";
 import { Toaster } from "./app/Toaster";
 
@@ -23,9 +24,12 @@ function Layout() {
           <nav aria-label="Site">
             <Link to="/guide">Guide</Link>
             {me ? (
-              <button type="button" className="link" onClick={() => logout()}>
-                Sign out
-              </button>
+              <>
+                <Link to="/projections">My projections</Link>
+                <button type="button" className="link" onClick={() => logout()}>
+                  Sign out
+                </button>
+              </>
             ) : (
               <>
                 <Link to="/login">Sign in</Link>
@@ -58,6 +62,7 @@ export function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/guide" element={<GuidePage />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="/projections" element={<ProjectionsPage />} />
           <Route path="/projections/:ticker" element={<CalculatorPage />} />
         </Route>
       </Route>
